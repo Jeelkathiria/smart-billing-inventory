@@ -71,12 +71,15 @@ $low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
   <meta charset="UTF-8">
   <title>Product Management</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-light">
 
 <div class="container mt-5">
+  <?php include '../components/backToDashboard.php'; ?>
   <h3 class="mb-4">🛒 Manage Products</h3>
+
 
   <div class="alert alert-warning shadow-sm">
     <h5>⚠️ Low Stock Alerts</h5>

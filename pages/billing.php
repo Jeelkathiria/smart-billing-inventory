@@ -52,6 +52,7 @@ $products = $conn->query("SELECT * FROM products");
 </head>
 <body class="bg-light">
 <div class="container py-5">
+  <?php include '../components/backToDashboard.php'; ?>
   <h3 class="mb-4">🧾 Billing Page</h3>
 
   <form method="POST" class="row g-3 mb-4">

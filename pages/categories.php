@@ -41,6 +41,8 @@ $result = $conn->query($sql);
 <body class="bg-light">
 
 <div class="container mt-5">
+  <?php include '../components/backToDashboard.php'; ?>
+
   <h3 class="mb-4">📂 Manage Categories</h3>
 
   <!-- Add Category Form -->

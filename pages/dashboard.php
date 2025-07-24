@@ -19,9 +19,12 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
   <style>
     body {
       background: #f8f9fa;
+      margin: 0;
     }
     .sidebar {
       width: 220px;
@@ -47,25 +50,108 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
     .navbar-brand {
       font-weight: bold;
     }
+    .sidebar a i {
+  font-size: 1rem;
+  vertical-align: middle;
+}
+.sidebar {
+  width: 220px;
+  position: fixed;
+  height: 100vh;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 0;
+}
+
+.sidebar-header {
+  text-align: center;
+  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 0;
+}
+
+.sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #000;
+  padding: 10px 20px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.sidebar a:hover {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+.sidebar-footer {
+  padding: 10px 20px;
+  margin-bottom: 5vh;
+  border-top: 1px solid #eee;
+}
+
   </style>
 </head>
 <body>
 
-<nav class="navbar navbar-light bg-white shadow-sm">
-  <div class="container-fluid">
-    <span class="navbar-brand">Smart Billing & Inventory</span>
-    <a href="../auth/logout.php" class="btn btn-outline-danger">Logout</a>
+<nav class="navbar navbar-light bg-white shadow-sm px-4">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
+    
+    <!-- Left side: Logo + Brand -->
+    <div class="d-flex align-items-center">
+      
+      <!-- Circular Logo Wrapper -->
+      <div class="bg-primary rounded-circle d-flex justify-content-center align-items-center me-2" style="width: 40px; height: 40px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="white" class="bi bi-receipt"
+          viewBox="0 0 16 16">
+          <path
+            d="M1.92.506a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627A.5.5 0 0 1 15 1v14a.5.5 0 0 1-.79.407l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627A.5.5 0 0 1 1 15V1a.5.5 0 0 1 .92-.494ZM2 1.934v12.132l.44-.293a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.44.293V1.934l-.44.293a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0L2 1.934Z" />
+          <path
+            d="M3 4.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5Z" />
+        </svg>
+      </div>
+
+      <!-- App Name -->
+      <span class="navbar-brand mb-0 h5">Smart Billing & Inventory</span>
+    </div>
+
+    <!-- Right side: Logout -->
+    <a href="../auth/logout.php" class="btn btn-outline-danger">
+      <i class="bi bi-box-arrow-right"></i> Logout
+    </a>
   </div>
 </nav>
 
+
+<!-- Sidebar -->
 <div class="sidebar">
-  <a href="dashboard.php">Dashboard</a>
-  <a href="categories.php">Categories</a>
-  <a href="products.php">Products</a>
-  <a href="billing.php">Billing</a>
-  <a href="sales_report.php">Sales Report</a>
-  <a href="admin_panel.php">Admin Settings</a>
+  <div class="sidebar-menu">
+    <a href="dashboard.php"><i class="bi bi-house-door"></i> Dashboard</a>
+    <a href="sales.php"><i class="bi bi-currency-dollar"></i> Sales</a>
+    <a href="products.php"><i class="bi bi-box-seam"></i> Inventory</a>
+    <a href="categories.php"><i class="bi bi-tags"></i> Categories</a> <!-- New Menu Item -->
+    <a href="customers.php"><i class="bi bi-people"></i> Customers</a>
+    <a href="sales_report.php"><i class="bi bi-graph-up"></i> Reports</a>
+  </div>
+  <div class="sidebar-footer">
+    <a href="admin_panel.php"><i class="bi bi-gear"></i> Settings</a>
+  </div>
 </div>
+
+
+
+
 
 <div class="content">
   <h3 class="mb-4">Admin Dashboard</h3>
