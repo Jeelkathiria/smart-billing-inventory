@@ -140,6 +140,7 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
     <a href="dashboard.php"><i class="bi bi-house-door"></i> Dashboard</a>
     <a href="sales.php"><i class="bi bi-currency-dollar"></i> Sales</a>
     <a href="products.php"><i class="bi bi-box-seam"></i> Inventory</a>
+    <a href="billing.php"><i class="bi bi-receipt"></i> Billing</a>
     <a href="categories.php"><i class="bi bi-tags"></i> Categories</a> <!-- New Menu Item -->
     <a href="customers.php"><i class="bi bi-people"></i> Customers</a>
     <a href="sales_report.php"><i class="bi bi-graph-up"></i> Reports</a>
