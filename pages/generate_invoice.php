@@ -76,14 +76,14 @@ $pdf->Ln(5);
 
 // Summary
 $pdf->Cell(140, 10, 'Subtotal', 0, 0, 'R');
-$pdf->Cell(40, 10, '₹' . number_format($subTotal, 2), 0, 1, 'R');
+$pdf->Cell(40, 10, 'Rs. ' . number_format($subTotal, 2), 0, 1, 'R');
 
 $pdf->Cell(140, 10, 'Tax (5%)', 0, 0, 'R');
-$pdf->Cell(40, 10, '₹' . number_format($tax, 2), 0, 1, 'R');
+$pdf->Cell(40, 10, 'Rs. ' . number_format($tax, 2), 0, 1, 'R');
 
 $pdf->SetFont('Arial', 'B', 12);
 $pdf->Cell(140, 10, 'Total', 0, 0, 'R');
-$pdf->Cell(40, 10, '₹' . number_format($total, 2), 0, 1, 'R');
+$pdf->Cell(40, 10, 'Rs. ' . number_format($total, 2), 0, 1, 'R');
 
 // Output PDF to browser
 $pdf->Output('I', 'Invoice_' . date("Ymd_His") . '.pdf');

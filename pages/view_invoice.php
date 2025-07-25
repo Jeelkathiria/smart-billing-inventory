@@ -24,45 +24,53 @@ $tax = isset($invoice['tax']) && is_numeric($invoice['tax']) ? $invoice['tax'] :
 $total = isset($invoice['total_amount']) && is_numeric($invoice['total_amount']) ? $invoice['total_amount'] : 0;
 ?>
 
-?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Invoice #<?php echo htmlspecialchars($invoice['invoice_id']); ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      background-color: #f8f9fa;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .invoice-box {
-      background: white;
-      padding: 30px;
-      border: 1px solid #dee2e6;
-      max-width: 800px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .invoice-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .invoice-header h2 {
-      margin-bottom: 5px;
-    }
-    .table td, .table th {
-      vertical-align: middle;
-    }
-    .total-row {
-      font-weight: bold;
-    }
-    .text-end strong {
-      font-size: 1.1rem;
-    }
+  body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  .invoice-box {
+    background: white;
+    padding: 30px;
+    border: 1px solid #dee2e6;
+    max-width: 800px;
+    margin: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .invoice-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .invoice-header h2 {
+    margin-bottom: 5px;
+  }
+
+  .table td,
+  .table th {
+    vertical-align: middle;
+  }
+
+  .total-row {
+    font-weight: bold;
+  }
+
+  .text-end strong {
+    font-size: 1.1rem;
+  }
   </style>
 </head>
+
 <body>
   <div class="container mt-5">
     <div class="invoice-box">
@@ -92,29 +100,41 @@ $total = isset($invoice['total_amount']) && is_numeric($invoice['total_amount'])
           $item_stmt->execute();
           $items = $item_stmt->get_result();
           $i = 1;
-          while ($row = $items->fetch_assoc()) {
-              $amount = $row['quantity'] * $row['price'];
-              echo "<tr>
-                  <td>{$i}</td>
-                  <td>{$row['product_name']}</td>
-                  <td>{$row['quantity']}</td>
-                  <td>₹" . number_format($row['price'], 2) . "</td>
-                  <td>{$row['gst_percent']}%</td>
-                  <td>₹" . number_format($amount, 2) . "</td>
-              </tr>";
-              $i++;
-          }
+          $subtotal = 0;
+$tax_percent = 5;
+$i = 1;
+
+while ($row = $items->fetch_assoc()) {
+    $amount = $row['quantity'] * $row['price'];
+    $subtotal += $amount;
+
+    echo "<tr>
+        <td>{$i}</td>
+        <td>{$row['product_name']}</td>
+        <td>{$row['quantity']}</td>
+        <td>₹" . number_format($row['price'], 2) . "</td>
+        <td>{$row['gst_percent']}%</td>
+        <td>₹" . number_format($amount, 2) . "</td>
+    </tr>";
+    $i++;
+}
+
+$tax = $subtotal * ($tax_percent / 100);
+$total = $subtotal + $tax;
+
           ?>
         </tbody>
       </table>
 
-      
-<div class="text-end mt-3">
-  <p><strong>Subtotal:</strong> ₹<?php echo number_format($subtotal, 2); ?></p>
-  <p><strong>Tax (5%):</strong> ₹<?php echo number_format($tax, 2); ?></p>
-  <p class="total-row"><strong>Total:</strong> ₹<?php echo number_format($total, 2); ?></p>
-</div>
+
+      <div class="text-end mt-3">
+        <p><strong>Subtotal:</strong> ₹<?php echo number_format($subtotal, 2); ?></p>
+        <p><strong>Tax (5%):</strong> ₹<?php echo number_format($tax, 2); ?></p>
+        <p class="total-row"><strong>Total:</strong> ₹<?php echo number_format($total, 2); ?></p>
+      </div>
+
     </div>
   </div>
 </body>
+
 </html>
