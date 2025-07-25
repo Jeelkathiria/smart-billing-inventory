@@ -1,25 +1,53 @@
 <?php
 require_once '../includes/fpdf.php';
+require_once '../includes/db.php'; 
 
+// Decode JSON data
 $data = json_decode(file_get_contents('php://input'), true);
 
 if (!$data || empty($data['items'])) {
     die("Invalid invoice data");
 }
 
+// Extract values
 $items = $data['items'];
 $subTotal = $data['subTotal'];
 $tax = $data['tax'];
 $total = $data['total'];
+$customer_name = $conn->real_escape_string($data['customer_name'] ?? 'Guest');
+$date = date("Y-m-d H:i:s"); // current timestamp
 
+// Generate next invoice number
+$invoice_prefix = "INV";
+$last_invoice = $conn->query("SELECT invoice_id FROM sales ORDER BY sale_id DESC LIMIT 1");
+
+if ($last_invoice && $last_invoice->num_rows > 0) {
+    $row = $last_invoice->fetch_assoc();
+    $last_number = intval(substr($row['invoice_id'], 3)); // remove 'INV'
+    $new_invoice_number = $last_number + 1;
+} else {
+    $new_invoice_number = 1;
+}
+$invoice_id = $invoice_prefix . str_pad($new_invoice_number, 3, "0", STR_PAD_LEFT);
+
+// Insert into sales table
+$insert_sale = $conn->query("
+    INSERT INTO sales (invoice_id, customer_name, total_amount, sale_date)
+    VALUES ('$invoice_id', '$customer_name', '$total', '$date')
+");
+
+$sale_id = $conn->insert_id;
+
+// === PDF Generation ===
 $pdf = new FPDF();
 $pdf->AddPage();
 $pdf->SetFont('Arial', 'B', 16);
-
-// Invoice Heading
 $pdf->Cell(0, 10, 'INVOICE', 0, 1, 'C');
+
 $pdf->SetFont('Arial', '', 12);
-$pdf->Cell(0, 10, 'Date: ' . date("d-m-Y H:i"), 0, 1, 'R');
+$pdf->Cell(0, 10, "Invoice ID: $invoice_id", 0, 1);
+$pdf->Cell(0, 10, "Customer: $customer_name", 0, 1);
+$pdf->Cell(0, 10, 'Date: ' . date("d-m-Y H:i", strtotime($date)), 0, 1);
 $pdf->Ln(5);
 
 // Table Header
@@ -57,6 +85,6 @@ $pdf->SetFont('Arial', 'B', 12);
 $pdf->Cell(140, 10, 'Total', 0, 0, 'R');
 $pdf->Cell(40, 10, '₹' . number_format($total, 2), 0, 1, 'R');
 
-// Output PDF
-$pdf->Output('I', 'Invoice_' . date("Ymd_His") . '.pdf');  // 'I' = inline display, 'D' = download
+// Output PDF to browser
+$pdf->Output('I', 'Invoice_' . date("Ymd_His") . '.pdf');
 ?>

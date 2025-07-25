@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,7 +72,7 @@
                 <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
                 <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
                 <td>
-                  <a href="view_invoice.php?sale_id=<?php echo $row['sale_id']; ?>" class="btn btn-outline-primary btn-sm">
+                  <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>" class="btn btn-outline-primary btn-sm">
                     <i class="bi bi-eye"></i> View
                   </a>
                 </td>

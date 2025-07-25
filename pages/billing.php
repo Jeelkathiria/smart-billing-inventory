@@ -74,6 +74,20 @@ require_once '../includes/db.php';
       <input type="text" id="barcodeInput" class="form-control" placeholder="Scan or enter barcode...">
     </div>
 
+    <!-- Invoice Date Input -->
+    <div class="mb-3">
+      <label for="invoice_date" class="form-label">Date & Time</label>
+      <input type="text" id="invoice_date" name="invoice_date" class="form-control" readonly>
+    </div>
+
+
+    <!-- Customer Name Input -->
+    <div class="mb-3">
+      <label for="customer_name" class="form-label">Customer Name</label>
+      <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Enter Customer Name"
+        required>
+    </div>
+
     <!-- Select Category and Product -->
     <div class="row mb-3">
       <div class="col-md-4">
@@ -139,169 +153,183 @@ require_once '../includes/db.php';
     style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255,255,255,0.7); z-index: 9998; display: none;">
   </div>
 
-  <script>
-  let cart = [];
-  let productsList = {};
+<script>
+let cart = [];
+let productsList = {};
 
-  document.getElementById('categorySelect').addEventListener('change', function() {
-    const categoryId = this.value;
-    if (!categoryId) return;
+// Set invoice date on page load
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("invoice_date").value = getFormattedDateTime();
+});
 
-    fetch(`fetch_products.php?category_id=${categoryId}`)
-      .then(res => res.json())
-      .then(data => {
-        const productSelect = document.getElementById('productSelect');
-        productSelect.innerHTML = '<option value="">Select Product</option>';
-        productsList = {}; // reset
+// Populate products when category changes
+document.getElementById('categorySelect').addEventListener('change', function () {
+  const categoryId = this.value;
+  if (!categoryId) return;
 
-        data.forEach(product => {
-          productsList[product.product_id] = product;
-          productSelect.innerHTML += `<option value="${product.product_id}">${product.name}</option>`;
-        });
+  fetch(`fetch_products.php?category_id=${categoryId}`)
+    .then(res => res.json())
+    .then(data => {
+      const productSelect = document.getElementById('productSelect');
+      productSelect.innerHTML = '<option value="">Select Product</option>';
+      productsList = {}; // reset
 
-        document.getElementById('productSelect').disabled = false;
+      data.forEach(product => {
+        productsList[product.product_id] = product;
+        productSelect.innerHTML += `<option value="${product.product_id}">${product.name}</option>`;
       });
-  });
 
-  // Barcode input logic
-  document.getElementById('barcodeInput').addEventListener('input', function() {
-    const enteredBarcode = this.value.trim();
-
-    if (enteredBarcode === "") return;
-
-    const productSelect = document.getElementById('productSelect');
-    const found = Object.entries(productsList).find(([id, product]) => product.barcode === enteredBarcode);
-
-    if (found) {
-      const productId = found[0];
-      productSelect.value = productId;
-    } else {
-      productSelect.value = "";
-    }
-  });
-
-  document.getElementById('addProductBtn').addEventListener('click', function() {
-    const productId = document.getElementById('productSelect').value;
-    const qty = parseInt(document.getElementById('qtyInput').value);
-
-    if (!productId || qty < 1) return;
-
-    const product = productsList[productId];
-    const rate = parseFloat(product.price);
-    const gstPercent = parseFloat(product.gst_percent);
-    const baseAmount = qty * rate;
-    const gstAmount = baseAmount * (gstPercent / 100);
-    const totalAmount = baseAmount + gstAmount;
-
-    cart.push({
-      name: product.name,
-      qty,
-      rate,
-      gst: gstPercent,
-      total: totalAmount
+      productSelect.disabled = false;
     });
+});
 
-    renderTable();
-    document.getElementById('barcodeInput').value = ''; // clear after adding
+// Barcode input detection
+document.getElementById('barcodeInput').addEventListener('input', function () {
+  const enteredBarcode = this.value.trim();
+  if (enteredBarcode === "") return;
+
+  const found = Object.entries(productsList).find(([id, product]) => product.barcode === enteredBarcode);
+
+  if (found) {
+    const productId = found[0];
+    document.getElementById('productSelect').value = productId;
+  } else {
+    document.getElementById('productSelect').value = "";
+  }
+});
+
+// Add product to cart
+document.getElementById('addProductBtn').addEventListener('click', function () {
+  const productId = document.getElementById('productSelect').value;
+  const qty = parseInt(document.getElementById('qtyInput').value);
+
+  if (!productId || qty < 1) return;
+
+  const product = productsList[productId];
+  const rate = parseFloat(product.price);
+  const gstPercent = parseFloat(product.gst_percent);
+  const baseAmount = qty * rate;
+  const gstAmount = baseAmount * (gstPercent / 100);
+  const totalAmount = baseAmount + gstAmount;
+
+  cart.push({
+    name: product.name,
+    qty,
+    rate,
+    gst: gstPercent,
+    total: totalAmount
   });
 
-  function renderTable() {
-    const tbody = document.querySelector("#billingTable tbody");
-    tbody.innerHTML = '';
-    let subTotal = 0;
+  renderTable();
+  document.getElementById('barcodeInput').value = '';
+});
 
-    cart.forEach((item, i) => {
-      subTotal += item.total;
-      tbody.innerHTML += `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${item.name}</td>
-          <td>${item.qty}</td>
-          <td>₹${item.total.toFixed(2)}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
-        </tr>`;
-    });
+function renderTable() {
+  const tbody = document.querySelector("#billingTable tbody");
+  tbody.innerHTML = '';
+  let subTotal = 0;
 
-    const tax = subTotal * 0.05;
-    const finalTotal = subTotal + tax;
+  cart.forEach((item, i) => {
+    subTotal += item.total;
+    tbody.innerHTML += `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${item.name}</td>
+        <td>${item.qty}</td>
+        <td>₹${item.total.toFixed(2)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
+      </tr>`;
+  });
 
-    document.getElementById("subTotal").innerText = subTotal.toFixed(2);
-    document.getElementById("taxAmount").innerText = tax.toFixed(2);
-    document.getElementById("totalAmount").innerText = finalTotal.toFixed(2);
+  const tax = subTotal * 0.05;
+  const finalTotal = subTotal + tax;
+
+  document.getElementById("subTotal").innerText = subTotal.toFixed(2);
+  document.getElementById("taxAmount").innerText = tax.toFixed(2);
+  document.getElementById("totalAmount").innerText = finalTotal.toFixed(2);
+}
+
+function removeItem(index) {
+  cart.splice(index, 1);
+  renderTable();
+}
+
+function getFormattedDateTime() {
+  const now = new Date();
+  const pad = (n) => n < 10 ? '0' + n : n;
+  const date = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return `${date} ${time}`;
+}
+
+// Generate invoice
+document.getElementById("generateInvoiceBtn").addEventListener("click", function () {
+  if (cart.length === 0) return;
+
+  const customerName = document.getElementById("customer_name").value.trim();
+  if (!customerName) {
+    alert("Please enter a customer name.");
+    return;
   }
 
-  function removeItem(index) {
-    cart.splice(index, 1);
-    renderTable();
-  }
+  const invoiceData = {
+    customer_name: customerName,
+    date: document.getElementById("invoice_date").value,
+    items: cart,
+    subTotal: parseFloat(document.getElementById("subTotal").innerText),
+    tax: parseFloat(document.getElementById("taxAmount").innerText),
+    total: parseFloat(document.getElementById("totalAmount").innerText)
+  };
 
-  // Generate Invoice Button (Auto-download PDF via fetch + blob)
-  document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
-    if (cart.length === 0) return;
+  fetch('generate_invoice.php', {
+      method: 'POST',
+      body: JSON.stringify(invoiceData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "Invoice_" + new Date().toISOString().slice(0, 19).replace(/[-T:]/g, "") + ".pdf";
+      a.click();
+      URL.revokeObjectURL(url);
 
-    const invoiceData = {
-      items: cart.map(item => ({
-        name: item.name,
-        qty: item.qty,
-        rate: item.rate,
-        gst: item.gst,
-        total: item.total
-      })),
-      subTotal: parseFloat(document.getElementById("subTotal").innerText),
-      tax: parseFloat(document.getElementById("taxAmount").innerText),
-      total: parseFloat(document.getElementById("totalAmount").innerText)
-    };
-
-    fetch('generate_invoice.php', {
-        method: 'POST',
-        body: JSON.stringify(invoiceData),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      .then(response => response.blob())
-      .then(blob => {
-        // Download the invoice
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "Invoice_" + new Date().toISOString().slice(0, 19).replace(/[-T:]/g, "") + ".pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-
-        // ✅ Play sound
-        // Play short success notification sound
-        const successSound = document.getElementById("successSound");
-        successSound.currentTime = 0;
-        successSound.play().catch(() => {
-          console.warn("Sound play blocked by browser");
-        });
-
-        // Show toast and overlay with animation
-        const overlay = document.getElementById("overlayFade");
-        const toast = document.getElementById("successToast");
-        overlay.style.display = 'block';
-        toast.classList.add("show");
-        toast.style.display = 'block';
-
-        // Hide after animation completes
-        setTimeout(() => {
-          overlay.style.display = 'none';
-          toast.classList.remove("show");
-          toast.style.display = 'none';
-        }, 3000);
-
-        // ✅ Reset billing
-        cart = [];
-        renderTable();
-        document.getElementById('barcodeInput').value = '';
-        document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
-        document.getElementById('productSelect').disabled = true;
-        document.getElementById('categorySelect').value = '';
-        document.getElementById('qtyInput').value = 1;
+      // Play sound
+      const successSound = document.getElementById("successSound");
+      successSound.currentTime = 0;
+      successSound.play().catch(() => {
+        console.warn("Sound play blocked by browser");
       });
-  });
-  </script>
+
+      // Show toast and overlay
+      const overlay = document.getElementById("overlayFade");
+      const toast = document.getElementById("successToast");
+      overlay.style.display = 'block';
+      toast.classList.add("show");
+      toast.style.display = 'block';
+
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        toast.classList.remove("show");
+        toast.style.display = 'none';
+      }, 3000);
+
+      // Reset form
+      cart = [];
+      renderTable();
+      document.getElementById('barcodeInput').value = '';
+      document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
+      document.getElementById('productSelect').disabled = true;
+      document.getElementById('categorySelect').value = '';
+      document.getElementById('qtyInput').value = 1;
+      document.getElementById('customer_name').value = '';
+    });
+});
+</script>
+
 
 
 </body>

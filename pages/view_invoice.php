@@ -1,22 +1,29 @@
 <?php
-require_once '../includes/db.php';
+require_once '../includes/db.php'; // ✅ Make sure db.php sets up $conn
 
-if (!isset($_GET['sale_id'])) {
-    die("Invalid access.");
+if (!isset($_GET['invoice_id'])) {
+    die("No invoice ID provided.");
 }
 
-$sale_id = intval($_GET['sale_id']);
-$sql = "SELECT * FROM sales WHERE sale_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $sale_id);
-$stmt->execute();
-$result = $stmt->get_result();
+$invoice_id = $_GET['invoice_id'];
 
-if ($result->num_rows === 0) {
+// Fetch invoice details
+$invoice_stmt = $conn->prepare("SELECT * FROM sales WHERE invoice_id = ?");
+$invoice_stmt->bind_param("s", $invoice_id);
+$invoice_stmt->execute();
+$invoice_result = $invoice_stmt->get_result();
+$invoice = $invoice_result->fetch_assoc();
+
+if (!$invoice) {
     die("Invoice not found.");
 }
 
-$invoice = $result->fetch_assoc();
+$sale_id = $invoice['sale_id']; // For fetching items
+$subtotal = isset($invoice['subtotal']) && is_numeric($invoice['subtotal']) ? $invoice['subtotal'] : 0;
+$tax = isset($invoice['tax']) && is_numeric($invoice['tax']) ? $invoice['tax'] : 0;
+$total = isset($invoice['total_amount']) && is_numeric($invoice['total_amount']) ? $invoice['total_amount'] : 0;
+?>
+
 ?>
 
 <!DOCTYPE html>
@@ -25,45 +32,89 @@ $invoice = $result->fetch_assoc();
   <meta charset="UTF-8">
   <title>Invoice #<?php echo htmlspecialchars($invoice['invoice_id']); ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .invoice-box {
+      background: white;
+      padding: 30px;
+      border: 1px solid #dee2e6;
+      max-width: 800px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .invoice-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .invoice-header h2 {
+      margin-bottom: 5px;
+    }
+    .table td, .table th {
+      vertical-align: middle;
+    }
+    .total-row {
+      font-weight: bold;
+    }
+    .text-end strong {
+      font-size: 1.1rem;
+    }
+  </style>
 </head>
-<body class="bg-light">
+<body>
   <div class="container mt-5">
-    <a href="sales.php" class="btn btn-outline-secondary mb-4">
-      <i class="bi bi-arrow-left"></i> Back to Sales History
-    </a>
-
-    <div class="card shadow-sm">
-      <div class="card-header bg-primary text-white">
-        <h4 class="mb-0">🧾 Invoice #<?php echo htmlspecialchars($invoice['invoice_id']); ?></h4>
+    <div class="invoice-box">
+      <div class="invoice-header">
+        <h2>INVOICE</h2>
+        <p><strong>Invoice ID:</strong> <?php echo htmlspecialchars($invoice['invoice_id']); ?></p>
+        <p><strong>Customer:</strong> <?php echo htmlspecialchars($invoice['customer_name']); ?></p>
+        <p><strong>Date:</strong> <?php echo date('d-m-Y H:i', strtotime($invoice['sale_date'])); ?></p>
       </div>
-      <div class="card-body">
-        <p><strong>Customer Name:</strong> <?php echo htmlspecialchars($invoice['customer_name']); ?></p>
-        <p><strong>Date & Time:</strong> <?php echo date('d-m-Y H:i:s', strtotime($invoice['sale_date'])); ?></p>
-        <p><strong>Total Amount:</strong> ₹<?php echo number_format($invoice['total_amount'], 2); ?></p>
 
-        <!-- Toggle Sale Details -->
-        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#saleDetails" aria-expanded="false" aria-controls="saleDetails">
-          <i class="bi bi-chevron-down"></i> Show Sale Details
-        </button>
+      <table class="table table-bordered text-center">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Rate</th>
+            <th>GST%</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php
+          $item_sql = "SELECT * FROM sale_items WHERE sale_id = ?";
+          $item_stmt = $conn->prepare($item_sql);
+          $item_stmt->bind_param("i", $sale_id);
+          $item_stmt->execute();
+          $items = $item_stmt->get_result();
+          $i = 1;
+          while ($row = $items->fetch_assoc()) {
+              $amount = $row['quantity'] * $row['price'];
+              echo "<tr>
+                  <td>{$i}</td>
+                  <td>{$row['product_name']}</td>
+                  <td>{$row['quantity']}</td>
+                  <td>₹" . number_format($row['price'], 2) . "</td>
+                  <td>{$row['gst_percent']}%</td>
+                  <td>₹" . number_format($amount, 2) . "</td>
+              </tr>";
+              $i++;
+          }
+          ?>
+        </tbody>
+      </table>
 
-        <div class="collapse mt-3" id="saleDetails">
-          <div class="card card-body border">
-            <!-- Placeholder for future sale_items table -->
-            <p class="text-muted">Sale item details will appear here when available.</p>
-            <!-- Example future structure:
-            <ul>
-              <li>Product A - 2 pcs - ₹500</li>
-              <li>Product B - 1 pc - ₹250</li>
-            </ul>
-            -->
-          </div>
-        </div>
-
-      </div>
+      
+<div class="text-end mt-3">
+  <p><strong>Subtotal:</strong> ₹<?php echo number_format($subtotal, 2); ?></p>
+  <p><strong>Tax (5%):</strong> ₹<?php echo number_format($tax, 2); ?></p>
+  <p class="total-row"><strong>Total:</strong> ₹<?php echo number_format($total, 2); ?></p>
+</div>
     </div>
   </div>
-
-  <!-- Bootstrap JS Bundle (with Popper) -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
