@@ -71,6 +71,7 @@ $low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
   <meta charset="UTF-8">
   <title>Product Management</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -114,7 +115,7 @@ $low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
       <input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)" required>
     </div>
     <div class="col-md-2">
-      <input type="number" name="stock" class="form-control" placeholder="Stock" required>
+      <input type="number" name="stock" min="0" class="form-control" placeholder="Stock" required>
     </div>
     <div class="col-md-2">
       <button class="btn btn-primary w-100">Add Product</button>
@@ -192,7 +193,7 @@ $low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
           <input type="number" step="0.01" name="edit_gst" id="edit_gst" class="form-control" required>
         </div>
         <div class="mb-2">
-          <input type="number" name="edit_stock" id="edit_stock" class="form-control" required>
+          <input type="number" name="edit_stock" min="0" id="edit_stock" class="form-control" required>
         </div>
       </div>
       <div class="modal-footer">

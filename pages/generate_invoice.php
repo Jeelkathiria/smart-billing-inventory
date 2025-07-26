@@ -38,6 +38,54 @@ $insert_sale = $conn->query("
 
 $sale_id = $conn->insert_id;
 
+// Insert each item into sale_items and reduce inventory
+foreach ($items as $item) {
+    $product_id = (int) $item['id'];
+    $product_name = $conn->real_escape_string($item['name']);
+    $quantity = (int) $item['qty'];
+    $price = (float) $item['rate'];
+    $gst_percent = (int) $item['gst'];
+
+    // Check current stock
+    $check = $conn->prepare("SELECT stock FROM products WHERE product_id = ?");
+    $check->bind_param("i", $product_id);
+    $check->execute();
+    $result = $check->get_result();
+
+    if ($result && $result->num_rows > 0) {
+        $current = $result->fetch_assoc();
+        $current_stock = (int) $current['stock'];
+
+        if ($current_stock >= $quantity) {
+            // Update stock
+            $update = $conn->prepare("UPDATE products SET stock = stock - ? WHERE product_id = ?");
+            $update->bind_param("ii", $quantity, $product_id);
+            if (!$update->execute()) {
+                error_log("Inventory update failed for product_id $product_id: " . $conn->error);
+            }
+
+            // Insert into sale_items
+            $insert_item = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price, gst_percent)
+                                           VALUES (?, ?, ?, ?, ?, ?)");
+            $insert_item->bind_param("iisidi", $sale_id, $product_id, $product_name, $quantity, $price, $gst_percent);
+            if (!$insert_item->execute()) {
+                error_log("Failed to insert sale item for product_id $product_id: " . $conn->error);
+            }
+
+        } else {
+            // Not enough stock
+            error_log("Not enough stock for product ID: $product_id. Requested: $quantity, Available: $current_stock");
+            continue;
+        }
+    } else {
+        // Product not found
+        error_log("Product ID $product_id not found in database.");
+        continue;
+    }
+}
+
+
+
 // === PDF Generation ===
 $pdf = new FPDF();
 $pdf->AddPage();

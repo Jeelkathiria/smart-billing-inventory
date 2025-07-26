@@ -206,6 +206,18 @@ document.getElementById('addProductBtn').addEventListener('click', function () {
   if (!productId || qty < 1) return;
 
   const product = productsList[productId];
+  const stock = parseInt(product.stock);
+
+  if (stock === 0) {
+    alert(`❌ ${product.name} is out of stock`);
+    return;
+  }
+
+  if (qty > stock) {
+    alert(`❌ Only ${stock} in stock for ${product.name}`);
+    return;
+  }
+
   const rate = parseFloat(product.price);
   const gstPercent = parseFloat(product.gst_percent);
   const baseAmount = qty * rate;
@@ -213,6 +225,7 @@ document.getElementById('addProductBtn').addEventListener('click', function () {
   const totalAmount = baseAmount + gstAmount;
 
   cart.push({
+    id: product.product_id,
     name: product.name,
     qty,
     rate,
@@ -223,6 +236,7 @@ document.getElementById('addProductBtn').addEventListener('click', function () {
   renderTable();
   document.getElementById('barcodeInput').value = '';
 });
+
 
 function renderTable() {
   const tbody = document.querySelector("#billingTable tbody");
