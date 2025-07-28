@@ -2,6 +2,9 @@
 require_once '../includes/db.php';
 session_start();
 
+$total_sales_result = $conn->query("SELECT SUM(total_amount) AS total_sales FROM sales");
+$total_sales = $total_sales_result->fetch_assoc()['total_sales'] ?? 0;
+
 if (!isset($_SESSION['user_id'])) {
   header('Location: ../auth/login.php');
   exit();
@@ -168,7 +171,8 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
         <div class="card bg-light shadow-sm text-center">
           <div class="card-body">
             <h6 class="text-muted">Total Sales</h6>
-            <h3>₹0.00</h3>
+            <h3>₹<?= number_format((float)$total_sales, 2) ?></h3>
+
           </div>
         </div>
       </div>
