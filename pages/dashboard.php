@@ -13,6 +13,8 @@ if (!isset($_SESSION['user_id'])) {
 $total_categories = $conn->query("SELECT COUNT(*) AS total FROM categories")->fetch_assoc()['total'];
 $total_products = $conn->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
 $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE stock < 5")->fetch_assoc()['total'];
+
+$recentSales = $conn->query("SELECT invoice_id, customer_name, sale_date, total_amount FROM sales ORDER BY sale_date DESC LIMIT 5");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -139,58 +141,117 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
 
   <!-- Main Content -->
-  <div class="content">
-    <h3 class="mb-4">Welcome, <?= htmlspecialchars($_SESSION['username']) ?></h3>
+<!-- Main Content -->
+<div class="content">
+  <h3 class="mb-4">Welcome, <?= htmlspecialchars($_SESSION['username']) ?></h3>
 
-    <div class="row g-4">
-      <div class="col-md-3 col-sm-6">
-        <div class="card bg-light shadow-sm text-center">
-          <div class="card-body">
-            <h6 class="text-muted">Total Categories</h6>
-            <h3><?= $total_categories ?></h3>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card bg-light shadow-sm text-center">
-          <div class="card-body">
-            <h6 class="text-muted">Total Products</h6>
-            <h3><?= $total_products ?></h3>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card <?= $low_stock_count > 0 ? 'bg-warning' : 'bg-light' ?> shadow-sm text-center">
-          <div class="card-body">
-            <h6 class="text-muted">Low Stock Alerts</h6>
-            <h3><?= $low_stock_count ?></h3>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card bg-light shadow-sm text-center">
-          <div class="card-body">
-            <h6 class="text-muted">Total Sales</h6>
-            <h3>₹<?= number_format((float)$total_sales, 2) ?></h3>
-
-          </div>
+  <div class="row g-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-white bg-primary shadow-sm">
+        <div class="card-body text-center">
+          <i class="bi bi-tags fs-2 mb-2"></i>
+          <h6>Total Categories</h6>
+          <h3><?= $total_categories ?></h3>
         </div>
       </div>
     </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-white bg-success shadow-sm">
+        <div class="card-body text-center">
+          <i class="bi bi-box-seam fs-2 mb-2"></i>
+          <h6>Total Products</h6>
+          <h3><?= $total_products ?></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-dark <?= $low_stock_count > 0 ? 'bg-warning' : 'bg-light' ?> shadow-sm">
+        <div class="card-body text-center">
+          <i class="bi bi-exclamation-circle fs-2 mb-2"></i>
+          <h6>Low Stock Alerts</h6>
+          <h3><?= $low_stock_count ?></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-white bg-dark shadow-sm">
+        <div class="card-body text-center">
+          <i class="bi bi-currency-rupee fs-2 mb-2"></i>
+          <h6>Total Sales</h6>
+          <h3>₹<?= number_format((float)$total_sales, 2) ?></h3>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <?php if ($low_stock_count > 0): ?>
+  <?php if ($low_stock_count > 0): ?>
     <div class="alert alert-warning mt-4">
       <i class="bi bi-exclamation-triangle-fill me-2"></i>
       <?= $low_stock_count ?> product(s) have low stock. Please restock.
     </div>
-    <?php endif; ?>
+  <?php endif; ?>
 
-    <div class="mt-4">
-      <p class="lead">Use the sidebar to navigate through inventory, sales, and billing operations with ease.</p>
-    </div>
+  <div class="mt-4">
+    <p class="lead">Use the sidebar to navigate through inventory, sales, and billing operations with ease.</p>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Recent Billings Card -->
+  <div class="card shadow-sm mt-5">
+    <div class="card-header bg-info text-white">
+      <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Billings</h6>
+    </div>
+    <div class="card-body p-0">
+  <table class="table table-hover table-bordered text-center mb-0" id="recentSalesTable">
+    <thead class="table-light sticky-top bg-light">
+      <tr>
+        <th>Invoice ID</th>
+        <th>Customer</th>
+        <th>Date & Time</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="salesBody">
+      <?php
+      $sales = $conn->query("SELECT * FROM sales ORDER BY sale_date DESC LIMIT 8");
+      while ($sale = $sales->fetch_assoc()):
+      ?>
+        <tr>
+          <td><span class="badge bg-secondary"><?= $sale['invoice_id']; ?></span></td>
+          <td><?= htmlspecialchars($sale['customer_name']); ?></td>
+          <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
+          <td><strong>₹<?= number_format($sale['total_amount'], 2); ?></strong></td>
+        </tr>
+      <?php endwhile; ?>
+    </tbody>
+  </table>
+
+  <div class="text-center py-2">
+    <button id="loadMoreBtn" class="btn btn-outline-primary btn-sm">View More</button>
+  </div>
+</div>
+
+  </div>
+</div>
+
+
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+    let offset = 8;
+
+document.getElementById('loadMoreBtn').addEventListener('click', function () {
+  fetch(`load_more_sales.php?offset=${offset}`)
+    .then(response => response.text())
+    .then(data => {
+      if (data.trim() === "") {
+        document.getElementById('loadMoreBtn').innerText = "No more data";
+        document.getElementById('loadMoreBtn').disabled = true;
+      } else {
+        document.getElementById('salesBody').insertAdjacentHTML('beforeend', data);
+        offset += 8;
+      }
+    });
+});
+  </script>
 </body>
 
 </html>
