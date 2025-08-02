@@ -2,141 +2,235 @@
 require_once '../includes/db.php';
 $today = date('Y-m-d');
 
+// Today's revenue and sales count
 $query = "SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
-          FROM sales WHERE DATE(sale_date) = '$today'";
-$result = $conn->query($query)->fetch_assoc();
+          FROM sales WHERE DATE(sale_date) = ?";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("s", $today);
+$stmt->execute();
+$result = $stmt->get_result()->fetch_assoc();
 
 $todaySalesCount = $result['sales_count'] ?? 0;
 $todayRevenue = $result['revenue'] ?? 0;
+
+// Filtering
 $filterDate = $_GET['filter_date'] ?? '';
-
-
 $whereClause = '';
+$params = [];
+
 if (!empty($filterDate)) {
-  $safeDate = $conn->real_escape_string($filterDate);
-  $whereClause = "WHERE DATE(sale_date) = '$safeDate'";
+  $whereClause = "WHERE DATE(sale_date) = ?";
+  $params[] = $filterDate;
 }
 
 $sql = "SELECT * FROM sales $whereClause ORDER BY sale_date DESC";
-$salesResult = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+
+if (!empty($params)) {
+  $stmt->bind_param("s", ...$params);
+}
+
+$stmt->execute();
+$salesResult = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sales History</title>
-
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
-
   <style>
-  body {
-    background-color: #f8f9fb;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  }
+ body {
+  background-color: #f5f7fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
 
-  .card {
-    border-radius: 1rem;
-    overflow: hidden;
-  }
+.card {
+  border-radius: 1rem;
+  overflow: hidden;
+  background-color: #fff;
+}
 
-  .card-header {
-    background: linear-gradient(90deg, #0d6efd, #0b5ed7);
-    color: white;
-    padding: 1.5rem 2rem;
-  }
+.card-header {
+  background: linear-gradient(90deg, #0d6efd, #0b5ed7);
+  color: white;
+  padding: 1rem 2rem;
+  font-weight: 600;
+}
 
-  .summary-card {
-    border: none;
-    border-radius: 1rem;
-    padding: 1.5rem;
-    color: #fff;
-    background: linear-gradient(135deg, #28a745, #218838);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
-  }
+.summary-card {
+  border: none;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  color: #fff;
+  background: linear-gradient(135deg, #28a745, #218838);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+}
 
-  .summary-card.bg-primary {
-    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
-  }
+.summary-card.bg-primary {
+  background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+}
 
+.summary-card h4 {
+  font-weight: 700;
+  font-size: 1.8rem;
+  margin-top: 4px;
+}
+
+.summary-card h6 {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-wrapper input {
+  padding-left: 2.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.search-wrapper .bi-search {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #6c757d;
+}
+
+.form-control,
+.btn {
+  border-radius: 0.75rem;
+}
+
+#toggleFilter {
+  border-radius: 50px;
+  transition: all 0.3s ease;
+}
+
+#toggleFilter:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+  text-align: center;
+}
+
+.table thead {
+  background-color: #0d6efd;
+  color: white;
+}
+
+tbody tr:hover {
+  background-color: #f1f5ff;
+}
+
+.badge {
+  font-size: 0.9rem;
+}
+
+.sidebar {
+  width: 220px;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  background: #ffffff;
+  border-right: 1px solid #dee2e6;
+  padding-top: 60px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar .nav-links {
+  flex-grow: 1;
+}
+
+.sidebar a {
+  padding: 12px 20px;
+  color: #333;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s;
+}
+
+.sidebar a:hover {
+  background-color: #f0f0f0;
+  border-left: 4px solid #007bff;
+}
+
+.sidebar-footer {
+  padding: 12px 20px;
+  margin-top: auto;
+}
+
+@media (max-width: 768px) {
   .summary-card h4 {
-    font-weight: 700;
-    font-size: 1.75rem;
+    font-size: 1.4rem;
   }
 
-  .form-control,
+  .card-header h5 {
+    font-size: 1rem;
+  }
+
   .btn {
-    border-radius: 0.75rem;
-  }
-
-  .search-wrapper {
-    position: relative;
+    padding: 6px 10px;
   }
 
   .search-wrapper input {
-    padding-left: 2.5rem;
-  }
-
-  .search-wrapper .bi-search {
-    position: absolute;
-    top: 50%;
-    left: 12px;
-    transform: translateY(-50%);
-    color: #6c757d;
-  }
-
-  table thead {
-    background-color: #343a40;
-    color: #fff;
-  }
-
-  tbody tr:hover {
-    background-color: #f1f5ff;
-  }
-
-  .badge {
-    font-size: 0.9rem;
-  }
-
-  .filter-label {
-    font-weight: 600;
-  }
-
-   #toggleFilter {
-    border-radius: 50px;
-    transition: all 0.3s ease;
-  }
-
-  #toggleFilter:hover {
-    background-color: #0d6efd;
-    color: white;
+    padding-left: 2rem;
   }
 
   #filterDate {
-    transition: 0.3s ease;
+    max-width: 100% !important;
+    width: 100%;
   }
 
-  .table th,
-  .table td {
-    vertical-align: middle;
+  .d-flex.justify-content-between.flex-wrap {
+    flex-direction: column;
   }
+}
 
-  @media (max-width: 576px) {
-    .summary-card h4 {
-      font-size: 1.4rem;
+
+    @media (max-width: 576px) {
+      .summary-card h4 {
+        font-size: 1.4rem;
+      }
     }
-  }
   </style>
 </head>
 
 <body>
-  <div class="container py-4">
-    <?php include '../components/backToDashboard.php'; ?>
+  <?php include '../includes/navbar.php'; ?>
+  <div class="container-fluid">
+  <div class="row">
+    <!-- Sidebar (2 columns) -->
+    <div class="col-md-2 p-0 bg-white shadow-sm">
+      <?php include '../includes/sidebar.php'; ?>
+    </div>
 
+    <!-- Main content (10 columns) -->
+    <div class="col-md-10 py-4 px-4">
+      <!-- Your actual page content here -->
+      <h4 class="mb-4">Sales History</h4>
+      <!-- Cards, tables, etc. go here -->
+    </div>
+  </div>
+</div>
+
+  <div class="container py-4">
     <div class="card shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Sales History</h5>
@@ -161,39 +255,31 @@ $salesResult = $conn->query($sql);
             <div class="summary-card bg-primary d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="mb-1"><i class="bi bi-receipt-cutoff me-2"></i>Invoices Today</h6>
-                <h4><?php echo $todaySalesCount; ?></h4>
+                <h4><?php echo htmlspecialchars($todaySalesCount); ?></h4>
               </div>
               <i class="bi bi-journal-text fs-1 opacity-75"></i>
             </div>
           </div>
         </div>
 
-        <!-- Search + Filter Row -->
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-  <!-- Search -->
-  <div class="flex-grow-1 me-2 search-wrapper">
-    <i class="bi bi-search"></i>
-    <input type="text" class="form-control shadow-sm" id="searchInput"
-      placeholder="Search by Invoice ID or Customer Name..." onkeyup="filterTable()">
-  </div>
+        <!-- Search & Filter -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <div class="flex-grow-1 me-2 search-wrapper">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control shadow-sm" id="searchInput"
+              placeholder="Search by Invoice ID or Customer Name..." onkeyup="filterTable()">
+          </div>
 
-  <!-- Filter Form -->
-  <form method="GET" class="d-flex align-items-center gap-2" id="filterForm">
-    <!-- Filter Icon Toggle -->
-    <button type="button" class="btn btn-outline-secondary d-flex align-items-center" id="toggleFilter">
-      <i class="bi bi-funnel-fill" id="filterIcon"></i>
-    </button>
-
-    <!-- Date Picker -->
-    <input type="date" class="form-control" name="filter_date" id="filterDate"
-      value="<?php echo htmlspecialchars($filterDate); ?>"
-      style="max-width: 200px; display: <?php echo $filterDate ? 'block' : 'none'; ?>;" />
-
-    <!-- Hidden Submit -->
-    <input type="submit" style="display: none;" />
-  </form>
-</div>
-
+          <form method="GET" class="d-flex align-items-center gap-2" id="filterForm">
+            <button type="button" class="btn btn-outline-secondary d-flex align-items-center" id="toggleFilter">
+              <i class="bi bi-funnel-fill" id="filterIcon"></i>
+            </button>
+            <input type="date" class="form-control" name="filter_date" id="filterDate"
+              value="<?php echo htmlspecialchars($filterDate); ?>"
+              style="max-width: 200px; display: <?php echo $filterDate ? 'block' : 'none'; ?>;" />
+            <input type="submit" style="display: none;" />
+          </form>
+        </div>
 
         <!-- Sales Table -->
         <div class="table-responsive">
@@ -209,20 +295,20 @@ $salesResult = $conn->query($sql);
             </thead>
             <tbody>
               <?php if ($salesResult && $salesResult->num_rows > 0): ?>
-              <?php while ($row = $salesResult->fetch_assoc()): ?>
-              <tr>
-                <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
-                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
-                <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
-                <td>
-                  <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>"
-                    class="btn btn-outline-primary btn-sm rounded-pill">
-                    <i class="bi bi-eye"></i> View
-                  </a>
-                </td>
-              </tr>
-              <?php endwhile; ?>
+                <?php while ($row = $salesResult->fetch_assoc()): ?>
+                <tr>
+                  <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
+                  <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                  <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
+                  <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
+                  <td>
+                    <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>"
+                      class="btn btn-outline-primary btn-sm rounded-pill">
+                      <i class="bi bi-eye"></i> View
+                    </a>
+                  </td>
+                </tr>
+                <?php endwhile; ?>
               <?php else: ?>
               <tr>
                 <td colspan="5" class="text-muted">No sales history available for the selected date.</td>
@@ -235,47 +321,41 @@ $salesResult = $conn->query($sql);
     </div>
   </div>
 
-  <!-- JS: Search -->
+  <!-- JS: Search & Filter -->
   <script>
-  function filterTable() {
-    const input = document.getElementById('searchInput').value.toLowerCase();
-    const rows = document.querySelectorAll('#salesTable tbody tr');
-    rows.forEach(row => {
-      const invoice = row.cells[0].innerText.toLowerCase();
-      const customer = row.cells[1].innerText.toLowerCase();
-      row.style.display = invoice.includes(input) || customer.includes(input) ? '' : 'none';
+    function filterTable() {
+      const input = document.getElementById('searchInput').value.toLowerCase();
+      const rows = document.querySelectorAll('#salesTable tbody tr');
+      rows.forEach(row => {
+        const invoice = row.cells[0].innerText.toLowerCase();
+        const customer = row.cells[1].innerText.toLowerCase();
+        row.style.display = invoice.includes(input) || customer.includes(input) ? '' : 'none';
+      });
+    }
+
+    const toggleBtn = document.getElementById("toggleFilter");
+    const filterDateInput = document.getElementById("filterDate");
+    const filterIcon = document.getElementById("filterIcon");
+    const form = document.getElementById("filterForm");
+
+    toggleBtn.addEventListener("click", () => {
+      const isVisible = filterDateInput.style.display === "block";
+      if (isVisible) {
+        filterDateInput.style.display = "none";
+        filterDateInput.value = '';
+        window.location.href = window.location.pathname;
+        filterIcon.classList.remove("text-primary");
+      } else {
+        filterDateInput.style.display = "block";
+        filterIcon.classList.add("text-primary");
+      }
     });
-  }
 
-    // Filter Functionality
-  const toggleBtn = document.getElementById("toggleFilter");
-  const filterDate = document.getElementById("filterDate");
-  const filterIcon = document.getElementById("filterIcon");
-  const form = document.getElementById("filterForm");
-
-  toggleBtn.addEventListener("click", () => {
-    const isVisible = filterDate.style.display === "block";
-
-    if (isVisible) {
-      // Hide and reset the date filter
-      filterDate.style.display = "none";
-      filterDate.value = '';
-      window.location.href = window.location.pathname; // Clear filter
-      filterIcon.classList.remove("text-primary");
-    } else {
-      // Show and wait for user to pick a date
-      filterDate.style.display = "block";
-      filterIcon.classList.add("text-primary");
-    }
-  });
-
-  filterDate.addEventListener("change", () => {
-    if (filterDate.value) {
-      form.submit();
-    }
-  });
-
+    filterDateInput.addEventListener("change", () => {
+      if (filterDateInput.value) {
+        form.submit();
+      }
+    });
   </script>
 </body>
-
 </html>

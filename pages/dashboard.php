@@ -134,34 +134,11 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 <body>
 
   <!-- Navbar -->
-  <nav class="navbar navbar-light bg-white shadow-sm px-4">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-      <div class="d-flex align-items-center">
-        <div class="bg-primary rounded-circle d-flex justify-content-center align-items-center me-2"
-          style="width: 40px; height: 40px;">
-          <i class="bi bi-receipt text-white fs-5"></i>
-        </div>
-        <span class="navbar-brand mb-0 h5">Smart Billing & Inventory</span>
-      </div>
-      <a href="../auth/logout.php" class="btn btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
-    </div>
-  </nav>
+  <?php include '../includes/navbar.php'; ?>
+
 
   <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="nav-links">
-      <a href="dashboard.php"><i class="bi bi-house-door"></i> Dashboard</a>
-      <a href="sales.php"><i class="bi bi-currency-dollar"></i> Sales</a>
-      <a href="products.php"><i class="bi bi-box-seam"></i> Inventory</a>
-      <a href="billing.php"><i class="bi bi-receipt"></i> Billing</a>
-      <a href="categories.php"><i class="bi bi-tags"></i> Categories</a>
-      <a href="customers.php"><i class="bi bi-people"></i> Customers</a>
-      <a href="sales_report.php"><i class="bi bi-graph-up"></i> Reports</a>
-    </div>
-    <div class="sidebar-footer">
-      <a href="admin_panel.php"><i class="bi bi-gear"></i> Settings</a>
-    </div>
-  </div>
+ <?php include '../includes/sidebar.php'; ?>
 
   <!-- Main Content -->
   <div class="content">
