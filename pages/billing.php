@@ -8,8 +8,61 @@ require_once '../includes/db.php';
 <head>
   <meta charset="UTF-8">
   <title>Billing</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
   <style>
+     .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 1030;
+      background-color: #ffffff;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .sidebar {
+      width: 220px;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      background: #ffffff;
+      border-right: 1px solid #dee2e6;
+      padding-top: 60px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar .nav-links {
+      flex-grow: 1;
+    }
+
+    .sidebar a {
+      padding: 12px 20px;
+      color: #333;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .sidebar-footer {
+      padding: 12px 20px;
+      margin-top: auto;
+    }
+
+    .content {
+      margin-left: 220px;
+      padding: 20px;
+      padding-top: 60px; 
+    }
+
   @keyframes fadeInOut {
     0% {
       opacity: 0;
@@ -56,15 +109,19 @@ require_once '../includes/db.php';
 </head>
 
 <body>
-  <div class="container mt-4">
+
+<!-- Navbar -->
+  <?php include '../includes/navbar.php'; ?>
+
+
+  <!-- Sidebar -->
+ <?php include '../includes/sidebar.php'; ?>
+
+  <div class=" content mt-4">
     <audio id="successSound"
       src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_7d30f4f34d.mp3?filename=success-1-6297.mp3"
       preload="auto"></audio>
 
-
-
-
-    <?php include '../components/backToDashboard.php'; ?>
 
     <h3 class="mb-4">🧾 Live Billing</h3>
 

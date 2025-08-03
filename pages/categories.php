@@ -36,6 +36,8 @@ $result = $conn->query($sql);
   <title>Category Management</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     body {
@@ -47,12 +49,73 @@ $result = $conn->query($sql);
     .card {
       border-radius: 15px;
     }
+     .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 1030;
+      background-color: #ffffff;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .sidebar {
+      width: 220px;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      background: #ffffff;
+      border-right: 1px solid #dee2e6;
+      padding-top: 60px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar .nav-links {
+      flex-grow: 1;
+    }
+
+    .sidebar a {
+      padding: 12px 20px;
+      color: #333;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .sidebar a:hover {
+      background-color: #f0f0f0;
+      border-left: 4px solid #007bff;
+    }
+
+    .sidebar-footer {
+      padding: 12px 20px;
+      margin-top: auto;
+    }
+
+    .content {
+      margin-left: 220px;
+      padding: 20px;
+      padding-top: 80px; 
+    }
+
   </style>
 </head>
 <body class="py-4">
+ <!-- Navbar -->
+  <?php include '../includes/navbar.php'; ?>
 
-<div class="container">
-  <?php include '../components/backToDashboard.php'; ?>
+
+  <!-- Sidebar -->
+ <?php include '../includes/sidebar.php'; ?>
+
+<div class="container content">
 
   <h3 class="mb-4 text-center">📂 Manage Categories</h3>
 

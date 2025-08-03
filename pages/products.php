@@ -74,11 +74,69 @@ $low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+     .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 1030;
+      background-color: #ffffff;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .sidebar {
+      width: 220px;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      background: #ffffff;
+      border-right: 1px solid #dee2e6;
+      padding-top: 60px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar .nav-links {
+      flex-grow: 1;
+    }
+
+    .sidebar a {
+      padding: 12px 20px;
+      color: #333;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .sidebar-footer {
+      padding: 12px 20px;
+      margin-top: auto;
+    }
+
+    .content {
+      margin-left: 220px;
+      padding: 20px;
+      padding-top: 40px; 
+    }
+    </style>
 </head>
 <body class="bg-light">
 
-<div class="container mt-5">
-  <?php include '../components/backToDashboard.php'; ?>
+ <!-- Navbar -->
+  <?php include '../includes/navbar.php'; ?>
+
+
+  <!-- Sidebar -->
+ <?php include '../includes/sidebar.php'; ?>
+
+<div class="container content mt-5">
   <h3 class="mb-4">🛒 Manage Products</h3>
 
 
