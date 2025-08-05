@@ -7,44 +7,61 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$store_id = $_SESSION['store_id'];
 $fixed_cost_price = 500;
 
-// Summary Data
-$result = $conn->query("
+// Summary
+$stmt = $conn->prepare("
     SELECT 
         SUM(si.quantity * si.price) AS total_revenue,
-        SUM(si.quantity * (si.price - $fixed_cost_price)) AS total_profit,
+        SUM(si.quantity * (si.price - ?)) AS total_profit,
         SUM(si.quantity * si.price * 0.05) AS total_tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
+    WHERE s.store_id = ?
 ");
-$data = $result->fetch_assoc();
+$stmt->bind_param("ii", $fixed_cost_price, $store_id);
+$stmt->execute();
+$data = $stmt->get_result()->fetch_assoc();
+
 $total_revenue = $data['total_revenue'] ?? 0;
 $total_profit = $data['total_profit'] ?? 0;
 $total_tax = $data['total_tax'] ?? 0;
 
-// Daily, Monthly, Yearly Totals
-$today_total = $conn->query("
+// Daily
+$stmt = $conn->prepare("
     SELECT SUM(si.quantity * si.price) AS today_total
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE DATE(s.sale_date) = CURDATE()
-")->fetch_assoc()['today_total'] ?? 0;
+    WHERE s.store_id = ? AND DATE(s.sale_date) = CURDATE()
+");
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$today_total = $stmt->get_result()->fetch_assoc()['today_total'] ?? 0;
 
-$month_total = $conn->query("
+// Monthly
+$stmt = $conn->prepare("
     SELECT SUM(si.quantity * si.price) AS month_total
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE MONTH(s.sale_date) = MONTH(CURRENT_DATE())
+    WHERE s.store_id = ? AND MONTH(s.sale_date) = MONTH(CURRENT_DATE())
     AND YEAR(s.sale_date) = YEAR(CURRENT_DATE())
-")->fetch_assoc()['month_total'] ?? 0;
+");
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$month_total = $stmt->get_result()->fetch_assoc()['month_total'] ?? 0;
 
-$year_total = $conn->query("
+// Yearly
+$stmt = $conn->prepare("
     SELECT SUM(si.quantity * si.price) AS year_total
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE YEAR(s.sale_date) = YEAR(CURRENT_DATE())
-")->fetch_assoc()['year_total'] ?? 0;
+    WHERE s.store_id = ? AND YEAR(s.sale_date) = YEAR(CURRENT_DATE())
+");
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$year_total = $stmt->get_result()->fetch_assoc()['year_total'] ?? 0;
+
 ?>
 
 <!DOCTYPE html>

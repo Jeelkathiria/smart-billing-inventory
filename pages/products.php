@@ -2,10 +2,18 @@
 require_once '../includes/db.php';
 session_start();
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
   header('Location: ../auth/login.php');
   exit();
 }
+
+$store_id = $_SESSION['store_id'];
+
+// Fetch categories only for this store
+$cat_stmt = $conn->prepare("SELECT * FROM categories WHERE store_id = ?");
+$cat_stmt->bind_param("i", $store_id);
+$cat_stmt->execute();
+$categories = $cat_stmt->get_result();
 
 // Fetch categories for dropdown
 $categories = $conn->query("SELECT * FROM categories");
@@ -21,13 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
   $total_price = round($price + $gst_amount, 2);
 
   if (!empty($name) && $category_id && $price >= 0 && $stock >= 0 && $gst_percent >= 0) {
-    $check = $conn->prepare("SELECT * FROM products WHERE name = ?");
-    $check->bind_param("s", $name);
+    $check = $conn->prepare("SELECT * FROM products WHERE name = ? AND store_id = ?");
+    $check->bind_param("si", $name, $store_id);
     $check->execute();
     $result = $check->get_result();
     if ($result->num_rows === 0) {
-      $stmt = $conn->prepare("INSERT INTO products (name, category_id, price, stock, gst_percent, total_price) VALUES (?, ?, ?, ?, ?, ?)");
-      $stmt->bind_param("sididd", $name, $category_id, $price, $stock, $gst_percent, $total_price);
+      $stmt = $conn->prepare("INSERT INTO products (name, category_id, price, stock, gst_percent, total_price, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      $stmt->bind_param("sididd", $name, $category_id, $price, $stock, $gst_percent, $total_price, $store_id);
       $stmt->execute();
     }
   }
@@ -44,25 +52,31 @@ if (isset($_POST['edit_id'])) {
   $edit_gst_amount = round($edit_price * $edit_gst / 100, 2);
   $edit_total_price = round($edit_price + $edit_gst_amount, 2);
 
-  $stmt = $conn->prepare("UPDATE products SET name = ?, category_id = ?, price = ?, gst_percent = ?, total_price = ?, stock = ? WHERE product_id = ?");
-  $stmt->bind_param("sididdi", $edit_name, $edit_category_id, $edit_price, $edit_gst, $edit_total_price, $edit_stock, $edit_id);
+  $stmt = $conn->prepare("UPDATE products SET name = ?, category_id = ?, price = ?, gst_percent = ?, total_price = ?, stock = ? WHERE product_id = ? AND store_id = ?");
+  $stmt->bind_param("sididdii", $edit_name, $edit_category_id, $edit_price, $edit_gst, $edit_total_price, $edit_stock, $edit_id, $store_id);
   $stmt->execute();
 }
 
 // Handle Delete
 if (isset($_GET['delete'])) {
   $delete_id = (int) $_GET['delete'];
-  $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ?");
-  $stmt->bind_param("i", $delete_id);
+  $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
+  $stmt->bind_param("ii", $delete_id, $store_id);
   $stmt->execute();
 }
 
 // Fetch Products
-$products = $conn->query("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id ORDER BY p.product_id DESC");
+// Fetch Products only for the logged-in user's store
+$products_stmt = $conn->prepare("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHERE p.store_id = ? ORDER BY p.product_id DESC");
+$products_stmt->bind_param("i", $store_id);
+$products_stmt->execute();
+$products = $products_stmt->get_result();
 
 // Fetch Low Stock Products
-$low_stock_result = $conn->query("SELECT * FROM products WHERE stock < 5");
-$low_stock_products = $low_stock_result->fetch_all(MYSQLI_ASSOC);
+$low_stmt = $conn->prepare("SELECT * FROM products WHERE stock < 5 AND store_id = ?");
+$low_stmt->bind_param("i", $store_id);
+$low_stmt->execute();
+$low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 ?>
 
 <!DOCTYPE html>

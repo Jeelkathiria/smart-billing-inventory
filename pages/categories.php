@@ -2,33 +2,39 @@
 require_once '../includes/db.php';
 session_start();
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
   header('Location: ../auth/login.php');
   exit();
 }
 
+$store_id = $_SESSION['store_id'];
+
 // Handle insert
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['name']))) {
     $category_name = trim($_POST['name']);
-    $sql = "INSERT INTO categories (name) VALUES (?)";
+    $sql = "INSERT INTO categories (name, store_id) VALUES (?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $category_name);
+    $stmt->bind_param("si", $category_name, $store_id);
     $stmt->execute();
 }
 
 // Handle delete
 if (isset($_GET['delete'])) {
     $delete_id = (int) $_GET['delete'];
-    $sql = "DELETE FROM categories WHERE category_id = ?";
+    $sql = "DELETE FROM categories WHERE category_id = ? AND store_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $delete_id);
+    $stmt->bind_param("ii", $delete_id, $store_id);
     $stmt->execute();
 }
 
-// Fetch categories
-$sql = "SELECT * FROM categories ORDER BY category_id DESC";
-$result = $conn->query($sql);
+// Fetch categories only for current store
+$sql = "SELECT * FROM categories WHERE store_id = ? ORDER BY category_id DESC";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

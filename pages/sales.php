@@ -1,12 +1,20 @@
 <?php
 require_once '../includes/db.php';
+session_start();
+
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
+  header('Location: ../auth/login.php');
+  exit();
+}
+
+$store_id = $_SESSION['store_id'];
 $today = date('Y-m-d');
 
-// Today's revenue and sales count
+// Today's revenue and sales count for this store
 $query = "SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
-          FROM sales WHERE DATE(sale_date) = ?";
+          FROM sales WHERE DATE(sale_date) = ? AND store_id = ?";
 $stmt = $conn->prepare($query);
-$stmt->bind_param("s", $today);
+$stmt->bind_param("si", $today, $store_id);
 $stmt->execute();
 $result = $stmt->get_result()->fetch_assoc();
 
@@ -15,21 +23,19 @@ $todayRevenue = $result['revenue'] ?? 0;
 
 // Filtering
 $filterDate = $_GET['filter_date'] ?? '';
-$whereClause = '';
-$params = [];
+$whereClause = "WHERE store_id = ?";
+$params = [$store_id];
+$types = "i";
 
 if (!empty($filterDate)) {
-  $whereClause = "WHERE DATE(sale_date) = ?";
+  $whereClause .= " AND DATE(sale_date) = ?";
   $params[] = $filterDate;
+  $types .= "s";
 }
 
 $sql = "SELECT * FROM sales $whereClause ORDER BY sale_date DESC";
 $stmt = $conn->prepare($sql);
-
-if (!empty($params)) {
-  $stmt->bind_param("s", ...$params);
-}
-
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $salesResult = $stmt->get_result();
 ?>
