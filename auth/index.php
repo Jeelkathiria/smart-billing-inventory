@@ -210,7 +210,8 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Contact Number</label>
-              <input type="text" class="form-control" name="contact_number" required>
+              <input type="text" class="form-control" name="contact_number" pattern="[0-9]{10}" maxlength="10" required
+                title="Please enter exactly 10 digits">
             </div>
             <hr>
             <div class="mb-3">

@@ -13,10 +13,8 @@ $store_id = $_SESSION['store_id'];
 $cat_stmt = $conn->prepare("SELECT * FROM categories WHERE store_id = ?");
 $cat_stmt->bind_param("i", $store_id);
 $cat_stmt->execute();
-$categories = $cat_stmt->get_result();
-
-// Fetch categories for dropdown
-$categories = $conn->query("SELECT * FROM categories");
+$categories_result = $cat_stmt->get_result();
+$categories = $categories_result; // for dropdown + modal
 
 // Handle Add Product with GST entered by user
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
@@ -35,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
     $result = $check->get_result();
     if ($result->num_rows === 0) {
       $stmt = $conn->prepare("INSERT INTO products (name, category_id, price, stock, gst_percent, total_price, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
-      $stmt->bind_param("sididd", $name, $category_id, $price, $stock, $gst_percent, $total_price, $store_id);
+      $stmt->bind_param('sididdi', $name, $category_id, $price, $stock, $gst_percent, $total_price, $store_id);
       $stmt->execute();
     }
   }
@@ -66,18 +64,18 @@ if (isset($_GET['delete'])) {
 }
 
 // Fetch Products
-// Fetch Products only for the logged-in user's store
 $products_stmt = $conn->prepare("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHERE p.store_id = ? ORDER BY p.product_id DESC");
 $products_stmt->bind_param("i", $store_id);
 $products_stmt->execute();
 $products = $products_stmt->get_result();
 
-// Fetch Low Stock Products
+// Low stock alert
 $low_stmt = $conn->prepare("SELECT * FROM products WHERE stock < 5 AND store_id = ?");
 $low_stmt->bind_param("i", $store_id);
 $low_stmt->execute();
 $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

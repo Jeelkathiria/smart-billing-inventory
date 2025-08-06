@@ -1,5 +1,8 @@
 <?php
 require_once '../includes/db.php';
+session_start();
+
+$store_id = $_SESSION['store_id'];
 ?>
 
 <!DOCTYPE html>
@@ -12,56 +15,56 @@ require_once '../includes/db.php';
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
   <style>
-     .navbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      z-index: 1030;
-      background-color: #ffffff;
-      border-bottom: 1px solid #dee2e6;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-    }
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1030;
+    background-color: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+  }
 
-    .sidebar {
-      width: 220px;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      background: #ffffff;
-      border-right: 1px solid #dee2e6;
-      padding-top: 60px;
-      display: flex;
-      flex-direction: column;
-    }
+  .sidebar {
+    width: 220px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-right: 1px solid #dee2e6;
+    padding-top: 60px;
+    display: flex;
+    flex-direction: column;
+  }
 
-    .sidebar .nav-links {
-      flex-grow: 1;
-    }
+  .sidebar .nav-links {
+    flex-grow: 1;
+  }
 
-    .sidebar a {
-      padding: 12px 20px;
-      color: #333;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background 0.2s;
-    }
+  .sidebar a {
+    padding: 12px 20px;
+    color: #333;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+  }
 
-    .sidebar-footer {
-      padding: 12px 20px;
-      margin-top: auto;
-    }
+  .sidebar-footer {
+    padding: 12px 20px;
+    margin-top: auto;
+  }
 
-    .content {
-      margin-left: 220px;
-      padding: 20px;
-      padding-top: 60px; 
-    }
+  .content {
+    margin-left: 220px;
+    padding: 20px;
+    padding-top: 60px;
+  }
 
   @keyframes fadeInOut {
     0% {
@@ -110,12 +113,12 @@ require_once '../includes/db.php';
 
 <body>
 
-<!-- Navbar -->
+  <!-- Navbar -->
   <?php include '../includes/navbar.php'; ?>
 
 
   <!-- Sidebar -->
- <?php include '../includes/sidebar.php'; ?>
+  <?php include '../includes/sidebar.php'; ?>
 
   <div class=" content mt-4">
     <audio id="successSound"
@@ -152,7 +155,8 @@ require_once '../includes/db.php';
         <select id="categorySelect" class="form-select">
           <option value="">Select Category</option>
           <?php
-        $categories = $conn->query("SELECT * FROM categories");
+        $categories = $conn->query("SELECT * FROM categories WHERE store_id = $store_id");
+
         while ($cat = $categories->fetch_assoc()) {
           echo "<option value='{$cat['category_id']}'>{$cat['name']}</option>";
         }
@@ -210,99 +214,99 @@ require_once '../includes/db.php';
     style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255,255,255,0.7); z-index: 9998; display: none;">
   </div>
 
-<script>
-let cart = [];
-let productsList = {};
+  <script>
+  let cart = [];
+  let productsList = {};
 
-// Set invoice date on page load
-document.addEventListener("DOMContentLoaded", function () {
-  document.getElementById("invoice_date").value = getFormattedDateTime();
-});
-
-// Populate products when category changes
-document.getElementById('categorySelect').addEventListener('change', function () {
-  const categoryId = this.value;
-  if (!categoryId) return;
-
-  fetch(`fetch_products.php?category_id=${categoryId}`)
-    .then(res => res.json())
-    .then(data => {
-      const productSelect = document.getElementById('productSelect');
-      productSelect.innerHTML = '<option value="">Select Product</option>';
-      productsList = {}; // reset
-
-      data.forEach(product => {
-        productsList[product.product_id] = product;
-        productSelect.innerHTML += `<option value="${product.product_id}">${product.name}</option>`;
-      });
-
-      productSelect.disabled = false;
-    });
-});
-
-// Barcode input detection
-document.getElementById('barcodeInput').addEventListener('input', function () {
-  const enteredBarcode = this.value.trim();
-  if (enteredBarcode === "") return;
-
-  const found = Object.entries(productsList).find(([id, product]) => product.barcode === enteredBarcode);
-
-  if (found) {
-    const productId = found[0];
-    document.getElementById('productSelect').value = productId;
-  } else {
-    document.getElementById('productSelect').value = "";
-  }
-});
-
-// Add product to cart
-document.getElementById('addProductBtn').addEventListener('click', function () {
-  const productId = document.getElementById('productSelect').value;
-  const qty = parseInt(document.getElementById('qtyInput').value);
-
-  if (!productId || qty < 1) return;
-
-  const product = productsList[productId];
-  const stock = parseInt(product.stock);
-
-  if (stock === 0) {
-    alert(`❌ ${product.name} is out of stock`);
-    return;
-  }
-
-  if (qty > stock) {
-    alert(`❌ Only ${stock} in stock for ${product.name}`);
-    return;
-  }
-
-  const rate = parseFloat(product.price);
-  const gstPercent = parseFloat(product.gst_percent);
-  const baseAmount = qty * rate;
-  const gstAmount = baseAmount * (gstPercent / 100);
-  const totalAmount = baseAmount + gstAmount;
-
-  cart.push({
-    id: product.product_id,
-    name: product.name,
-    qty,
-    rate,
-    gst: gstPercent,
-    total: totalAmount
+  // Set invoice date on page load
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("invoice_date").value = getFormattedDateTime();
   });
 
-  renderTable();
-  document.getElementById('barcodeInput').value = '';
-});
+  // Populate products when category changes
+  document.getElementById('categorySelect').addEventListener('change', function() {
+    const categoryId = this.value;
+    if (!categoryId) return;
+
+    fetch(`fetch_products.php?category_id=${categoryId}`)
+      .then(res => res.json())
+      .then(data => {
+        const productSelect = document.getElementById('productSelect');
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        productsList = {}; // reset
+
+        data.forEach(product => {
+          productsList[product.product_id] = product;
+          productSelect.innerHTML += `<option value="${product.product_id}">${product.name}</option>`;
+        });
+
+        productSelect.disabled = false;
+      });
+  });
+
+  // Barcode input detection
+  document.getElementById('barcodeInput').addEventListener('input', function() {
+    const enteredBarcode = this.value.trim();
+    if (enteredBarcode === "") return;
+
+    const found = Object.entries(productsList).find(([id, product]) => product.barcode === enteredBarcode);
+
+    if (found) {
+      const productId = found[0];
+      document.getElementById('productSelect').value = productId;
+    } else {
+      document.getElementById('productSelect').value = "";
+    }
+  });
+
+  // Add product to cart
+  document.getElementById('addProductBtn').addEventListener('click', function() {
+    const productId = document.getElementById('productSelect').value;
+    const qty = parseInt(document.getElementById('qtyInput').value);
+
+    if (!productId || qty < 1) return;
+
+    const product = productsList[productId];
+    const stock = parseInt(product.stock);
+
+    if (stock === 0) {
+      alert(`❌ ${product.name} is out of stock`);
+      return;
+    }
+
+    if (qty > stock) {
+      alert(`❌ Only ${stock} in stock for ${product.name}`);
+      return;
+    }
+
+    const rate = parseFloat(product.price);
+    const gstPercent = parseFloat(product.gst_percent);
+    const baseAmount = qty * rate;
+    const gstAmount = baseAmount * (gstPercent / 100);
+    const totalAmount = baseAmount + gstAmount;
+
+    cart.push({
+      id: product.product_id,
+      name: product.name,
+      qty,
+      rate,
+      gst: gstPercent,
+      total: totalAmount
+    });
+
+    renderTable();
+    document.getElementById('barcodeInput').value = '';
+  });
 
 
-function renderTable() {
-  const tbody = document.querySelector("#billingTable tbody");
-  tbody.innerHTML = '';
-  let subTotal = 0;
+  function renderTable() {
+    const tbody = document.querySelector("#billingTable tbody");
+    tbody.innerHTML = '';
+    let subTotal = 0;
 
-  cart.forEach((item, i) => {
-    subTotal += item.total;
-    tbody.innerHTML += `
+    cart.forEach((item, i) => {
+      subTotal += item.total;
+      tbody.innerHTML += `
       <tr>
         <td>${i + 1}</td>
         <td>${item.name}</td>
@@ -310,96 +314,95 @@ function renderTable() {
         <td>₹${item.total.toFixed(2)}</td>
         <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
       </tr>`;
-  });
+    });
 
-  const tax = subTotal * 0.05;
-  const finalTotal = subTotal + tax;
+    const tax = subTotal * 0.05;
+    const finalTotal = subTotal + tax;
 
-  document.getElementById("subTotal").innerText = subTotal.toFixed(2);
-  document.getElementById("taxAmount").innerText = tax.toFixed(2);
-  document.getElementById("totalAmount").innerText = finalTotal.toFixed(2);
-}
-
-function removeItem(index) {
-  cart.splice(index, 1);
-  renderTable();
-}
-
-function getFormattedDateTime() {
-  const now = new Date();
-  const pad = (n) => n < 10 ? '0' + n : n;
-  const date = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
-  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  return `${date} ${time}`;
-}
-
-// Generate invoice
-document.getElementById("generateInvoiceBtn").addEventListener("click", function () {
-  if (cart.length === 0) return;
-
-  const customerName = document.getElementById("customer_name").value.trim();
-  if (!customerName) {
-    alert("Please enter a customer name.");
-    return;
+    document.getElementById("subTotal").innerText = subTotal.toFixed(2);
+    document.getElementById("taxAmount").innerText = tax.toFixed(2);
+    document.getElementById("totalAmount").innerText = finalTotal.toFixed(2);
   }
 
-  const invoiceData = {
-    customer_name: customerName,
-    date: document.getElementById("invoice_date").value,
-    items: cart,
-    subTotal: parseFloat(document.getElementById("subTotal").innerText),
-    tax: parseFloat(document.getElementById("taxAmount").innerText),
-    total: parseFloat(document.getElementById("totalAmount").innerText)
-  };
+  function removeItem(index) {
+    cart.splice(index, 1);
+    renderTable();
+  }
 
-  fetch('generate_invoice.php', {
-      method: 'POST',
-      body: JSON.stringify(invoiceData),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(response => response.blob())
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "Invoice_" + new Date().toISOString().slice(0, 19).replace(/[-T:]/g, "") + ".pdf";
-      a.click();
-      URL.revokeObjectURL(url);
+  function getFormattedDateTime() {
+    const now = new Date();
+    const pad = (n) => n < 10 ? '0' + n : n;
+    const date = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+    const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    return `${date} ${time}`;
+  }
 
-      // Play sound
-      const successSound = document.getElementById("successSound");
-      successSound.currentTime = 0;
-      successSound.play().catch(() => {
-        console.warn("Sound play blocked by browser");
+  // Generate invoice
+  document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
+    if (cart.length === 0) return;
+
+    const customerName = document.getElementById("customer_name").value.trim();
+    if (!customerName) {
+      alert("Please enter a customer name.");
+      return;
+    }
+
+    const invoiceData = {
+      customer_name: customerName,
+      date: document.getElementById("invoice_date").value,
+      items: cart,
+      subTotal: parseFloat(document.getElementById("subTotal").innerText),
+      tax: parseFloat(document.getElementById("taxAmount").innerText),
+      total: parseFloat(document.getElementById("totalAmount").innerText)
+    };
+
+    fetch('generate_invoice.php', {
+        method: 'POST',
+        body: JSON.stringify(invoiceData),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "Invoice_" + new Date().toISOString().slice(0, 19).replace(/[-T:]/g, "") + ".pdf";
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Play sound
+        document.getElementById("successSound").play().then(() => {
+          document.getElementById("successSound").pause();
+        }).catch(() => {});
+
+
+        // Show toast and overlay
+        const overlay = document.getElementById("overlayFade");
+        const toast = document.getElementById("successToast");
+        overlay.style.display = 'block';
+        toast.classList.add("show");
+        toast.style.display = 'block';
+
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          toast.classList.remove("show");
+          toast.style.display = 'none';
+        }, 3000);
+
+        // Reset form
+        cart = [];
+        renderTable();
+        document.getElementById('barcodeInput').value = '';
+        document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
+        document.getElementById('productSelect').disabled = true;
+        document.getElementById('categorySelect').value = '';
+        document.getElementById('qtyInput').value = 1;
+        document.getElementById('customer_name').value = '';
       });
-
-      // Show toast and overlay
-      const overlay = document.getElementById("overlayFade");
-      const toast = document.getElementById("successToast");
-      overlay.style.display = 'block';
-      toast.classList.add("show");
-      toast.style.display = 'block';
-
-      setTimeout(() => {
-        overlay.style.display = 'none';
-        toast.classList.remove("show");
-        toast.style.display = 'none';
-      }, 3000);
-
-      // Reset form
-      cart = [];
-      renderTable();
-      document.getElementById('barcodeInput').value = '';
-      document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
-      document.getElementById('productSelect').disabled = true;
-      document.getElementById('categorySelect').value = '';
-      document.getElementById('qtyInput').value = 1;
-      document.getElementById('customer_name').value = '';
-    });
-});
-</script>
+  });
+  </script>
 
 
 
