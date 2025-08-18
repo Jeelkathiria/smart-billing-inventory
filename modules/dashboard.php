@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/db.php';
+require_once '../config/db.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -134,11 +134,11 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 <body>
 
   <!-- Navbar -->
-  <?php include '../includes/navbar.php'; ?>
+  <?php include '../components/navbar.php'; ?>
 
 
   <!-- Sidebar -->
- <?php include '../includes/sidebar.php'; ?>
+ <?php include '../components/sidebar.php'; ?>
 
   <!-- Main Content -->
   <div class="content">

@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php';
+require_once __DIR__ . "/../../config/db.php";
+
 
 header("Content-Type: application/vnd.ms-excel");
 header("Content-Disposition: attachment; filename=sales_export_" . date("Ymd_His") . ".xls");

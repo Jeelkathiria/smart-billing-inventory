@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php'; // ✅ Make sure db.php sets up $conn
+require_once __DIR__ . '/../../config/db.php';
+
 
 if (!isset($_GET['invoice_id'])) {
     die("No invoice ID provided.");

@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php';
+require_once __DIR__ . '/../../config/db.php';
+
 session_start();
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {

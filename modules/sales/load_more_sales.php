@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php';
+require_once __DIR__ . "/../../config/db.php";
+
 
 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 

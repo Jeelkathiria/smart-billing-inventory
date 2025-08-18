@@ -8,124 +8,123 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
-  body {
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
-    background: #f3f4f6;
-    background-image: url('https://www.transparenttextures.com/patterns/store-icon-pattern.svg');
-    background-size: 200px;
-    background-repeat: repeat;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Segoe UI', sans-serif;
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: #f3f4f6;
+      background-image: url('https://www.transparenttextures.com/patterns/store-icon-pattern.svg');
+      background-size: 200px;
+      background-repeat: repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
 
-  }
-
-  .container-custom {
-    display: flex;
-    flex-wrap: wrap;
-    max-width: 1100px;
-    width: 100%;
-    background: #ffffff;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-    border-radius: 16px;
-    overflow: hidden;
-  }
-
-  .left-panel {
-    background: linear-gradient(135deg, #0f172a, #2563eb);
-    color: white;
-    padding: 40px;
-    flex: 1;
-    min-width: 300px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .left-panel h1 {
-    font-size: 2.8rem;
-    font-weight: bold;
-  }
-
-  .left-panel p {
-    font-size: 1.1rem;
-    margin-top: 10px;
-  }
-
-  .left-panel ul {
-    margin-top: 25px;
-    list-style: none;
-    padding: 0;
-  }
-
-  .left-panel ul li {
-    margin-bottom: 10px;
-  }
-
-  .left-panel ul li::before {
-    content: "✔️";
-    margin-right: 8px;
-  }
-
-  .right-panel {
-    background: #ffffff;
-    padding: 40px;
-    flex: 1;
-    min-width: 300px;
-  }
-
-  .nav-tabs .nav-link.active {
-    background-color: #2563eb;
-    color: white !important;
-    border: none;
-  }
-
-  .nav-tabs .nav-link {
-    border: none;
-    font-weight: 500;
-    color: #333;
-  }
-
-  .form-control:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
-  }
-
-  .btn-primary {
-    background-color: #2563eb;
-    border: none;
-  }
-
-  .btn-success {
-    background-color: #10b981;
-    border: none;
-  }
-
-  .btn:hover {
-    opacity: 0.95;
-  }
-
-  .form-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: #333;
-  }
-
-  @media (max-width: 768px) {
     .container-custom {
-      flex-direction: column;
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 1100px;
+      width: 100%;
+      background: #ffffff;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+      border-radius: 16px;
+      overflow: hidden;
     }
 
-    .left-panel,
-    .right-panel {
-      padding: 30px;
-      text-align: center;
+    .left-panel {
+      background: linear-gradient(135deg, #0f172a, #2563eb);
+      color: white;
+      padding: 40px;
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
-  }
+
+    .left-panel h1 {
+      font-size: 2.8rem;
+      font-weight: bold;
+    }
+
+    .left-panel p {
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+
+    .left-panel ul {
+      margin-top: 25px;
+      list-style: none;
+      padding: 0;
+    }
+
+    .left-panel ul li {
+      margin-bottom: 10px;
+    }
+
+    .left-panel ul li::before {
+      content: "✔️";
+      margin-right: 8px;
+    }
+
+    .right-panel {
+      background: #ffffff;
+      padding: 40px;
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .nav-tabs .nav-link.active {
+      background-color: #2563eb;
+      color: white !important;
+      border: none;
+    }
+
+    .nav-tabs .nav-link {
+      border: none;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-control:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-primary {
+      background-color: #2563eb;
+      border: none;
+    }
+
+    .btn-success {
+      background-color: #10b981;
+      border: none;
+    }
+
+    .btn:hover {
+      opacity: 0.95;
+    }
+
+    .form-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    @media (max-width: 768px) {
+      .container-custom {
+        flex-direction: column;
+      }
+
+      .left-panel,
+      .right-panel {
+        padding: 30px;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 
@@ -144,7 +143,7 @@
       </ul>
     </div>
 
-    <!-- Right Login/Register Panel -->
+    <!-- Right Panel -->
     <div class="right-panel">
       <ul class="nav nav-tabs mb-4" id="formTabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -158,6 +157,7 @@
       </ul>
 
       <div class="tab-content" id="formTabsContent">
+
         <!-- Login Tab -->
         <div class="tab-pane fade show active" id="loginTab" role="tabpanel">
           <div class="text-center mb-3">
@@ -165,10 +165,8 @@
               style="width:60px;height:60px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" class="bi bi-receipt"
                 viewBox="0 0 16 16">
-                <path
-                  d="M1.92.506a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627A.5.5 0 0 1 15 1v14a.5.5 0 0 1-.79.407l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627A.5.5 0 0 1 1 15V1a.5.5 0 0 1 .92-.494ZM2 1.934v12.132l.44-.293a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.94.627.94-.627a.5.5 0 0 1 .58 0l.44.293V1.934l-.44.293a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0l-.94-.627-.94.627a.5.5 0 0 1-.58 0L2 1.934Z" />
-                <path
-                  d="M3 4.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5Z" />
+                <path d="M1.92.506a.5.5 0 0 1 .58 0l...Z" />
+                <path d="M3 4.5a.5.5 0 0 1 .5-.5h9...Z" />
               </svg>
             </div>
           </div>
@@ -176,16 +174,19 @@
           <h5 class="mb-3 text-center fw-semibold text-primary">Smart Billing & Inventory Login</h5>
 
           <?php if (isset($_GET['error'])): ?>
-          <div class="alert alert-danger"><?= htmlspecialchars($_GET['error']) ?></div>
+            <div class="alert alert-danger"><?= htmlspecialchars($_GET['error']) ?></div>
           <?php endif; ?>
 
-          <form action="process_login.php" method="POST">
+          <?php if (isset($_GET['success'])): ?>
+            <div class="alert alert-success"><?= htmlspecialchars($_GET['success']) ?></div>
+          <?php endif; ?>
+
+          <form action="auth/process_login.php" method="POST">
             <div class="mb-3">
               <input type="text" name="username" class="form-control form-control-lg" placeholder="Username" required>
             </div>
             <div class="mb-3">
-              <input type="password" name="password" class="form-control form-control-lg" placeholder="Password"
-                required>
+              <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" required>
             </div>
             <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Login</button>
           </form>
@@ -195,11 +196,10 @@
           </div>
         </div>
 
-
         <!-- Register Tab -->
         <div class="tab-pane fade" id="registerTab" role="tabpanel">
           <div class="form-title">Register Your Store</div>
-          <form method="POST" action="register.php">
+          <form method="POST" action="auth/process_register.php">
             <div class="mb-3">
               <label class="form-label">Store Name</label>
               <input type="text" class="form-control" name="store_name" required>
@@ -210,8 +210,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Contact Number</label>
-              <input type="text" class="form-control" name="contact_number" pattern="[0-9]{10}" maxlength="10" required
-                title="Please enter exactly 10 digits">
+              <input type="text" class="form-control" name="contact_number" pattern="[0-9]{10}" maxlength="10" required title="Please enter exactly 10 digits">
             </div>
             <hr>
             <div class="mb-3">
@@ -229,11 +228,11 @@
             <button class="btn btn-success w-100">Create Store</button>
           </form>
         </div>
+
       </div>
     </div>
 
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

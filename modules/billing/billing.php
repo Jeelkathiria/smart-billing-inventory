@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php';
+require_once __DIR__ . '/../../config/db.php';
+
 session_start();
 
 $store_id = $_SESSION['store_id'];

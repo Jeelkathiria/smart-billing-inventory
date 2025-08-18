@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php'; // adjust if needed
+require_once __DIR__ . '/../../config/db.php';
+
 
 $data = [];
 $dates = [];

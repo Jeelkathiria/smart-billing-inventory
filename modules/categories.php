@@ -1,5 +1,6 @@
 <?php
-require_once '../includes/db.php';
+include '../config/db.php';
+
 session_start();
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
