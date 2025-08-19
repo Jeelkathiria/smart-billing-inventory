@@ -181,7 +181,7 @@
             <div class="alert alert-success"><?= htmlspecialchars($_GET['success']) ?></div>
           <?php endif; ?>
 
-          <form action="auth/process_login.php" method="POST">
+          <form action="process_login.php" method="POST">
             <div class="mb-3">
               <input type="text" name="username" class="form-control form-control-lg" placeholder="Username" required>
             </div>
@@ -199,7 +199,7 @@
         <!-- Register Tab -->
         <div class="tab-pane fade" id="registerTab" role="tabpanel">
           <div class="form-title">Register Your Store</div>
-          <form method="POST" action="auth/process_register.php">
+          <form method="POST" action="process_register.php">
             <div class="mb-3">
               <label class="form-label">Store Name</label>
               <input type="text" class="form-control" name="store_name" required>
@@ -230,6 +230,13 @@
         </div>
 
       </div>
+    </div>
+
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
     </div>
 
   </div>

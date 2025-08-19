@@ -4,7 +4,7 @@ include '../config/db.php';
 session_start();
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-  header('Location: ../auth/login.php');
+  header('Location: ../auth/index.php');
   exit();
 }
 

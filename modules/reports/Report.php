@@ -145,11 +145,11 @@ $year_total = $stmt->get_result()->fetch_assoc()['year_total'] ?? 0;
 
 <body class="bg-light">
   <!-- Navbar -->
-  <?php include '../includes/navbar.php'; ?>
+  <?php include '../../components/navbar.php'; ?>
 
 
   <!-- Sidebar -->
-  <?php include '../includes/sidebar.php'; ?>
+  <?php include '../../components/sidebar.php'; ?>
 
   <div class="container my-4 content">
     <h2 class="mb-4">📈 Business Performance Report</h2>

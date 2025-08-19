@@ -3,8 +3,10 @@ require_once __DIR__ . "/../../config/db.php";
 
 session_start();
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-  header('Location: ../auth/login.php');
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id']) || !isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)) {
+  session_unset();
+  session_destroy();
+  header('Location: ../../auth/index.php');
   exit();
 }
 
@@ -40,7 +42,6 @@ $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $salesResult = $stmt->get_result();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -244,10 +245,8 @@ $salesResult = $stmt->get_result();
 
 <body>
 
-  <?php include '../includes/navbar.php'; ?>
-  <?php include '../includes/sidebar.php'; ?>
-
-
+  <?php include(__DIR__ . "/../../components/navbar.php"); ?>
+  <?php include(__DIR__ . "/../../components/sidebar.php"); ?>
 
   <div class="content-wrapper">
   <h3 class="mb-4"><i class="bi bi-graph-up-arrow me-2"></i>Sales Page</h3>
@@ -315,24 +314,24 @@ $salesResult = $stmt->get_result();
             </thead>
             <tbody>
               <?php if ($salesResult && $salesResult->num_rows > 0): ?>
-              <?php while ($row = $salesResult->fetch_assoc()): ?>
-              <tr>
-                <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
-                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
-                <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
-                <td>
-                  <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>"
-                    class="btn btn-outline-primary btn-sm rounded-pill">
-                    <i class="bi bi-eye"></i> View
-                  </a>
-                </td>
-              </tr>
-              <?php endwhile; ?>
+                <?php while ($row = $salesResult->fetch_assoc()): ?>
+                  <tr>
+                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
+                    <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                    <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
+                    <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
+                    <td>
+                      <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>"
+                        class="btn btn-outline-primary btn-sm rounded-pill">
+                        <i class="bi bi-eye"></i> View
+                      </a>
+                    </td>
+                  </tr>
+                <?php endwhile; ?>
               <?php else: ?>
-              <tr>
-                <td colspan="5" class="text-muted">No sales history available for the selected date.</td>
-              </tr>
+                <tr>
+                  <td colspan="5" class="text-muted">No sales history available for the selected date.</td>
+                </tr>
               <?php endif; ?>
             </tbody>
           </table>

@@ -115,11 +115,11 @@ $store_id = $_SESSION['store_id'];
 <body>
 
   <!-- Navbar -->
-  <?php include '../includes/navbar.php'; ?>
+  <?php include '../../components/navbar.php'; ?>
 
 
   <!-- Sidebar -->
-  <?php include '../includes/sidebar.php'; ?>
+  <?php include '../../components/sidebar.php'; ?>
 
   <div class=" content mt-4">
     <audio id="successSound"

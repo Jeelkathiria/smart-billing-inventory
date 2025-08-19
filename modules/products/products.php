@@ -3,10 +3,10 @@ require_once __DIR__ . '/../../config/db.php';
 
 session_start();
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-  header('Location: ../auth/login.php');
-  exit();
-}
+// if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
+//   header('Location: ../../auth/process_login.php');
+//   exit();
+// }
 
 $store_id = $_SESSION['store_id'];
 
@@ -143,11 +143,11 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 <body class="bg-light">
 
  <!-- Navbar -->
-  <?php include '../includes/navbar.php'; ?>
+  <?php include '../../components/navbar.php'; ?>
 
 
   <!-- Sidebar -->
- <?php include '../includes/sidebar.php'; ?>
+ <?php include '../../components/sidebar.php'; ?>
 
 <div class="container content mt-5">
   <h3 class="mb-4">🛒 Manage Products</h3>
