@@ -2,17 +2,7 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-    // Redirect to login page in auth folder
-    header('Location: ../../auth/index.php?error=Please%20login');
-    exit();
-}
 
-// Store session variables for later use
-$store_id = $_SESSION['store_id'];
-$username = $_SESSION['username'];
-$role = $_SESSION['role'];
 ?>
 
 <!DOCTYPE html>
@@ -117,6 +107,33 @@ $role = $_SESSION['role'];
   .table td,
   .table th {
     vertical-align: middle;
+  }
+
+  @keyframes shake {
+    0% {
+      transform: translateX(0);
+    }
+
+    25% {
+      transform: translateX(-5px);
+    }
+
+    50% {
+      transform: translateX(5px);
+    }
+
+    75% {
+      transform: translateX(-5px);
+    }
+
+    100% {
+      transform: translateX(0);
+    }
+  }
+
+  .input-error {
+    border-color: red !important;
+    animation: shake 0.3s;
   }
   </style>
 </head>
@@ -238,7 +255,8 @@ $role = $_SESSION['role'];
     const categoryId = this.value;
     if (!categoryId) return;
 
-    fetch(`fetch_products.php?category_id=${categoryId}`)
+    fetch(`/modules/sales/fetch_products.php?category_id=${categoryId}`)
+
       .then(res => res.json())
       .then(data => {
         const productSelect = document.getElementById('productSelect');
@@ -247,8 +265,15 @@ $role = $_SESSION['role'];
 
         data.forEach(product => {
           productsList[product.product_id] = product;
-          productSelect.innerHTML += `<option value="${product.product_id}">${product.name}</option>`;
+
+          // Disable option if stock is 0 and show "Out of Stock"
+          let disabled = product.stock == 0 ? 'disabled' : '';
+          let stockText = product.stock == 0 ? ' (Out of Stock)' : '';
+
+          productSelect.innerHTML +=
+            `<option value="${product.product_id}" ${disabled}>${product.name}${stockText}</option>`;
         });
+
 
         productSelect.disabled = false;
       });
@@ -348,17 +373,43 @@ $role = $_SESSION['role'];
   }
 
   // Generate invoice
+  // Generate invoice with shake validation
   document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
-    if (cart.length === 0) return;
-
-    const customerName = document.getElementById("customer_name").value.trim();
-    if (!customerName) {
-      alert("Please enter a customer name.");
+    if (cart.length === 0) {
+      // Shake the table or product selection if cart is empty
+      const table = document.getElementById("billingTable");
+      table.classList.add("input-error");
+      table.addEventListener("animationend", () => table.classList.remove("input-error"), {
+        once: true
+      });
       return;
     }
 
+    const customerNameInput = document.getElementById("customer_name");
+    if (!customerNameInput.value.trim()) {
+      customerNameInput.classList.add("input-error");
+      customerNameInput.addEventListener("animationend", () => customerNameInput.classList.remove("input-error"), {
+        once: true
+      });
+      customerNameInput.focus();
+      return;
+    }
+
+    // Optional: Validate quantity of each cart item (if needed)
+    for (let item of cart) {
+      if (item.qty < 1) {
+        const qtyInput = document.getElementById("qtyInput");
+        qtyInput.classList.add("input-error");
+        qtyInput.addEventListener("animationend", () => qtyInput.classList.remove("input-error"), {
+          once: true
+        });
+        qtyInput.focus();
+        return;
+      }
+    }
+
     const invoiceData = {
-      customer_name: customerName,
+      customer_name: customerNameInput.value.trim(),
       date: document.getElementById("invoice_date").value,
       items: cart,
       subTotal: parseFloat(document.getElementById("subTotal").innerText),
@@ -382,11 +433,9 @@ $role = $_SESSION['role'];
         a.click();
         URL.revokeObjectURL(url);
 
-        // Play sound
-        document.getElementById("successSound").play().then(() => {
-          document.getElementById("successSound").pause();
-        }).catch(() => {});
-
+        // Play success sound
+        const sound = document.getElementById("successSound");
+        sound.play().then(() => sound.pause()).catch(() => {});
 
         // Show toast and overlay
         const overlay = document.getElementById("overlayFade");
@@ -409,7 +458,7 @@ $role = $_SESSION['role'];
         document.getElementById('productSelect').disabled = true;
         document.getElementById('categorySelect').value = '';
         document.getElementById('qtyInput').value = 1;
-        document.getElementById('customer_name').value = '';
+        customerNameInput.value = '';
       });
   });
   </script>

@@ -1,17 +1,12 @@
 <?php
 ob_start();
-session_start(); // ✅ Needed to access store_id
 
-require_once '../includes/fpdf.php';
+require_once __DIR__ . '/../../includes/fpdf.php';
+
+
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../auth/auth_check.php';
 
-
-// Get store_id from session
-if (!isset($_SESSION['store_id'])) {
-    http_response_code(401);
-    die("Unauthorized access. Store ID not found.");
-}
-$store_id = intval($_SESSION['store_id']); // ✅ Sanitize
 
 // Error logging
 error_reporting(E_ALL);
@@ -51,6 +46,8 @@ $insert_sale = $conn->query("
 ");
 $sale_id = $conn->insert_id;
 
+
+
 // Insert items and update stock
 foreach ($items as $item) {
     $product_id = (int) $item['id'];
@@ -60,7 +57,7 @@ foreach ($items as $item) {
     $gst_percent = (int) $item['gst'];
 
     $check = $conn->prepare("SELECT stock FROM products WHERE product_id = ? AND store_id = ?");
-    $check->bind_param("ii", $product_id, $store_id); // ✅ verify product belongs to store
+    $check->bind_param("ii", $product_id, $store_id);
     $check->execute();
     $result = $check->get_result();
 
@@ -69,21 +66,24 @@ foreach ($items as $item) {
         if ($current_stock >= $quantity) {
             $update = $conn->prepare("UPDATE products SET stock = stock - ? WHERE product_id = ? AND store_id = ?");
             $update->bind_param("iii", $quantity, $product_id, $store_id);
-            $update->execute();
+            if (!$update->execute()) {
+                error_log("❌ Stock update failed for Product ID $product_id: " . $update->error);
+            } else {
+                error_log("✅ Stock updated: -$quantity for Product ID $product_id");
+            }
 
-            $insert_item = $conn->prepare("
-                INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price, gst_percent)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
+            $insert_item = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price, gst_percent)
+                                           VALUES (?, ?, ?, ?, ?, ?)");
             $insert_item->bind_param("iisidi", $sale_id, $product_id, $product_name, $quantity, $price, $gst_percent);
             $insert_item->execute();
         } else {
-            error_log("Insufficient stock for product ID $product_id. Requested: $quantity, Available: $current_stock");
+            error_log("⚠️ Insufficient stock for product ID $product_id. Requested: $quantity, Available: $current_stock");
         }
     } else {
-        error_log("Product ID $product_id not found or doesn't belong to this store.");
+        error_log("⚠️ Product ID $product_id not found or doesn't belong to this store (Store ID: $store_id).");
     }
 }
+
 
 // ✅ Generate PDF
 ob_end_clean();
