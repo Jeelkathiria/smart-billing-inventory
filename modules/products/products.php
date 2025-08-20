@@ -1,14 +1,12 @@
 <?php
+
+
+// DB connection
 require_once __DIR__ . '/../../config/db.php';
 
-session_start();
+// Auth check
+require_once __DIR__ . '/../../auth/auth_check.php';
 
-// if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-//   header('Location: ../../auth/process_login.php');
-//   exit();
-// }
-
-$store_id = $_SESSION['store_id'];
 
 // Fetch categories only for this store
 $cat_stmt = $conn->prepare("SELECT * FROM categories WHERE store_id = ?");
@@ -142,12 +140,9 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 </head>
 <body class="bg-light">
 
- <!-- Navbar -->
-  <?php include '../../components/navbar.php'; ?>
+<?php include __DIR__ . '/../../components/navbar.php'; ?>
+<?php include __DIR__ . '/../../components/sidebar.php'; ?>
 
-
-  <!-- Sidebar -->
- <?php include '../../components/sidebar.php'; ?>
 
 <div class="container content mt-5">
   <h3 class="mb-4">🛒 Manage Products</h3>

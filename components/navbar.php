@@ -8,6 +8,6 @@
       </div>
       <span class="navbar-brand mb-0 h5">Smart Billing & Inventory</span>
     </div>
-    <a href="../auth/logout.php" class="btn btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
+    <a href="/../auth/logout.php" class="btn btn-outline-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>
   </div>
 </nav>

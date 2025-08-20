@@ -1,11 +1,6 @@
 <?php
 require_once '../config/db.php';
-session_start();
-
-if (!isset($_SESSION['user_id'])) {
-  header('Location: ../auth/login.php');
-  exit();
-}
+require_once __DIR__ . '/../auth/auth_check.php';
 
 $total_sales_result = $conn->query("SELECT SUM(total_amount) AS total_sales FROM sales");
 $total_sales = $total_sales_result->fetch_assoc()['total_sales'] ?? 0;
@@ -253,7 +248,7 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', function () {
-        fetch(`load_more_sales.php?offset=${offset}`)
+        fetch(`/modules/sales/load_more_sales.php?offset=${offset}`)
           .then(response => response.text())
           .then(data => {
             if (data.trim() === "") {

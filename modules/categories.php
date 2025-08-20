@@ -1,14 +1,18 @@
 <?php
-include '../config/db.php';
+require_once '../config/db.php';
+require_once __DIR__ . '/../auth/auth_check.php';
 
-session_start();
-
+// Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
-  header('Location: ../auth/index.php');
-  exit();
+    // Redirect to login page in auth folder
+    header('Location: ../auth/index.php?error=Please%20login');
+    exit();
 }
 
+// Store session variables for later use
 $store_id = $_SESSION['store_id'];
+$username = $_SESSION['username'];
+$role = $_SESSION['role'];
 
 // Handle insert
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['name']))) {
@@ -116,11 +120,11 @@ $result = $stmt->get_result();
 </head>
 <body class="py-4">
  <!-- Navbar -->
-  <?php include '../includes/navbar.php'; ?>
+  <?php include '../components/navbar.php'; ?>
 
 
   <!-- Sidebar -->
- <?php include '../includes/sidebar.php'; ?>
+ <?php include '../components/sidebar.php'; ?>
 
 <div class="container content">
 
