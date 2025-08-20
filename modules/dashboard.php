@@ -207,16 +207,20 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
           </thead>
           <tbody id="salesBody">
             <?php
-            $sales = $conn->query("SELECT * FROM sales ORDER BY sale_date DESC LIMIT 8");
-            while ($sale = $sales->fetch_assoc()):
-            ?>
-            <tr>
-              <td><span class="badge bg-secondary"><?= $sale['invoice_id']; ?></span></td>
-              <td><?= htmlspecialchars($sale['customer_name']); ?></td>
-              <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
-              <td><strong>₹<?= number_format($sale['total_amount'], 2); ?></strong></td>
-            </tr>
-            <?php endwhile; ?>
+              $user_id = $_SESSION['user_id']; // or username if that's how you track it
+
+              $sales = $conn->query("SELECT * FROM sales WHERE created_by = $user_id ORDER BY sale_date DESC LIMIT 8");
+
+              while ($sale = $sales->fetch_assoc()):
+              ?>
+              <tr>
+                <td><span class="badge bg-secondary"><?= $sale['invoice_id']; ?></span></td>
+                <td><?= htmlspecialchars($sale['customer_name']); ?></td>
+                <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
+                <td><strong>₹<?= number_format($sale['total_amount'], 2); ?></strong></td>
+              </tr>
+              <?php endwhile; ?>
+
           </tbody>
         </table>
         <div class="text-center py-2">

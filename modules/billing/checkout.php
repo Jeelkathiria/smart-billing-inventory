@@ -24,23 +24,30 @@ foreach ($_SESSION['cart'] as &$item) {
   }
   $total_amount += $item['total'];
 }
-
 // Insert Sale
-$stmt = $conn->prepare("INSERT INTO sales (total_amount) VALUES (?)");
-$stmt->bind_param("d", $total_amount);
+$stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, gst_percent, price) 
+                        VALUES (?, ?, ?, ?, ?, ?)");
+$stmt->bind_param("iisidd", $sale_id, $item['id'], $item['name'], $item['quantity'], $item['gst'], $item['price']);
 $stmt->execute();
+
 $sale_id = $conn->insert_id;
 
 // Insert Sale Items & Update Stock
 foreach ($_SESSION['cart'] as $item) {
-  $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, gst_percent, total_price) VALUES (?, ?, ?, ?, ?, ?)");
-  $stmt->bind_param("iiiddd", $sale_id, $item['id'], $item['quantity'], $item['price'], $item['gst'], $item['total']);
-  $stmt->execute();
+    $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, gst_percent, total_price) 
+                            VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("iiiddd", $sale_id, $item['id'], $item['quantity'], $item['price'], $item['gst'], $item['total']);
+    if (!$stmt->execute()) {
+        die("Sale item insert failed: " . $stmt->error);
+    }
 
-  $stmt2 = $conn->prepare("UPDATE products SET stock = stock - ? WHERE product_id = ?");
-  $stmt2->bind_param("ii", $item['quantity'], $item['id']);
-  $stmt2->execute();
+    $stmt2 = $conn->prepare("UPDATE products SET stock = stock - ? WHERE product_id = ?");
+    $stmt2->bind_param("ii", $item['quantity'], $item['id']);
+    if (!$stmt2->execute()) {
+        die("Stock update failed: " . $stmt2->error);
+    }
 }
+
 
 // Clear Cart & Redirect
 unset($_SESSION['cart']);

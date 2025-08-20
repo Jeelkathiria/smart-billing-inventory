@@ -224,7 +224,7 @@ require_once __DIR__ . '/../../auth/auth_check.php';
 
     <div class="text-end">
       <p><strong>Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
-      <p><strong>Tax (5%):</strong> ₹<span id="taxAmount">0.00</span></p>
+      <p><strong>Tax:</strong> ₹<span id="taxAmount">0.00</span></p>
       <h5><strong>Total:</strong> ₹<span id="totalAmount">0.00</span></h5>
       <button class="btn btn-primary mt-2" id="generateInvoiceBtn">Generate Invoice</button>
     </div>

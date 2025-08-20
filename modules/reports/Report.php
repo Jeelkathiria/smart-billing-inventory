@@ -15,57 +15,73 @@ $username = $_SESSION['username'];
 $role = $_SESSION['role'];
 $fixed_cost_price = 500;
 
+// Initialize variables to avoid undefined errors
+$total_revenue = 0;
+$total_profit  = 0;
+$total_tax     = 0;
+$today_total   = 0;
+$month_total   = 0;
+$year_total    = 0;
+
 // Summary
-$stmt = $conn->prepare("
+$sql_summary = "
     SELECT 
         SUM(si.quantity * si.price) AS total_revenue,
-        SUM(si.quantity * (si.price - ?)) AS total_profit,
-        SUM(si.quantity * si.price * 0.05) AS total_tax
+        SUM(si.quantity * (si.price - p.cost_price)) AS total_profit,
+        SUM(si.quantity * si.price * (si.gst_percent / 100)) AS total_tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
+    JOIN products p ON si.product_id = p.product_id
     WHERE s.store_id = ?
-");
-$stmt->bind_param("ii", $fixed_cost_price, $store_id);
-$stmt->execute();
-$data = $stmt->get_result()->fetch_assoc();
+";
 
-$total_revenue = $data['total_revenue'] ?? 0;
-$total_profit = $data['total_profit'] ?? 0;
-$total_tax = $data['total_tax'] ?? 0;
 
 // Daily
-$stmt = $conn->prepare("
-    SELECT SUM(si.quantity * si.price) AS today_total
+$sql_daily = "
+    SELECT DATE(s.sale_date) AS period,
+           SUM(si.quantity * si.price) AS revenue,
+           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
+           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE s.store_id = ? AND DATE(s.sale_date) = CURDATE()
-");
-$stmt->bind_param("i", $store_id);
-$stmt->execute();
-$today_total = $stmt->get_result()->fetch_assoc()['today_total'] ?? 0;
+    JOIN products p ON si.product_id = p.product_id
+    WHERE s.store_id = ?
+    GROUP BY DATE(s.sale_date)
+    ORDER BY DATE(s.sale_date) DESC
+    LIMIT 7
+";
+
 
 // Monthly
-$stmt = $conn->prepare("
-    SELECT SUM(si.quantity * si.price) AS month_total
+$sql_monthly = "
+    SELECT DATE_FORMAT(s.sale_date, '%Y-%m') AS period,
+           SUM(si.quantity * si.price) AS revenue,
+           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
+           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE s.store_id = ? AND MONTH(s.sale_date) = MONTH(CURRENT_DATE())
-    AND YEAR(s.sale_date) = YEAR(CURRENT_DATE())
-");
-$stmt->bind_param("i", $store_id);
-$stmt->execute();
-$month_total = $stmt->get_result()->fetch_assoc()['month_total'] ?? 0;
+    JOIN products p ON si.product_id = p.product_id
+    WHERE s.store_id = ?
+    GROUP BY DATE_FORMAT(s.sale_date, '%Y-%m')
+    ORDER BY period DESC
+    LIMIT 12
+";
+
 
 // Yearly
-$stmt = $conn->prepare("
-    SELECT SUM(si.quantity * si.price) AS year_total
+$sql_yearly = "
+    SELECT YEAR(s.sale_date) AS period,
+           SUM(si.quantity * si.price) AS revenue,
+           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
+           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    WHERE s.store_id = ? AND YEAR(s.sale_date) = YEAR(CURRENT_DATE())
-");
-$stmt->bind_param("i", $store_id);
-$stmt->execute();
-$year_total = $stmt->get_result()->fetch_assoc()['year_total'] ?? 0;
+    JOIN products p ON si.product_id = p.product_id
+    WHERE s.store_id = ?
+    GROUP BY YEAR(s.sale_date)
+    ORDER BY period DESC
+";
+
 
 ?>
 
