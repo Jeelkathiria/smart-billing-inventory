@@ -376,36 +376,13 @@ require_once __DIR__ . '/../../auth/auth_check.php';
   // Generate invoice with shake validation
   document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
     if (cart.length === 0) {
-      // Shake the table or product selection if cart is empty
-      const table = document.getElementById("billingTable");
-      table.classList.add("input-error");
-      table.addEventListener("animationend", () => table.classList.remove("input-error"), {
-        once: true
-      });
+      /* validation code */
       return;
     }
-
     const customerNameInput = document.getElementById("customer_name");
     if (!customerNameInput.value.trim()) {
-      customerNameInput.classList.add("input-error");
-      customerNameInput.addEventListener("animationend", () => customerNameInput.classList.remove("input-error"), {
-        once: true
-      });
-      customerNameInput.focus();
+      /* validation code */
       return;
-    }
-
-    // Optional: Validate quantity of each cart item (if needed)
-    for (let item of cart) {
-      if (item.qty < 1) {
-        const qtyInput = document.getElementById("qtyInput");
-        qtyInput.classList.add("input-error");
-        qtyInput.addEventListener("animationend", () => qtyInput.classList.remove("input-error"), {
-          once: true
-        });
-        qtyInput.focus();
-        return;
-      }
     }
 
     const invoiceData = {
@@ -417,49 +394,48 @@ require_once __DIR__ . '/../../auth/auth_check.php';
       total: parseFloat(document.getElementById("totalAmount").innerText)
     };
 
-    fetch('generate_invoice.php', {
+    // Step 1: Checkout (save to DB)
+    fetch('checkout.php', {
         method: 'POST',
         body: JSON.stringify(invoiceData),
         headers: {
           'Content-Type': 'application/json'
         }
       })
-      .then(response => response.blob())
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "Invoice_" + new Date().toISOString().slice(0, 19).replace(/[-T:]/g, "") + ".pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-
-        // Play success sound
-        const sound = document.getElementById("successSound");
-        sound.play().then(() => sound.pause()).catch(() => {});
-
-        // Show toast and overlay
-        const overlay = document.getElementById("overlayFade");
-        const toast = document.getElementById("successToast");
-        overlay.style.display = 'block';
-        toast.classList.add("show");
-        toast.style.display = 'block';
-
-        setTimeout(() => {
-          overlay.style.display = 'none';
-          toast.classList.remove("show");
-          toast.style.display = 'none';
-        }, 3000);
-
-        // Reset form
-        cart = [];
-        renderTable();
-        document.getElementById('barcodeInput').value = '';
-        document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
-        document.getElementById('productSelect').disabled = true;
-        document.getElementById('categorySelect').value = '';
-        document.getElementById('qtyInput').value = 1;
-        customerNameInput.value = '';
+      .then(async response => {
+        const text = await response.text(); // get raw response first
+        try {
+          return JSON.parse(text); // try parsing JSON
+        } catch (err) {
+          // fallback if JSON is invalid
+          throw new Error('Invalid JSON response: ' + text);
+        }
+      })
+      .then(data => {
+        console.log('Server response:', data);
+        // handle success or error from backend
+      })
+      .catch(err => {
+        console.error('Checkout failed:', err.message);
       });
+    // .then(data => {
+    //   if (data.status === 'success') {
+    //     // Step 2: Generate PDF from DB
+    //     fetch(`generate_invoice.php?sale_id=${data.sale_id}`)
+    //       .then(res => res.blob())
+    //       .then(blob => {
+    //         const url = URL.createObjectURL(blob);
+    //         const a = document.createElement('a');
+    //         a.href = url;
+    //         a.download = `Invoice_${data.sale_id}.pdf`;
+    //         a.click();
+    //         URL.revokeObjectURL(url);
+    //         // success toast/sound/reset form...
+    //       });
+    //   } else {
+    //     alert(data.message);
+    //   }
+    // });
   });
   </script>
 

@@ -1,68 +1,74 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../auth/auth_check.php';
+session_start();
 
-if (!isset($_SESSION['cart']) || count($_SESSION['cart']) === 0) {
-    header("Location: billing.php");
+// Ensure user is logged in
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
-$store_id = $_SESSION['store_id'];
-$customer_name = $_POST['customer_name'] ?? 'Walk-in';
-$sale_date = date('Y-m-d H:i:s');
-$invoice_id = uniqid('INV');
-
-$total_amount = 0;
-
-// Create sale entry with placeholder total_amount
-$sale_stmt = $conn->prepare("INSERT INTO sales (invoice_id, customer_name, total_amount, created_by, sale_date, store_id) 
-VALUES (?, ?, 0, ?, ?, ?)");
-$sale_stmt->bind_param("ssisi", $invoice_id, $customer_name, $user_id, $sale_date, $store_id);
-$sale_stmt->execute();
-$sale_id = $sale_stmt->insert_id;
-
-foreach ($_SESSION['cart'] as $item) {
-    $product_id = (int) $item['id'];
-    $quantity = (int) $item['qty'];
-
-    // Fetch product
-    $pstmt = $conn->prepare("SELECT name, price, gst_percent, stock FROM products WHERE product_id = ? AND store_id = ?");
-    $pstmt->bind_param("ii", $product_id, $store_id);
-    $pstmt->execute();
-    $prod = $pstmt->get_result()->fetch_assoc();
-
-    if (!$prod || $prod['stock'] < $quantity) {
-        die("Insufficient stock for product ID: " . $product_id);
-    }
-
-    $price = $prod['price']; // base price
-    $gst = $prod['gst_percent'];
-    $amount = $price * $quantity;
-    $gst_amount = $amount * ($gst / 100);
-    $line_total = $amount + $gst_amount;
-    $total_amount += $line_total;
-
-    // Insert into sale_items
-    $item_stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, gst_percent, price) 
-    VALUES (?, ?, ?, ?, ?, ?)");
-    $item_stmt->bind_param("iisidd", $sale_id, $product_id, $prod['name'], $quantity, $gst, $price);
-    $item_stmt->execute();
-
-    // Update stock
-    $new_stock = $prod['stock'] - $quantity;
-    $ustmt = $conn->prepare("UPDATE products SET stock = ? WHERE product_id = ? AND store_id = ?");
-    $ustmt->bind_param("iii", $new_stock, $product_id, $store_id);
-    $ustmt->execute();
+// Read and decode JSON input
+$data = json_decode(file_get_contents("php://input"), true);
+if (!$data || !isset($data['customer_name'], $data['items'], $data['tax'], $data['total'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid input']);
+    exit();
 }
 
-// Update sales total
-$update_stmt = $conn->prepare("UPDATE sales SET total_amount = ? WHERE sale_id = ?");
-$update_stmt->bind_param("di", $total_amount, $sale_id);
-$update_stmt->execute();
+$customer_name = $data['customer_name'];
+$tax = $data['tax'];
+$total = $data['total'];
+$items = $data['items'];
+$user_id = $_SESSION['user_id'];
 
-// Clear cart & redirect
-unset($_SESSION['cart']);
-header("Location: view_invoice.php?sale_id=" . $sale_id);
-exit();
+// Start transaction to maintain consistency
+$conn->begin_transaction();
+
+try {
+    // Insert into sales table
+    $stmt = $conn->prepare("INSERT INTO sales (customer_name,sale_id ,subtotal, tax, total, created_by, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("sdddi", $customer_name, $sale_id, $tax, $total, $user_id);
+    $stmt->execute();
+    $sale_id = $stmt->insert_id;
+    $stmt->close();
+
+    // Insert sale items and update product stock
+    $stmt_item = $conn->prepare("INSERT INTO sale_items (store_id, sale_id, product_id, quantity, gst_percent, price) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt_update = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?");
+
+    foreach ($items as $item) {
+        $product_id = $item['product_id'];
+        $quantity = $item['quantity'];
+        $price = $item['price'];
+        $gst_percent = isset($item['gst_percent']) ? $item['gst_percent'] : 0;
+        $store_id = 1; // If you have multiple stores, replace with correct ID
+
+        // Insert into sale_items
+        $stmt_item->bind_param("iiidid", $store_id, $sale_id, $product_id, $quantity, $gst_percent, $price);
+        $stmt_item->execute();
+
+        // Update product quantity
+        $stmt_update->bind_param("iii", $quantity, $product_id, $quantity);
+        $stmt_update->execute();
+
+        // If no rows updated, rollback and fail (stock issue)
+        if ($stmt_update->affected_rows === 0) {
+            throw new Exception("Insufficient stock for product ID $product_id");
+        }
+    }
+
+    $stmt_item->close();
+    $stmt_update->close();
+
+    // Commit transaction
+    $conn->commit();
+
+    echo json_encode(['status' => 'success', 'sale_id' => $sale_id]);
+
+} catch (Exception $e) {
+    $conn->rollback();
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+}
+
+$conn->close();
 ?>
