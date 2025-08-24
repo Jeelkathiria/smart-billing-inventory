@@ -15,9 +15,9 @@ $username = $_SESSION['username'];
 $role = $_SESSION['role'];
 
 // Handle insert
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['name']))) {
-    $category_name = trim($_POST['name']);
-    $sql = "INSERT INTO categories (name, store_id) VALUES (?, ?)";
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['category_name']))) {
+    $category_name = trim($_POST['category_name']);
+    $sql = "INSERT INTO categories (category_name, store_id) VALUES (?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("si", $category_name, $store_id);
     $stmt->execute();
@@ -29,7 +29,13 @@ if (isset($_GET['delete'])) {
     $sql = "DELETE FROM categories WHERE category_id = ? AND store_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("ii", $delete_id, $store_id);
-    $stmt->execute();
+    try {
+        $stmt->execute();
+    } catch (mysqli_sql_exception $e) {
+        // Redirect with error message
+        header('Location: categories.php?error=Cannot%20delete%20category%20with%20products%20assigned');
+        exit();
+    }
 }
 
 // Fetch categories only for current store
@@ -133,7 +139,7 @@ $result = $stmt->get_result();
   <!-- Add Category Form -->
   <form method="POST" class="row g-3 mb-4 shadow-sm p-4 bg-white rounded">
     <div class="col-md-8">
-      <input type="text" name="name" class="form-control" placeholder="Enter Category Name" required>
+      <input type="text" name="category_name" class="form-control" placeholder="Enter Category Name" required>
     </div>
     <div class="col-md-4 d-grid">
       <button class="btn btn-primary rounded-pill px-4 py-2 d-flex align-items-center justify-content-center">
@@ -158,7 +164,7 @@ $result = $stmt->get_result();
           <?php while ($row = $result->fetch_assoc()) { ?>
             <tr>
               <td><?= $row['category_id'] ?></td>
-              <td><?= htmlspecialchars($row['name']) ?></td>
+              <td><?= htmlspecialchars($row['category_name']) ?></td>
               <td>
                 <button onclick="confirmDelete(<?= $row['category_id'] ?>)" class="btn btn-sm btn-danger rounded-pill" title="Delete Category">
                   <i class="bi bi-trash"></i>
@@ -173,6 +179,16 @@ $result = $stmt->get_result();
       <?php } ?>
     </div>
   </div>
+
+  <?php if (isset($_GET['error'])): ?>
+    <script>
+      Swal.fire({
+        icon: 'error',
+        title: 'Delete Failed',
+        text: decodeURIComponent("<?= $_GET['error'] ?>")
+      });
+    </script>
+  <?php endif; ?>
 </div>
 
 <script>

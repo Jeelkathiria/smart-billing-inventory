@@ -321,7 +321,7 @@ $salesResult = $stmt->get_result();
                     <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
                     <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
                     <td>
-                      <a href="view_invoice.php?invoice_id=<?php echo urlencode($row['invoice_id']); ?>"
+                      <a href="view_invoice.php?sale_id=<?php echo urlencode($row['sale_id']); ?>"
                         class="btn btn-outline-primary btn-sm rounded-pill">
                         <i class="bi bi-eye"></i> View
                       </a>

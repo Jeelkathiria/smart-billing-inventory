@@ -17,7 +17,7 @@ $categories = $categories_result; // for dropdown + modal
 
 // Handle Add Product with GST entered by user
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
-  $name = trim($_POST['name']);
+  $name = isset($_POST['name']) ? trim($_POST['name']) : '';
   $category_id = (int) $_POST['category_id'];
   $price = (float) $_POST['price'];
   $stock = (int) $_POST['stock'];
@@ -26,12 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
   $total_price = round($price + $gst_amount, 2);
 
   if (!empty($name) && $category_id && $price >= 0 && $stock >= 0 && $gst_percent >= 0) {
-    $check = $conn->prepare("SELECT * FROM products WHERE name = ? AND store_id = ?");
+    $check = $conn->prepare("SELECT * FROM products WHERE product_name = ? AND store_id = ?");
     $check->bind_param("si", $name, $store_id);
     $check->execute();
     $result = $check->get_result();
     if ($result->num_rows === 0) {
-      $stmt = $conn->prepare("INSERT INTO products (name, category_id, price, stock, gst_percent, total_price, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      $stmt = $conn->prepare("INSERT INTO products (product_name, category_id, price, stock, gst_percent, total_price, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
       $stmt->bind_param('sididdi', $name, $category_id, $price, $stock, $gst_percent, $total_price, $store_id);
       $stmt->execute();
     }
@@ -49,7 +49,7 @@ if (isset($_POST['edit_id'])) {
   $edit_gst_amount = round($edit_price * $edit_gst / 100, 2);
   $edit_total_price = round($edit_price + $edit_gst_amount, 2);
 
-  $stmt = $conn->prepare("UPDATE products SET name = ?, category_id = ?, price = ?, gst_percent = ?, total_price = ?, stock = ? WHERE product_id = ? AND store_id = ?");
+  $stmt = $conn->prepare("UPDATE products SET product_name = ?, category_id = ?, price = ?, gst_percent = ?, total_price = ?, stock = ? WHERE product_id = ? AND store_id = ?");
   $stmt->bind_param("sididdii", $edit_name, $edit_category_id, $edit_price, $edit_gst, $edit_total_price, $edit_stock, $edit_id, $store_id);
   $stmt->execute();
 }
@@ -63,7 +63,7 @@ if (isset($_GET['delete'])) {
 }
 
 // Fetch Products
-$products_stmt = $conn->prepare("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHERE p.store_id = ? ORDER BY p.product_id DESC");
+$products_stmt = $conn->prepare("SELECT p.*, c.category_name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHERE p.store_id = ? ORDER BY p.product_id DESC");
 $products_stmt->bind_param("i", $store_id);
 $products_stmt->execute();
 $products = $products_stmt->get_result();
@@ -153,7 +153,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <ul>
       <?php if (count($low_stock_products) > 0) {
         foreach ($low_stock_products as $prod) { ?>
-          <li><?= htmlspecialchars($prod['name']) ?> — Only <?= $prod['stock'] ?> left!</li>
+          <li><?= htmlspecialchars($prod['product_name']) ?> — Only <?= $prod['stock'] ?> left!</li>
         <?php } 
       } else { ?>
         <li>All products have sufficient stock.</li>
@@ -170,7 +170,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       <select name="category_id" class="form-select" required>
         <option value="">Select Category</option>
         <?php while ($cat = $categories->fetch_assoc()) { ?>
-          <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['name']) ?></option>
+          <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
         <?php } ?>
       </select>
     </div>
@@ -209,7 +209,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
           <?php while ($prod = $products->fetch_assoc()) { ?>
             <tr>
               <td><?= $prod['product_id'] ?></td>
-              <td><?= htmlspecialchars($prod['name']) ?></td>
+              <td><?= htmlspecialchars($prod['product_name']) ?></td>
               <td><?= htmlspecialchars($prod['category_name']) ?></td>
               <td>₹<?= number_format($prod['price'], 2) ?></td>
               <td><?= number_format($prod['gst_percent'], 2) ?>%</td>
@@ -248,7 +248,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             <?php
               $categories->data_seek(0);
               while ($cat = $categories->fetch_assoc()) { ?>
-              <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['name']) ?></option>
+              <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
             <?php } ?>
           </select>
         </div>
@@ -292,7 +292,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
   function editProduct(product) {
     document.getElementById('edit_id').value = product.product_id;
-    document.getElementById('edit_name').value = product.name;
+    document.getElementById('edit_name').value = product.product_name;
     document.getElementById('edit_category_id').value = product.category_id;
     document.getElementById('edit_price').value = product.price;
     document.getElementById('edit_gst').value = product.gst_percent;

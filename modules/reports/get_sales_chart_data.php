@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-
+session_start();
+$store_id = $_SESSION['store_id'];
 
 $data = [];
 $dates = [];
@@ -11,11 +12,13 @@ for ($i = 6; $i >= 0; $i--) {
     $date = date('Y-m-d', strtotime("-$i days"));
     $label = date('M d', strtotime($date)); // Ex: Aug 01
 
-    $query = $conn->query("SELECT SUM(total_amount) AS total FROM sales WHERE DATE(sale_date) = '$date'");
-    $row = $query->fetch_assoc();
+    $query = $conn->prepare("SELECT SUM(total_amount) AS total FROM sales WHERE DATE(sale_date) = ? AND store_id = ?");
+    $query->bind_param("si", $date, $store_id);
+    $query->execute();
+    $result = $query->get_result()->fetch_assoc();
 
     $dates[] = $label;
-    $totals[] = $row['total'] ? (float)$row['total'] : 0;
+    $totals[] = $result['total'] ? (float)$result['total'] : 0;
 }
 
 $data = [

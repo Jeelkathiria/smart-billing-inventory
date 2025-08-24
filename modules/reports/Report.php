@@ -13,75 +13,56 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
 $store_id = $_SESSION['store_id'];
 $username = $_SESSION['username'];
 $role = $_SESSION['role'];
-$fixed_cost_price = 500;
 
 // Initialize variables to avoid undefined errors
 $total_revenue = 0;
-$total_profit  = 0;
 $total_tax     = 0;
 $today_total   = 0;
 $month_total   = 0;
 $year_total    = 0;
 
-// Summary
+// Summary (total revenue and tax)
 $sql_summary = "
     SELECT 
         SUM(si.quantity * si.price) AS total_revenue,
-        SUM(si.quantity * (si.price - p.cost_price)) AS total_profit,
         SUM(si.quantity * si.price * (si.gst_percent / 100)) AS total_tax
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.sale_id
-    JOIN products p ON si.product_id = p.product_id
     WHERE s.store_id = ?
 ";
+$stmt = $conn->prepare($sql_summary);
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$stmt->bind_result($total_revenue, $total_tax);
+$stmt->fetch();
+$stmt->close();
 
+// Today's revenue
+$sql_today = "SELECT SUM(total_amount) FROM sales WHERE store_id = ? AND DATE(sale_date) = CURDATE()";
+$stmt = $conn->prepare($sql_today);
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$stmt->bind_result($today_total);
+$stmt->fetch();
+$stmt->close();
 
-// Daily
-$sql_daily = "
-    SELECT DATE(s.sale_date) AS period,
-           SUM(si.quantity * si.price) AS revenue,
-           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
-           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
-    FROM sale_items si
-    JOIN sales s ON si.sale_id = s.sale_id
-    JOIN products p ON si.product_id = p.product_id
-    WHERE s.store_id = ?
-    GROUP BY DATE(s.sale_date)
-    ORDER BY DATE(s.sale_date) DESC
-    LIMIT 7
-";
+// This month's revenue
+$sql_month = "SELECT SUM(total_amount) FROM sales WHERE store_id = ? AND MONTH(sale_date) = MONTH(CURDATE()) AND YEAR(sale_date) = YEAR(CURDATE())";
+$stmt = $conn->prepare($sql_month);
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$stmt->bind_result($month_total);
+$stmt->fetch();
+$stmt->close();
 
-
-// Monthly
-$sql_monthly = "
-    SELECT DATE_FORMAT(s.sale_date, '%Y-%m') AS period,
-           SUM(si.quantity * si.price) AS revenue,
-           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
-           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
-    FROM sale_items si
-    JOIN sales s ON si.sale_id = s.sale_id
-    JOIN products p ON si.product_id = p.product_id
-    WHERE s.store_id = ?
-    GROUP BY DATE_FORMAT(s.sale_date, '%Y-%m')
-    ORDER BY period DESC
-    LIMIT 12
-";
-
-
-// Yearly
-$sql_yearly = "
-    SELECT YEAR(s.sale_date) AS period,
-           SUM(si.quantity * si.price) AS revenue,
-           SUM(si.quantity * (si.price - p.cost_price)) AS profit,
-           SUM(si.quantity * si.price * (si.gst_percent / 100)) AS tax
-    FROM sale_items si
-    JOIN sales s ON si.sale_id = s.sale_id
-    JOIN products p ON si.product_id = p.product_id
-    WHERE s.store_id = ?
-    GROUP BY YEAR(s.sale_date)
-    ORDER BY period DESC
-";
-
+// This year's revenue
+$sql_year = "SELECT SUM(total_amount) FROM sales WHERE store_id = ? AND YEAR(sale_date) = YEAR(CURDATE())";
+$stmt = $conn->prepare($sql_year);
+$stmt->bind_param("i", $store_id);
+$stmt->execute();
+$stmt->bind_result($year_total);
+$stmt->fetch();
+$stmt->close();
 
 ?>
 
@@ -179,8 +160,7 @@ $sql_yearly = "
       <?php
         $cards = [
             ['Total Revenue', $total_revenue, 'success'],
-            ['Total Profit', $total_profit, 'primary'],
-            ['Total Tax Collected (5%)', $total_tax, 'danger'],
+            ['Total Tax Collected', $total_tax, 'danger'],
             ["Today's Revenue", $today_total, 'secondary'],
             ['This Month', $month_total, 'secondary'],
             ['This Year', $year_total, 'secondary']
@@ -194,7 +174,7 @@ $sql_yearly = "
                 </div>
             </div>";
         }
-        ?>
+      ?>
     </div>
 
     <!-- Sales Overview Chart -->

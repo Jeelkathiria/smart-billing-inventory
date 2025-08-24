@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../config/db.php';
 session_start();
 
 // Ensure user is logged in
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
 }
@@ -18,37 +18,47 @@ if (!$data || !isset($data['customer_name'], $data['items'], $data['tax'], $data
 $customer_name = $data['customer_name'];
 $tax = $data['tax'];
 $total = $data['total'];
-$items = $data['items'];
 $user_id = $_SESSION['user_id'];
+$store_id = $_SESSION['store_id'];
+$invoice_id = uniqid('INV'); // Generate a unique invoice id
 
-// Start transaction to maintain consistency
+// Map frontend keys to backend expected keys
+$items = [];
+foreach ($data['items'] as $item) {
+    $items[] = [
+        'product_id' => $item['id'],
+        'quantity' => $item['qty'],
+        'price' => $item['rate'],
+        'gst_percent' => isset($item['gst']) ? $item['gst'] : 0
+    ];
+}
+
 $conn->begin_transaction();
 
 try {
     // Insert into sales table
-    $stmt = $conn->prepare("INSERT INTO sales (customer_name,sale_id ,subtotal, tax, total, created_by, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("sdddi", $customer_name, $sale_id, $tax, $total, $user_id);
+    $stmt = $conn->prepare("INSERT INTO sales (invoice_id, customer_name, total_amount, created_by, sale_date, store_id) VALUES (?, ?, ?, ?, NOW(), ?)");
+    $stmt->bind_param("ssdii", $invoice_id, $customer_name, $total, $user_id, $store_id);
     $stmt->execute();
     $sale_id = $stmt->insert_id;
     $stmt->close();
 
     // Insert sale items and update product stock
     $stmt_item = $conn->prepare("INSERT INTO sale_items (store_id, sale_id, product_id, quantity, gst_percent, price) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt_update = $conn->prepare("UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?");
+    $stmt_update = $conn->prepare("UPDATE products SET stock = stock - ? WHERE product_id = ? AND stock >= ? AND store_id = ?");
 
     foreach ($items as $item) {
         $product_id = $item['product_id'];
         $quantity = $item['quantity'];
         $price = $item['price'];
         $gst_percent = isset($item['gst_percent']) ? $item['gst_percent'] : 0;
-        $store_id = 1; // If you have multiple stores, replace with correct ID
 
         // Insert into sale_items
         $stmt_item->bind_param("iiidid", $store_id, $sale_id, $product_id, $quantity, $gst_percent, $price);
         $stmt_item->execute();
 
-        // Update product quantity
-        $stmt_update->bind_param("iii", $quantity, $product_id, $quantity);
+        // Update product stock
+        $stmt_update->bind_param("iiii", $quantity, $product_id, $quantity, $store_id);
         $stmt_update->execute();
 
         // If no rows updated, rollback and fail (stock issue)
@@ -63,7 +73,7 @@ try {
     // Commit transaction
     $conn->commit();
 
-    echo json_encode(['status' => 'success', 'sale_id' => $sale_id]);
+    echo json_encode(['status' => 'success', 'sale_id' => $sale_id, 'invoice_id' => $invoice_id]);
 
 } catch (Exception $e) {
     $conn->rollback();

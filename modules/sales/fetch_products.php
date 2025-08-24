@@ -13,7 +13,7 @@ if (isset($_GET['category_id']) && isset($_SESSION['store_id'])) {
 
     // Only fetch products belonging to the current store & category
     $stmt = $conn->prepare("
-        SELECT product_id, name, price, stock, gst_percent, barcode 
+        SELECT product_id, product_name, stock, gst_percent, price, barcode 
         FROM products 
         WHERE category_id = ? AND store_id = ?
     ");
@@ -23,14 +23,7 @@ if (isset($_GET['category_id']) && isset($_SESSION['store_id'])) {
 
     $products = [];
     while ($row = $result->fetch_assoc()) {
-        $products[] = [
-            'product_id' => $row['product_id'],
-            'name' => $row['name'],
-            'price' => $row['price'],
-            'gst_percent' => $row['gst_percent'],
-            'barcode' => $row['barcode'],
-            'stock' => $row['stock']
-        ];
+        $products[] = $row;
     }
 
     echo json_encode($products);

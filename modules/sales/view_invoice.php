@@ -13,7 +13,8 @@ $sale = $sale_stmt->get_result()->fetch_assoc();
 
 if (!$sale) die("Sale not found.");
 
-$item_stmt = $conn->prepare("SELECT * FROM sale_items WHERE sale_id = ?");
+// Join products to get product_name
+$item_stmt = $conn->prepare("SELECT si.*, p.product_name FROM sale_items si JOIN products p ON si.product_id = p.product_id WHERE si.sale_id = ?");
 $item_stmt->bind_param("i", $sale_id);
 $item_stmt->execute();
 $items = $item_stmt->get_result();
@@ -67,6 +68,7 @@ $tax = 0;
     <p><strong>Subtotal:</strong> ₹<?= number_format($subtotal, 2) ?></p>
     <p><strong>Tax:</strong> ₹<?= number_format($tax, 2) ?></p>
     <p><strong>Total:</strong> ₹<?= number_format($subtotal + $tax, 2) ?></p>
+    <a href="sales.php" class="btn btn-primary mt-3">Okay</a>
   </div>
 </div>
 </body>

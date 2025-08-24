@@ -185,7 +185,7 @@ require_once __DIR__ . '/../../auth/auth_check.php';
         $categories = $conn->query("SELECT * FROM categories WHERE store_id = $store_id");
 
         while ($cat = $categories->fetch_assoc()) {
-          echo "<option value='{$cat['category_id']}'>{$cat['name']}</option>";
+          echo "<option value='{$cat['category_id']}'>{$cat['category_name']}</option>";
         }
         ?>
         </select>
@@ -253,28 +253,38 @@ require_once __DIR__ . '/../../auth/auth_check.php';
   // Populate products when category changes
   document.getElementById('categorySelect').addEventListener('change', function() {
     const categoryId = this.value;
-    if (!categoryId) return;
+    const productSelect = document.getElementById('productSelect');
+    productSelect.disabled = true;
+    productSelect.innerHTML = '<option value="">Loading...</option>';
+    productsList = {};
+
+    if (!categoryId) {
+      productSelect.innerHTML = '<option value="">Select Product</option>';
+      productSelect.disabled = true;
+      return;
+    }
 
     fetch(`/modules/sales/fetch_products.php?category_id=${categoryId}`)
-
       .then(res => res.json())
       .then(data => {
-        const productSelect = document.getElementById('productSelect');
         productSelect.innerHTML = '<option value="">Select Product</option>';
-        productsList = {}; // reset
+        productsList = {};
 
-        data.forEach(product => {
-          productsList[product.product_id] = product;
-
-          // Disable option if stock is 0 and show "Out of Stock"
-          let disabled = product.stock == 0 ? 'disabled' : '';
-          let stockText = product.stock == 0 ? ' (Out of Stock)' : '';
-
-          productSelect.innerHTML +=
-            `<option value="${product.product_id}" ${disabled}>${product.name}${stockText}</option>`;
-        });
-
-
+        if (data.length === 0) {
+          productSelect.innerHTML += '<option value="" disabled>No products available</option>';
+        } else {
+          data.forEach(product => {
+            productsList[product.product_id] = product;
+            let disabled = product.stock == 0 ? 'disabled' : '';
+            let stockText = product.stock == 0 ? ' (Out of Stock)' : '';
+            productSelect.innerHTML +=
+              `<option value="${product.product_id}" ${disabled}>${product.product_name}${stockText}</option>`;
+          });
+        }
+        productSelect.disabled = false;
+      })
+      .catch(() => {
+        productSelect.innerHTML = '<option value="" disabled>Error loading products</option>';
         productSelect.disabled = false;
       });
   });
@@ -305,12 +315,12 @@ require_once __DIR__ . '/../../auth/auth_check.php';
     const stock = parseInt(product.stock);
 
     if (stock === 0) {
-      alert(`❌ ${product.name} is out of stock`);
+      alert(`❌ ${product.product_name} is out of stock`);
       return;
     }
 
     if (qty > stock) {
-      alert(`❌ Only ${stock} in stock for ${product.name}`);
+      alert(`❌ Only ${stock} in stock for ${product.product_name}`);
       return;
     }
 
@@ -322,7 +332,7 @@ require_once __DIR__ . '/../../auth/auth_check.php';
 
     cart.push({
       id: product.product_id,
-      name: product.name,
+      name: product.product_name,
       qty,
       rate,
       gst: gstPercent,
@@ -376,12 +386,12 @@ require_once __DIR__ . '/../../auth/auth_check.php';
   // Generate invoice with shake validation
   document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
     if (cart.length === 0) {
-      /* validation code */
+      // validation code
       return;
     }
     const customerNameInput = document.getElementById("customer_name");
     if (!customerNameInput.value.trim()) {
-      /* validation code */
+      // validation code
       return;
     }
 
@@ -394,7 +404,6 @@ require_once __DIR__ . '/../../auth/auth_check.php';
       total: parseFloat(document.getElementById("totalAmount").innerText)
     };
 
-    // Step 1: Checkout (save to DB)
     fetch('checkout.php', {
         method: 'POST',
         body: JSON.stringify(invoiceData),
@@ -403,39 +412,51 @@ require_once __DIR__ . '/../../auth/auth_check.php';
         }
       })
       .then(async response => {
-        const text = await response.text(); // get raw response first
+        const text = await response.text();
         try {
-          return JSON.parse(text); // try parsing JSON
+          return JSON.parse(text);
         } catch (err) {
-          // fallback if JSON is invalid
           throw new Error('Invalid JSON response: ' + text);
         }
       })
       .then(data => {
-        console.log('Server response:', data);
-        // handle success or error from backend
+        if (data.status === 'success') {
+          // Show success toast
+          const toast = document.getElementById('successToast');
+          toast.style.display = 'block';
+          setTimeout(() => { toast.style.display = 'none'; }, 2000);
+
+          // Download invoice PDF
+          fetch(`generate_invoice.php?sale_id=${data.sale_id}`)
+            .then(res => res.blob())
+            .then(blob => {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Invoice_${data.invoice_id}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            });
+
+          // Reset form for next bill
+          cart = [];
+          renderTable();
+          customerNameInput.value = '';
+          document.getElementById("invoice_date").value = getFormattedDateTime();
+          document.getElementById('categorySelect').value = '';
+          document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
+          document.getElementById('productSelect').disabled = true;
+          document.getElementById('qtyInput').value = 1;
+          document.getElementById('barcodeInput').value = '';
+        } else {
+          alert(data.message);
+        }
       })
       .catch(err => {
         console.error('Checkout failed:', err.message);
       });
-    // .then(data => {
-    //   if (data.status === 'success') {
-    //     // Step 2: Generate PDF from DB
-    //     fetch(`generate_invoice.php?sale_id=${data.sale_id}`)
-    //       .then(res => res.blob())
-    //       .then(blob => {
-    //         const url = URL.createObjectURL(blob);
-    //         const a = document.createElement('a');
-    //         a.href = url;
-    //         a.download = `Invoice_${data.sale_id}.pdf`;
-    //         a.click();
-    //         URL.revokeObjectURL(url);
-    //         // success toast/sound/reset form...
-    //       });
-    //   } else {
-    //     alert(data.message);
-    //   }
-    // });
   });
   </script>
 
