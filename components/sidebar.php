@@ -75,7 +75,7 @@
     </a>
   </div>
   <div class="sidebar-footer">
-    <a href="admin_panel.php" class="<?= ($currentPage == 'admin_panel.php') ? 'active' : '' ?>">
+    <a href="/modules/settings/settings.php" class="<?= ($currentPage == 'settings.php') ? 'active' : '' ?>">
       <i class="bi bi-gear"></i> Settings
     </a>
   </div>
