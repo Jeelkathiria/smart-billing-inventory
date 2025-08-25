@@ -170,7 +170,7 @@ $stmt->close();
             <div class='col-md-4'>
                 <div class='card card-custom bg-white p-3'>
                     <div class='card-header'>$label</div>
-                    <div class='card-body text-$color fw-bold fs-4'>₹" . number_format($value, 2) . "</div>
+                    <div class='card-body text-$color fw-bold fs-4'>₹" . number_format((float)($value ?? 0), 2) . "</div>
                 </div>
             </div>";
         }

@@ -328,7 +328,7 @@ require_once __DIR__ . '/../../auth/auth_check.php';
     const gstPercent = parseFloat(product.gst_percent);
     const baseAmount = qty * rate;
     const gstAmount = baseAmount * (gstPercent / 100);
-    const totalAmount = baseAmount + gstAmount;
+    const totalAmount = baseAmount ; //here baseAmount coming is eqal to base+gst
 
     cart.push({
       id: product.product_id,

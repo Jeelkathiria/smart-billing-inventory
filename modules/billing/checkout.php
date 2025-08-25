@@ -10,14 +10,12 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
 
 // Read and decode JSON input
 $data = json_decode(file_get_contents("php://input"), true);
-if (!$data || !isset($data['customer_name'], $data['items'], $data['tax'], $data['total'])) {
+if (!$data || !isset($data['customer_name'], $data['items'])) {
     echo json_encode(['status' => 'error', 'message' => 'Invalid input']);
     exit();
 }
 
 $customer_name = $data['customer_name'];
-$tax = $data['tax'];
-$total = $data['total'];
 $user_id = $_SESSION['user_id'];
 $store_id = $_SESSION['store_id'];
 $invoice_id = uniqid('INV'); // Generate a unique invoice id
@@ -33,12 +31,24 @@ foreach ($data['items'] as $item) {
     ];
 }
 
+// --- Calculate subtotal, tax, total on backend ---
+$subtotal = 0;
+$total_tax = 0;
+
+foreach ($items as $item) {
+    $line_total = $item['price'] * $item['quantity']; // Price * quantity
+    $subtotal += $line_total;
+    $total_tax += ($line_total * ($item['gst_percent'] / 100)); // GST per line
+}
+
+$total_amount = $subtotal + $total_tax;
+
 $conn->begin_transaction();
 
 try {
-    // Insert into sales table
+    // Insert into sales table with backend-calculated total
     $stmt = $conn->prepare("INSERT INTO sales (invoice_id, customer_name, total_amount, created_by, sale_date, store_id) VALUES (?, ?, ?, ?, NOW(), ?)");
-    $stmt->bind_param("ssdii", $invoice_id, $customer_name, $total, $user_id, $store_id);
+    $stmt->bind_param("ssdii", $invoice_id, $customer_name, $total_amount, $user_id, $store_id);
     $stmt->execute();
     $sale_id = $stmt->insert_id;
     $stmt->close();
@@ -51,7 +61,7 @@ try {
         $product_id = $item['product_id'];
         $quantity = $item['quantity'];
         $price = $item['price'];
-        $gst_percent = isset($item['gst_percent']) ? $item['gst_percent'] : 0;
+        $gst_percent = $item['gst_percent'];
 
         // Insert into sale_items
         $stmt_item->bind_param("iiidid", $store_id, $sale_id, $product_id, $quantity, $gst_percent, $price);
@@ -61,7 +71,6 @@ try {
         $stmt_update->bind_param("iiii", $quantity, $product_id, $quantity, $store_id);
         $stmt_update->execute();
 
-        // If no rows updated, rollback and fail (stock issue)
         if ($stmt_update->affected_rows === 0) {
             throw new Exception("Insufficient stock for product ID $product_id");
         }
@@ -73,7 +82,14 @@ try {
     // Commit transaction
     $conn->commit();
 
-    echo json_encode(['status' => 'success', 'sale_id' => $sale_id, 'invoice_id' => $invoice_id]);
+    echo json_encode([
+        'status' => 'success',
+        'sale_id' => $sale_id,
+        'invoice_id' => $invoice_id,
+        'subtotal' => $subtotal,
+        'tax' => $total_tax,
+        'total' => $total_amount
+    ]);
 
 } catch (Exception $e) {
     $conn->rollback();

@@ -53,6 +53,6 @@ $pdf->Cell(150,10,"Tax",1);
 $pdf->Cell(40,10,number_format($tax_total,2),1);
 $pdf->Ln();
 $pdf->Cell(150,10,"Total",1);
-$pdf->Cell(40,10,number_format($sale['total_amount'],2),1);
+$pdf->Cell(40,10,number_format($subtotal + $tax_total,2),1);
 
 $pdf->Output('D', "Invoice_{$sale['invoice_id']}.pdf"); // outputs as download
