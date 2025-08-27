@@ -188,7 +188,7 @@ $store = $result->fetch_assoc();
         <div class="info-row">
           <div class="info-label"><i class="bi bi-upc-scan"></i> Store Code</div>
           <div class="info-value text-success">
-            <?= htmlspecialchars($store['store_code']) ?>
+            <?= htmlspecialchars($store['store_code'] ?? '', ENT_QUOTES) ?>
             <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyCode()">
               <i class="bi bi-clipboard"></i> Copy
             </button>

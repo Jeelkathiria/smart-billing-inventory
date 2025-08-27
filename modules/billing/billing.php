@@ -241,224 +241,196 @@ require_once __DIR__ . '/../../auth/auth_check.php';
     style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(255,255,255,0.7); z-index: 9998; display: none;">
   </div>
 
-  <script>
-  let cart = [];
-  let productsList = {};
+<script>
+let cart = [];
+let productsList = {};
 
-  // Set invoice date on page load
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("invoice_date").value = getFormattedDateTime();
-  });
+// Utility functions
+const $ = (id) => document.getElementById(id);
+const pad = (n) => n.toString().padStart(2, "0");
 
-  // Populate products when category changes
-  document.getElementById('categorySelect').addEventListener('change', function() {
-    const categoryId = this.value;
-    const productSelect = document.getElementById('productSelect');
-    productSelect.disabled = true;
-    productSelect.innerHTML = '<option value="">Loading...</option>';
-    productsList = {};
+function getFormattedDateTime() {
+  const now = new Date();
+  return `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
 
-    if (!categoryId) {
-      productSelect.innerHTML = '<option value="">Select Product</option>';
-      productSelect.disabled = true;
-      return;
-    }
+function showToast(id, duration = 2000) {
+  const toast = $(id);
+  toast.style.display = 'block';
+  setTimeout(() => toast.style.display = 'none', duration);
+}
 
-    fetch(`/modules/sales/fetch_products.php?category_id=${categoryId}`)
-      .then(res => res.json())
-      .then(data => {
-        productSelect.innerHTML = '<option value="">Select Product</option>';
-        productsList = {};
+function resetBillingForm() {
+  cart = [];
+  renderTable();
+  $("customer_name").value = '';
+  $("invoice_date").value = getFormattedDateTime();
+  $("categorySelect").value = '';
+  $("productSelect").innerHTML = '<option value="">Select Product</option>';
+  $("productSelect").disabled = true;
+  $("qtyInput").value = 1;
+  $("barcodeInput").value = '';
+}
 
-        if (data.length === 0) {
-          productSelect.innerHTML += '<option value="" disabled>No products available</option>';
-        } else {
-          data.forEach(product => {
-            productsList[product.product_id] = product;
-            let disabled = product.stock == 0 ? 'disabled' : '';
-            let stockText = product.stock == 0 ? ' (Out of Stock)' : '';
-            productSelect.innerHTML +=
-              `<option value="${product.product_id}" ${disabled}>${product.product_name}${stockText}</option>`;
-          });
-        }
-        productSelect.disabled = false;
-      })
-      .catch(() => {
-        productSelect.innerHTML = '<option value="" disabled>Error loading products</option>';
-        productSelect.disabled = false;
-      });
-  });
+// Initial setup
+document.addEventListener("DOMContentLoaded", () => {
+  $("invoice_date").value = getFormattedDateTime();
+});
 
-  // Barcode input detection
-  document.getElementById('barcodeInput').addEventListener('input', function() {
-    const enteredBarcode = this.value.trim();
-    if (enteredBarcode === "") return;
+// Category change → Load products
+$("categorySelect").addEventListener("change", async function () {
+  const categoryId = this.value;
+  const productSelect = $("productSelect");
+  productsList = {};
+  productSelect.disabled = true;
+  productSelect.innerHTML = '<option value="">Loading...</option>';
 
-    const found = Object.entries(productsList).find(([id, product]) => product.barcode === enteredBarcode);
+  if (!categoryId) {
+    productSelect.innerHTML = '<option value="">Select Product</option>';
+    return;
+  }
 
-    if (found) {
-      const productId = found[0];
-      document.getElementById('productSelect').value = productId;
+  try {
+    const res = await fetch(`/modules/sales/fetch_products.php?category_id=${categoryId}`);
+    const data = await res.json();
+    productSelect.innerHTML = '<option value="">Select Product</option>';
+
+    if (data.length === 0) {
+      productSelect.innerHTML += '<option value="" disabled>No products available</option>';
     } else {
-      document.getElementById('productSelect').value = "";
+      data.forEach(p => {
+        productsList[p.product_id] = p;
+        const disabled = p.stock == 0 ? 'disabled' : '';
+        const stockText = p.stock == 0 ? ' (Out of Stock)' : '';
+        productSelect.innerHTML += `<option value="${p.product_id}" ${disabled}>${p.product_name}${stockText}</option>`;
+      });
     }
-  });
+  } catch {
+    productSelect.innerHTML = '<option value="" disabled>Error loading products</option>';
+  } finally {
+    productSelect.disabled = false;
+  }
+});
 
-  // Add product to cart
-  document.getElementById('addProductBtn').addEventListener('click', function() {
-    const productId = document.getElementById('productSelect').value;
-    const qty = parseInt(document.getElementById('qtyInput').value);
+// Barcode input → Auto-select product
+$("barcodeInput").addEventListener("input", function () {
+  const code = this.value.trim();
+  const found = Object.entries(productsList).find(([_, p]) => p.barcode === code);
+  $("productSelect").value = found ? found[0] : "";
+});
 
-    if (!productId || qty < 1) return;
+// Add product to cart
+$("addProductBtn").addEventListener("click", () => {
+  const productId = $("productSelect").value;
+  const qty = Math.max(1, parseInt($("qtyInput").value) || 1);
+  if (!productId) return;
 
-    const product = productsList[productId];
-    const stock = parseInt(product.stock);
-
-    if (stock === 0) {
-      alert(`❌ ${product.product_name} is out of stock`);
-      return;
-    }
-
-    if (qty > stock) {
-      alert(`❌ Only ${stock} in stock for ${product.product_name}`);
-      return;
-    }
-
-    const rate = parseFloat(product.price);
-    const gstPercent = parseFloat(product.gst_percent);
-    const baseAmount = qty * rate;
-    const gstAmount = baseAmount * (gstPercent / 100);
-    const totalAmount = baseAmount ; //here baseAmount coming is eqal to base+gst
-
-    cart.push({
-      id: product.product_id,
-      name: product.product_name,
-      qty,
-      rate,
-      gst: gstPercent,
-      total: totalAmount
-    });
-
-    renderTable();
-    document.getElementById('barcodeInput').value = '';
-  });
+  const product = productsList[productId];
+  const stock = parseInt(product.stock);
+  if (stock === 0) return alert(`❌ ${product.product_name} is out of stock`);
+  if (qty > stock) return alert(`❌ Only ${stock} in stock for ${product.product_name}`);
 
 
-  function renderTable() {
-    const tbody = document.querySelector("#billingTable tbody");
-    tbody.innerHTML = '';
-    let subTotal = 0;
+const price = parseFloat(product.price) || 0;
+const totalPriceUnit = parseFloat(product.total_price) || 0;
+const gstUnit = product.total_price - product.price;
+console.log(gstUnit)
 
-    cart.forEach((item, i) => {
-      subTotal += item.total;
-      tbody.innerHTML += `
+cart.push({
+  id: product.product_id,
+  name: product.product_name,
+  qty,
+  amount: price * qty,
+  gst: gstUnit * qty,
+  total: totalPriceUnit * qty
+});
+
+
+  renderTable();
+  $("barcodeInput").value = '';
+});
+
+function renderTable() {
+  const tbody = document.querySelector("#billingTable tbody");
+  tbody.innerHTML = '';
+
+  let subTotal = 0, totalGst = 0;
+
+  cart.forEach((item, i) => {
+    subTotal += item.amount;
+    totalGst += item.gst;
+    tbody.innerHTML += `
       <tr>
         <td>${i + 1}</td>
         <td>${item.name}</td>
         <td>${item.qty}</td>
-        <td>₹${item.total.toFixed(2)}</td>
+        <td>₹${item.amount.toFixed(2)}</td>
         <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
       </tr>`;
+  });
+
+  const finalTotal = subTotal + totalGst; // define before using
+
+  // make sure these spans contain only numbers, not ₹
+  document.getElementById('subTotal').innerText = subTotal.toFixed(2);
+  document.getElementById('taxAmount').innerText = totalGst.toFixed(2);
+  document.getElementById('totalAmount').innerText = finalTotal.toFixed(2);
+}
+
+
+function removeItem(index) {
+  cart.splice(index, 1);
+  renderTable();
+}
+
+// Generate invoice
+$("generateInvoiceBtn").addEventListener("click", async () => {
+  if (cart.length === 0) return; // Add proper validation UI if needed
+  const customerName = $("customer_name").value.trim();
+  if (!customerName) return;
+
+  const invoiceData = {
+    customer_name: customerName,
+    date: $("invoice_date").value,
+    items: cart,
+    subTotal: parseFloat($("subTotal").innerText),
+    tax: parseFloat($("taxAmount").innerText),
+    total: parseFloat($("totalAmount").innerText)
+  };
+
+  try {
+    const res = await fetch('checkout.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(invoiceData)
     });
 
-    const tax = subTotal * 0.05;
-    const finalTotal = subTotal + tax;
+    const text = await res.text();
+    const data = JSON.parse(text);
 
-    document.getElementById("subTotal").innerText = subTotal.toFixed(2);
-    document.getElementById("taxAmount").innerText = tax.toFixed(2);
-    document.getElementById("totalAmount").innerText = finalTotal.toFixed(2);
-  }
-
-  function removeItem(index) {
-    cart.splice(index, 1);
-    renderTable();
-  }
-
-  function getFormattedDateTime() {
-    const now = new Date();
-    const pad = (n) => n < 10 ? '0' + n : n;
-    const date = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
-    const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    return `${date} ${time}`;
-  }
-
-  // Generate invoice
-  // Generate invoice with shake validation
-  document.getElementById("generateInvoiceBtn").addEventListener("click", function() {
-    if (cart.length === 0) {
-      // validation code
-      return;
+    if (data.status === 'success') {
+      showToast('successToast');
+      // Download PDF
+      const pdfRes = await fetch(`generate_invoice.php?sale_id=${data.sale_id}`);
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice_${data.invoice_id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      resetBillingForm();
+    } else {
+      alert(data.message);
     }
-    const customerNameInput = document.getElementById("customer_name");
-    if (!customerNameInput.value.trim()) {
-      // validation code
-      return;
-    }
+  } catch (err) {
+    console.error('Checkout failed:', err.message);
+  }
+});
+</script>
 
-    const invoiceData = {
-      customer_name: customerNameInput.value.trim(),
-      date: document.getElementById("invoice_date").value,
-      items: cart,
-      subTotal: parseFloat(document.getElementById("subTotal").innerText),
-      tax: parseFloat(document.getElementById("taxAmount").innerText),
-      total: parseFloat(document.getElementById("totalAmount").innerText)
-    };
-
-    fetch('checkout.php', {
-        method: 'POST',
-        body: JSON.stringify(invoiceData),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      .then(async response => {
-        const text = await response.text();
-        try {
-          return JSON.parse(text);
-        } catch (err) {
-          throw new Error('Invalid JSON response: ' + text);
-        }
-      })
-      .then(data => {
-        if (data.status === 'success') {
-          // Show success toast
-          const toast = document.getElementById('successToast');
-          toast.style.display = 'block';
-          setTimeout(() => { toast.style.display = 'none'; }, 2000);
-
-          // Download invoice PDF
-          fetch(`generate_invoice.php?sale_id=${data.sale_id}`)
-            .then(res => res.blob())
-            .then(blob => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `Invoice_${data.invoice_id}.pdf`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            });
-
-          // Reset form for next bill
-          cart = [];
-          renderTable();
-          customerNameInput.value = '';
-          document.getElementById("invoice_date").value = getFormattedDateTime();
-          document.getElementById('categorySelect').value = '';
-          document.getElementById('productSelect').innerHTML = '<option value="">Select Product</option>';
-          document.getElementById('productSelect').disabled = true;
-          document.getElementById('qtyInput').value = 1;
-          document.getElementById('barcodeInput').value = '';
-        } else {
-          alert(data.message);
-        }
-      })
-      .catch(err => {
-        console.error('Checkout failed:', err.message);
-      });
-  });
-  </script>
 
 
 
