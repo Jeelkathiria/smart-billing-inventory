@@ -330,20 +330,19 @@ $("addProductBtn").addEventListener("click", () => {
   if (stock === 0) return alert(`❌ ${product.product_name} is out of stock`);
   if (qty > stock) return alert(`❌ Only ${stock} in stock for ${product.product_name}`);
 
-
 const price = parseFloat(product.price) || 0;
-const totalPriceUnit = parseFloat(product.total_price) || 0;
-const gstUnit = product.total_price - product.price;
-console.log(gstUnit)
+const gstPercent = parseFloat(product.gst_percent) || 0;
+const gstAmountPerUnit = (price * gstPercent) / 100;
 
 cart.push({
-  product_id: product.product_id,      // 👈 match backend
-  product_name: product.product_name,  // 👈 match backend
-  quantity: qty,                       // 👈 match backend
+  product_id: product.product_id,
+  product_name: product.product_name,
+  quantity: qty,
   price: price,
-  amount: price * qty,
-  gst_percent: gstUnit,                // 👈 add GST if needed
-  total: totalPriceUnit * qty
+  gst_percent: gstPercent,  
+  amount: price * qty,                     // without GST
+  gst: gstAmountPerUnit * qty,             // total GST
+  total: (price + gstAmountPerUnit) * qty  // with GST
 });
 
 
@@ -358,18 +357,20 @@ function renderTable() {
 
   let subTotal = 0, totalGst = 0;
 
-  cart.forEach((item, i) => {
-    subTotal += item.amount;
-    totalGst += item.gst;
-    tbody.innerHTML += `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${item.name}</td>
-        <td>${item.qty}</td>
-        <td>₹${item.amount.toFixed(2)}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
-      </tr>`;
-  });
+cart.forEach((item, i) => {
+  subTotal += item.amount;
+  totalGst += item.gst;
+
+  tbody.innerHTML += `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${item.product_name}</td>
+      <td>${item.quantity}</td>
+      <td>₹${item.total.toFixed(2)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">Remove</button></td>
+    </tr>`;
+});
+
 
   const finalTotal = subTotal + totalGst; // define before using
 
@@ -399,7 +400,8 @@ $("generateInvoiceBtn").addEventListener("click", async () => {
     product_name: item.product_name,
     quantity: item.quantity,
     price: item.price,   // 👈 MUST be present
-    amount: item.amount
+    amount: item.amount,
+    gst_percent: item.gst_percent  
   })),
   subTotal: parseFloat(document.getElementById("subTotal").innerText),
   tax: parseFloat(document.getElementById("taxAmount").innerText),

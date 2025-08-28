@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-session_start();
+require_once __DIR__ . '/../../auth/auth_check.php';
 $store_id = $_SESSION['store_id'];
 
 $data = [];

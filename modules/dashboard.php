@@ -246,58 +246,57 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <script>
-   document.addEventListener('DOMContentLoaded', () => {
-  // Load more sales logic (optional)
-  let offset = 8;
-  const loadMoreBtn = document.getElementById('loadMoreBtn');
-  if (loadMoreBtn) {
-    loadMoreBtn.addEventListener('click', function () {
-      fetch(`/modules/sales/load_more_sales.php?offset=${offset}`)
-        .then(response => response.text())
-        .then(data => {
-          if (data.trim() === "") {
-            loadMoreBtn.innerText = "No more data";
-            loadMoreBtn.disabled = true;
-          } else {
-            document.getElementById('salesBody').insertAdjacentHTML('beforeend', data);
-            offset += 8;
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Load more sales logic (optional)
+    let offset = 8;
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', function () {
+        fetch(`/modules/sales/load_more_sales.php?offset=${offset}`)
+          .then(response => response.text())
+          .then(data => {
+            if (data.trim() === "") {
+              loadMoreBtn.innerText = "No more data";
+              loadMoreBtn.disabled = true;
+            } else {
+              document.getElementById('salesBody').insertAdjacentHTML('beforeend', data);
+              offset += 8;
+            }
+          });
+      });
+    }
+
+    // Chart rendering
+    async function loadSalesChart() {
+      try {
+        const response = await fetch("/modules/reports/get_sales_chart_data.php");
+        const data = await response.json();
+
+        const ctx = document.getElementById("salesChart").getContext("2d");
+
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.dates,
+            datasets: [{
+              label: "Sales (₹)",
+              data: data.totals,
+              borderColor: "blue",
+              backgroundColor: "rgba(0,0,255,0.1)",
+              tension: 0.3,
+              fill: true
+            }]
           }
         });
-    });
-  }
+      } catch (err) {
+        console.error("Chart Fetch Error:", err);
+      }
+    }
 
-  // Chart rendering
-  fetch('/modules/sales/get_sales_data.php')
-    .then(response => response.json())
-    .then(data => {
-      const ctx = document.getElementById('salesChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: data.dates,
-          datasets: [{
-            label: 'Sales in ₹',
-            data: data.totals,
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    })
-    .catch(err => console.error("Chart Fetch Error:", err));
-});
+    loadSalesChart();
+  }); // ✅ closes DOMContentLoaded
+</script> <!-- ✅ closes script -->
 
-  </script>
 </body>
 </html>
