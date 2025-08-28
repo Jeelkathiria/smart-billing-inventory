@@ -337,13 +337,15 @@ const gstUnit = product.total_price - product.price;
 console.log(gstUnit)
 
 cart.push({
-  id: product.product_id,
-  name: product.product_name,
-  qty,
+  product_id: product.product_id,      // 👈 match backend
+  product_name: product.product_name,  // 👈 match backend
+  quantity: qty,                       // 👈 match backend
+  price: price,
   amount: price * qty,
-  gst: gstUnit * qty,
+  gst_percent: gstUnit,                // 👈 add GST if needed
   total: totalPriceUnit * qty
 });
+
 
 
   renderTable();
@@ -389,14 +391,21 @@ $("generateInvoiceBtn").addEventListener("click", async () => {
   const customerName = $("customer_name").value.trim();
   if (!customerName) return;
 
-  const invoiceData = {
-    customer_name: customerName,
-    date: $("invoice_date").value,
-    items: cart,
-    subTotal: parseFloat($("subTotal").innerText),
-    tax: parseFloat($("taxAmount").innerText),
-    total: parseFloat($("totalAmount").innerText)
-  };
+ const invoiceData = {
+  customer_name: customerName,
+  date: document.getElementById("invoice_date").value,
+  items: cart.map(item => ({
+    product_id: item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    price: item.price,   // 👈 MUST be present
+    amount: item.amount
+  })),
+  subTotal: parseFloat(document.getElementById("subTotal").innerText),
+  tax: parseFloat(document.getElementById("taxAmount").innerText),
+  total: parseFloat(document.getElementById("totalAmount").innerText)
+};
+
 
   try {
     const res = await fetch('checkout.php', {

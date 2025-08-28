@@ -1,4 +1,11 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+header('Content-Type: application/json');
+error_reporting(E_ALL);
+ini_set('display_errors', 0); 
+
 require_once __DIR__ . '/../../config/db.php';
 session_start();
 
@@ -23,12 +30,18 @@ $invoice_id = uniqid('INV'); // Generate a unique invoice id
 // Map frontend keys to backend expected keys
 $items = [];
 foreach ($data['items'] as $item) {
-    $items[] = [
-        'product_id' => $item['id'],
-        'quantity' => $item['qty'],
-        'price' => $item['rate'],
-        'gst_percent' => isset($item['gst']) ? $item['gst'] : 0
-    ];
+    $product_id = $item['product_id'];
+    $quantity   = $item['quantity'];
+    $price      = $item['price']; // ✅ must not be null
+
+    if ($price === null) {
+        echo json_encode(['status' => 'error', 'message' => "Missing price for product_id $product_id"]);
+        exit;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("iiid", $sale_id, $product_id, $quantity, $price);
+    $stmt->execute();
 }
 
 // --- Calculate subtotal, tax, total on backend ---
