@@ -126,9 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   <h2>Settings</h2>
   <ul class="nav nav-tabs" id="settingsTab" role="tablist">
     <li class="nav-item"><button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button">Profile Settings</button></li>
+    <?php if ($role === 'admin'): ?>
     <li class="nav-item"><button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button">Store Settings</button></li>
+    <?php endif; ?>
   </ul>
   <div class="tab-content p-3 border border-top-0">
+
+    <!-- Profile Settings -->
     <div class="tab-pane fade show active" id="profile">
       <form id="profileForm">
         <div class="mb-3"><label class="form-label">Full Name</label>
@@ -146,6 +150,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <button type="submit" class="btn btn-primary">Update Profile</button>
       </form>
     </div>
+
+    <!-- Store Settings -->
+     <?php if ($role === 'admin'): ?>
     <div class="tab-pane fade" id="store">
       <form id="storeForm">
         <div class="mb-3"><label class="form-label">Store Name</label>
@@ -168,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <button type="submit" class="btn btn-primary">Update Store Info</button>
       </form>
     </div>
+    <?php endif; ?>
   </div>
 </div>
 

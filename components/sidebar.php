@@ -69,14 +69,15 @@ $role = $_SESSION['role'];
       <a href="/modules/reports/report.php" class="<?= ($currentPage === 'report.php') ? 'active' : '' ?>">
         <i class="bi bi-graph-up"></i> Reports
       </a>
+      <a href="/modules/users/users.php" class="<?= ($currentPage === 'users.php') ? 'active' : '' ?>">
+        <i class="bi bi-graph-up"></i> Employee
+      </a>
     <?php endif; ?>
   </div>
 
-  <?php if ($role === 'admin'): ?>
     <div class="sidebar-footer">
       <a href="/modules/settings/settings.php" class="<?= ($currentPage === 'settings.php') ? 'active' : '' ?>">
         <i class="bi bi-gear"></i> Settings
       </a>
     </div>
-  <?php endif; ?>
 </div>
