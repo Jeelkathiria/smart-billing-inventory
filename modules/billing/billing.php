@@ -389,8 +389,23 @@ function removeItem(index) {
 // Generate invoice
 $("generateInvoiceBtn").addEventListener("click", async () => {
   if (cart.length === 0) return; // Add proper validation UI if needed
-  const customerName = $("customer_name").value.trim();
-  if (!customerName) return;
+
+  const customerNameInput = $("customer_name");
+  const customerName = customerNameInput.value.trim();
+
+  if (!customerName) {
+    // Add shaking effect
+    customerNameInput.classList.add("input-error");
+
+    // Remove the class after the animation ends (so it can shake again if needed)
+    setTimeout(() => customerNameInput.classList.remove("input-error"), 500);
+
+    // Focus the input so user can correct it
+    customerNameInput.focus();
+
+    return; // stop further execution
+  }
+
 
  const invoiceData = {
   customer_name: customerName,

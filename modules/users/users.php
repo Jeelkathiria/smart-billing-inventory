@@ -24,9 +24,13 @@ if (!in_array($role, ['admin', 'manager'])) {
     exit;
 }
 
-// Fetch cashiers for this store
+// Fetch all cashiers for this store
 $stmt = $conn->prepare("
-    SELECT id, username, email, role, last_login
+    SELECT user_id, username, email, role,
+           CASE 
+               WHEN last_activity >= (NOW() - INTERVAL 5 MINUTE) THEN 'online'
+               ELSE 'offline'
+           END AS status
     FROM users
     WHERE store_id = ? AND role = 'cashier'
     ORDER BY username
@@ -35,6 +39,7 @@ $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $cashiers = $result->fetch_all(MYSQLI_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +50,11 @@ $cashiers = $result->fetch_all(MYSQLI_ASSOC);
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
-         .navbar {
+     body {
+      background-color: #f8f9fa;
+    }
+    
+     .navbar {
       position: fixed;
       top: 0;
       left: 0;
@@ -94,44 +103,83 @@ $cashiers = $result->fetch_all(MYSQLI_ASSOC);
       padding: 12px 20px;
       margin-top: auto;
     }
+
+     .content {
+      margin-left: 240px;
+      padding: 20px;
+      padding-top: 80px; 
+    }
+     .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    }
+    .table-hover tbody tr:hover {
+      background-color: rgba(0, 123, 255, 0.05) !important;
+      cursor: pointer;
+    }
+    .card {
+      background-color: #ffffff;
+    }
   </style>
-  </head>
-  <body>
-    <div class="container mt-4">
-      <?php include_once __DIR__ . '/../../components/navbar.php'; ?>
-      <?php include_once __DIR__ . '/../../components/sidebar.php'; ?>
+</head>
 
-    <h2>Cashiers in This Store</h2>
-    <div class="card mt-3">
-        <div class="card-body">
-            <?php if (empty($cashiers)): ?>
-                <p>No cashiers found for this store.</p>
-            <?php else: ?>
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Last Login</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($cashiers as $index => $cashier): ?>
-                                <tr>
-                                    <td><?= $index + 1; ?></td>
-                                    <td><?= htmlspecialchars($cashier['username']); ?></td>
-                                    <td><?= htmlspecialchars($cashier['email']); ?></td>
-                                    <td><?= $cashier['last_login'] ? htmlspecialchars($cashier['last_login']) : 'Never'; ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
+<body class="bg-light">
+  <!-- Navbar -->
+  <?php include '../../components/navbar.php'; ?>
+
+  <!-- Sidebar -->
+  <?php include '../../components/sidebar.php'; ?>
+
+  <main class="content" style="margin-left:240px; padding: 80px 20px 20px;">
+    <div class="container-fluid">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark mb-0">
+          <i class="bi bi-people-fill text-primary me-2"></i> Cashiers in This Store
+        </h2>
+        <span class="text-muted small">Updated <?= date("M d, Y H:i"); ?></span>
+      </div>
+
+      <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-0">
+          <?php if (empty($cashiers)): ?>
+            <div class="alert alert-info m-3">
+              <i class="bi bi-info-circle"></i> No cashiers found for this store.
+            </div>
+          <?php else: ?>
+            <div class="table-responsive">
+              <table class="table align-middle table-striped table-hover mb-0">
+                <thead class="table-primary">
+                  <tr>
+                    <th class="ps-4">#</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php $count = 1; ?>
+                  <?php foreach ($cashiers as $cashier): ?>
+                    <tr>
+                      <td class="ps-4"><?= $count++; ?></td>
+                      <td class="fw-semibold"><?= htmlspecialchars($cashier['username']); ?></td>
+                      <td><?= htmlspecialchars($cashier['email']); ?></td>
+                      <td>
+                        <span class="d-inline-flex align-items-center">
+                          <span class="dot <?= $cashier['status']==='online' ? 'bg-success' : 'bg-danger'; ?> me-2"></span>
+                          <?= ucfirst($cashier['status']); ?>
+                        </span>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
         </div>
+      </div>
     </div>
-</div>
-
-</body>
+  </main>
+</html>

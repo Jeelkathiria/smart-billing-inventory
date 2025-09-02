@@ -7,6 +7,13 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id']) || !isset($_SE
     exit();
 }
 
+//for Cashier
+if (isset($_SESSION['user_id'])) {
+    $stmt = $conn->prepare("UPDATE users SET last_activity = NOW() WHERE user_id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+}
+
 // Store session variables for convenience
 $store_id = $_SESSION['store_id'];
 $username = $_SESSION['username'];

@@ -2,15 +2,41 @@
 require_once '../config/db.php';
 require_once __DIR__ . '/../auth/auth_check.php';
 
-$total_sales_result = $conn->query("SELECT SUM(total_amount) AS total_sales FROM sales");
-$total_sales = $total_sales_result->fetch_assoc()['total_sales'] ?? 0;
+$user_id = $_SESSION['user_id'] ?? null;
+$role    = $_SESSION['role'] ?? 'cashier'; // fallback
 
-$total_categories = $conn->query("SELECT COUNT(*) AS total FROM categories")->fetch_assoc()['total'];
-$total_products = $conn->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
+// Fetch recent sales based on role
+if ($role === 'cashier') {
+    $stmt = $conn->prepare("
+        SELECT invoice_id, customer_name, sale_date, total_amount
+        FROM sales
+        WHERE created_by = ?
+        ORDER BY sale_date DESC
+        LIMIT 5
+    ");
+    $stmt->bind_param("i", $user_id);
+} else {
+       $stmt = $conn->prepare("
+        SELECT invoice_id, customer_name, sale_date, total_amount
+        FROM sales
+        ORDER BY sale_date DESC
+        LIMIT 5
+    ");
+}
+$stmt->execute();
+$sales = $stmt->get_result();
+
+// Fetch dashboard summary stats
+$total_sales     = $conn->query("SELECT SUM(total_amount) AS total_sales FROM sales")->fetch_assoc()['total_sales'] ?? 0;
+$total_categories= $conn->query("SELECT COUNT(*) AS total FROM categories")->fetch_assoc()['total'];
+$total_products  = $conn->query("SELECT COUNT(*) AS total FROM products")->fetch_assoc()['total'];
 $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE stock < 5")->fetch_assoc()['total'];
+
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -18,114 +44,116 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-    body {
-      background-color: #eef2f7;
-    }
+  body {
+    background-color: #eef2f7;
+  }
 
-    .navbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      z-index: 1030;
-      background-color: #ffffff;
-      border-bottom: 1px solid #dee2e6;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-    }
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1030;
+    background-color: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+  }
 
+  .sidebar {
+    width: 220px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-right: 1px solid #dee2e6;
+    padding-top: 60px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar .nav-links {
+    flex-grow: 1;
+  }
+
+  .sidebar a {
+    padding: 12px 20px;
+    color: #333;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+  }
+
+  .sidebar a:hover {
+    background-color: #f0f0f0;
+    border-left: 4px solid #007bff;
+  }
+
+  .sidebar-footer {
+    padding: 12px 20px;
+    margin-top: auto;
+  }
+
+  .content {
+    margin-left: 220px;
+    padding: 20px;
+    padding-top: 80px;
+  }
+
+  .card {
+    border: none;
+    border-radius: 10px;
+    transition: transform 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-header h6 {
+    font-weight: 600;
+  }
+
+  .table td,
+  .table th {
+    vertical-align: middle;
+  }
+
+  #salesChart {
+    max-height: 100%;
+  }
+
+  .alert-warning {
+    font-weight: 500;
+  }
+
+  .btn-outline-primary.btn-sm {
+    margin-top: 5px;
+  }
+
+  @media (max-width: 768px) {
     .sidebar {
-      width: 220px;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      background: #ffffff;
-      border-right: 1px solid #dee2e6;
-      padding-top: 60px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar .nav-links {
-      flex-grow: 1;
-    }
-
-    .sidebar a {
-      padding: 12px 20px;
-      color: #333;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background 0.2s;
-    }
-
-    .sidebar a:hover {
-      background-color: #f0f0f0;
-      border-left: 4px solid #007bff;
-    }
-
-    .sidebar-footer {
-      padding: 12px 20px;
-      margin-top: auto;
+      display: none;
     }
 
     .content {
-      margin-left: 220px;
-      padding: 20px;
-      padding-top: 80px; 
+      margin-left: 0;
+      padding: 15px;
+      padding-top: 80px;
     }
 
-    .card {
-      border: none;
-      border-radius: 10px;
-      transition: transform 0.2s;
+    .navbar {
+      justify-content: center;
     }
-
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    }
-
-    .card-header h6 {
-      font-weight: 600;
-    }
-
-    .table td, .table th {
-      vertical-align: middle;
-    }
-
-    #salesChart {
-      max-height: 100%;
-    }
-
-    .alert-warning {
-      font-weight: 500;
-    }
-
-    .btn-outline-primary.btn-sm {
-      margin-top: 5px;
-    }
-
-    @media (max-width: 768px) {
-      .sidebar {
-        display: none;
-      }
-
-      .content {
-        margin-left: 0;
-        padding: 15px;
-        padding-top: 80px;
-      }
-
-      .navbar {
-        justify-content: center;
-      }
-    }
+  }
   </style>
 </head>
+
 <body>
 
   <!-- Navbar -->
@@ -133,7 +161,7 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
 
   <!-- Sidebar -->
- <?php include '../components/sidebar.php'; ?>
+  <?php include '../components/sidebar.php'; ?>
 
   <!-- Main Content -->
   <div class="content">
@@ -192,42 +220,35 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
     <!-- Recent Billings Card -->
     <div class="card shadow-sm mt-5">
-      <div class="card-header bg-info text-white">
-        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Billings</h6>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-hover table-bordered text-center mb-0" id="recentSalesTable">
-          <thead class="table-light sticky-top bg-light">
-            <tr>
-              <th>Invoice ID</th>
-              <th>Customer</th>
-              <th>Date & Time</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody id="salesBody">
-            <?php
-              $user_id = $_SESSION['user_id']; // or username if that's how you track it
-
-              $sales = $conn->query("SELECT * FROM sales WHERE created_by = $user_id ORDER BY sale_date DESC LIMIT 8");
-
-              while ($sale = $sales->fetch_assoc()):
-              ?>
-              <tr>
-                <td><span class="badge bg-secondary"><?= $sale['invoice_id']; ?></span></td>
-                <td><?= htmlspecialchars($sale['customer_name']); ?></td>
-                <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
-                <td><strong>₹<?= number_format($sale['total_amount'], 2); ?></strong></td>
-              </tr>
-              <?php endwhile; ?>
-
-          </tbody>
-        </table>
-        <div class="text-center py-2">
-          <button id="loadMoreBtn" class="btn btn-outline-primary btn-sm">View More</button>
-        </div>
-      </div>
+  <div class="card-header bg-info text-white">
+    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Billings</h6>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover table-bordered text-center mb-0" id="recentSalesTable">
+      <thead class="table-light sticky-top bg-light">
+        <tr>
+          <th>Invoice ID</th>
+          <th>Customer</th>
+          <th>Date & Time</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="salesBody">
+        <?php while ($sale = $sales->fetch_assoc()): ?>
+        <tr>
+          <td><span class="badge bg-secondary"><?= htmlspecialchars($sale['invoice_id']); ?></span></td>
+          <td><?= htmlspecialchars($sale['customer_name']); ?></td>
+          <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
+          <td><strong>₹<?= number_format((float)$sale['total_amount'], 2); ?></strong></td>
+        </tr>
+        <?php endwhile; ?>
+      </tbody>
+    </table>
+    <div class="text-center p-2">
+      <a href="/modules/sales/sales.php" class="btn btn-sm btn-outline-info">View All</a>
     </div>
+  </div>
+</div>
 
     <!-- Sales Chart Card -->
     <div class="card shadow-sm my-4">
@@ -246,27 +267,9 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
+  <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Load more sales logic (optional)
-    let offset = 8;
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (loadMoreBtn) {
-      loadMoreBtn.addEventListener('click', function () {
-        fetch(`/modules/sales/load_more_sales.php?offset=${offset}`)
-          .then(response => response.text())
-          .then(data => {
-            if (data.trim() === "") {
-              loadMoreBtn.innerText = "No more data";
-              loadMoreBtn.disabled = true;
-            } else {
-              document.getElementById('salesBody').insertAdjacentHTML('beforeend', data);
-              offset += 8;
-            }
-          });
-      });
-    }
-
+ 
     // Chart rendering
     async function loadSalesChart() {
       try {
@@ -296,7 +299,8 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
     loadSalesChart();
   }); // ✅ closes DOMContentLoaded
-</script> <!-- ✅ closes script -->
+  </script> <!-- ✅ closes script -->
 
 </body>
+
 </html>

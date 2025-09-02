@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../auth/auth_check.php';
 
-session_start();
+
+$user_id  = $_SESSION['user_id'];
+$role     = $_SESSION['role'];
+$store_id = $_SESSION['store_id'];
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id']) || !isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)) {
   session_unset();
@@ -36,11 +40,46 @@ if (!empty($filterDate)) {
   $types .= "s";
 }
 
+// Add cashier filter here
+if ($role === 'cashier') {
+  $whereClause .= " AND created_by = ?";
+  $params[] = $user_id;
+  $types .= "i";
+}
+
 $sql = "SELECT * FROM sales $whereClause ORDER BY sale_date DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $salesResult = $stmt->get_result();
+
+
+// Base query
+$sql = "SELECT sale_id, invoice_id, customer_name, total_amount, created_by, sale_date 
+        FROM sales
+        WHERE store_id = ?";
+
+// Add cashier filter
+if ($role === 'cashier') {
+    $sql .= " AND created_by = ?";
+}
+
+$sql .= " ORDER BY sale_date DESC";
+
+$stmt = $conn->prepare($sql);
+
+// Bind parameters
+if ($role === 'cashier') {
+    $stmt->bind_param("ii", $store_id, $user_id);
+} else {
+    $stmt->bind_param("i", $store_id);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -176,9 +215,9 @@ $salesResult = $stmt->get_result();
   }
 
   .content-wrapper {
-   margin-left: 220px;
+    margin-left: 220px;
     padding: 20px;
-    padding-top: 80px; 
+    padding-top: 80px;
   }
 
   .sidebar .nav-links {
@@ -241,7 +280,7 @@ $salesResult = $stmt->get_result();
     }
   }
   </style>
-</head> 
+</head>
 
 <body>
 
@@ -249,7 +288,7 @@ $salesResult = $stmt->get_result();
   <?php include(__DIR__ . "/../../components/sidebar.php"); ?>
 
   <div class="content-wrapper">
-  <h3 class="mb-4"><i class="bi bi-graph-up-arrow me-2"></i>Sales Page</h3>
+    <h3 class="mb-4"><i class="bi bi-graph-up-arrow me-2"></i>Sales Page</h3>
     <div class="card shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Sales History</h5>
@@ -314,28 +353,32 @@ $salesResult = $stmt->get_result();
             </thead>
             <tbody>
               <?php if ($salesResult && $salesResult->num_rows > 0): ?>
-                <?php while ($row = $salesResult->fetch_assoc()): ?>
-                  <tr>
-                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
-                    <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                    <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
-                    <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
-                    <td>
-                      <a href="view_invoice.php?sale_id=<?php echo urlencode($row['sale_id']); ?>"
-                        class="btn btn-outline-primary btn-sm rounded-pill">
-                        <i class="bi bi-eye"></i> View
-                      </a>
-                    </td>
-                  </tr>
-                <?php endwhile; ?>
+              <?php while ($row = $salesResult->fetch_assoc()): ?>
+              <tr>
+                <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
+                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
+                <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
+                <td>
+                  <a href="view_invoice.php?sale_id=<?php echo urlencode($row['sale_id']); ?>"
+                    class="btn btn-outline-primary btn-sm rounded-pill">
+                    <i class="bi bi-eye"></i> View
+                  </a>
+                </td>
+              </tr>
+              <?php endwhile; ?>
               <?php else: ?>
-                <tr>
-                  <td colspan="5" class="text-muted">No sales history available for the selected date.</td>
-                </tr>
+              <tr>
+                <td colspan="5" class="text-muted">No sales history available for the selected date.</td>
+              </tr>
               <?php endif; ?>
             </tbody>
           </table>
         </div>
+        <!-- Pagination Controls -->
+         <nav>
+            <ul class="pagination justify-content-center mt-3" id="paginationControls"></ul>
+          </nav>
       </div>
     </div>
   </div>
@@ -375,6 +418,72 @@ $salesResult = $stmt->get_result();
       form.submit();
     }
   });
+
+  // pagination-Concept
+  const rowsPerPage = 8;
+  const table = document.getElementById("salesTable");
+  const tbody = table.querySelector("tbody");
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  const paginationControls = document.getElementById("paginationControls");
+
+  function displayPage(page) {
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    rows.forEach((row, index) => {
+      row.style.display = (index >= start && index < end) ? "" : "none";
+    });
+
+    // Update pagination buttons active state
+    const buttons = paginationControls.querySelectorAll("li.page-item");
+    buttons.forEach((btn, index) => {
+      btn.classList.toggle("active", index === page);
+    });
+  }
+
+  function setupPagination() {
+    const pageCount = Math.ceil(rows.length / rowsPerPage);
+    paginationControls.innerHTML = "";
+
+    // Previous Button
+    const prevLi = document.createElement("li");
+    prevLi.classList.add("page-item");
+    prevLi.innerHTML = `<a class="page-link" href="#">Previous</a>`;
+    prevLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      const active = paginationControls.querySelector("li.active");
+      let currentPage = Array.from(paginationControls.children).indexOf(active);
+      if (currentPage > 1) displayPage(currentPage - 1);
+    });
+    paginationControls.appendChild(prevLi);
+
+    // Page Numbers
+    for (let i = 1; i <= pageCount; i++) {
+      const li = document.createElement("li");
+      li.classList.add("page-item");
+      if (i === 1) li.classList.add("active");
+      li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+      li.addEventListener("click", (e) => {
+        e.preventDefault();
+        displayPage(i);
+      });
+      paginationControls.appendChild(li);
+    }
+
+    // Next Button
+    const nextLi = document.createElement("li");
+    nextLi.classList.add("page-item");
+    nextLi.innerHTML = `<a class="page-link" href="#">Next</a>`;
+    nextLi.addEventListener("click", (e) => {
+      e.preventDefault();
+      const active = paginationControls.querySelector("li.active");
+      let currentPage = Array.from(paginationControls.children).indexOf(active);
+      if (currentPage < pageCount) displayPage(currentPage + 1);
+    });
+    paginationControls.appendChild(nextLi);
+  }
+
+  setupPagination();
+  displayPage(1);
   </script>
 </body>
 

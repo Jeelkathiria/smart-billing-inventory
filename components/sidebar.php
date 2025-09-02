@@ -6,34 +6,38 @@ $role = $_SESSION['role'];
 ?>
 
 <style>
-  .sidebar .nav-links a {
-    position: relative;
-    padding-left: 16px;
-    transition: background-color 0.3s;
-  }
-  .sidebar .nav-links a.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 10%;
-    height: 80%;
-    width: 4px;
-    background-color: #f0f0f0;
-    border-left: 4px solid #007bff;
+  .sidebar {
+    width: 220px;
+    background: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
   .sidebar .nav-links a,
   .sidebar-footer a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 12px 16px;
     color: #333;
     text-decoration: none;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-weight: 500;
     position: relative;
+  }
+  .sidebar .nav-links a i,
+  .sidebar-footer a i {
+    font-size: 1.2rem;
+    min-width: 20px;
+    text-align: center;
   }
   .sidebar .nav-links a.active,
   .sidebar-footer a.active {
     background-color: #d8d8d8;
+    border-left: 4px solid #0056b3;
+    font-weight: 600;
     transform: translateY(-2px);
   }
   .sidebar .nav-links a:hover:not(.active),
@@ -41,6 +45,9 @@ $role = $_SESSION['role'];
     background-color: #f1f1f1;
     color: #000;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  .sidebar-footer {
+    border-top: 1px solid #e0e0e0;
   }
 </style>
 
@@ -56,7 +63,7 @@ $role = $_SESSION['role'];
       <i class="bi bi-currency-dollar"></i> Sales
     </a>
 
-    <?php if ($role === 'admin' || $role === 'manager'): ?>
+    <?php if ($role === 'admin' || $role === 'manager' || $role === 'manager'): ?>
       <a href="/modules/products/products.php" class="<?= ($currentPage === 'products.php') ? 'active' : '' ?>">
         <i class="bi bi-box-seam"></i> Inventory
       </a>
@@ -70,14 +77,14 @@ $role = $_SESSION['role'];
         <i class="bi bi-graph-up"></i> Reports
       </a>
       <a href="/modules/users/users.php" class="<?= ($currentPage === 'users.php') ? 'active' : '' ?>">
-        <i class="bi bi-graph-up"></i> Employee
+        <i class="bi bi-person-badge"></i> Employee
       </a>
     <?php endif; ?>
   </div>
 
-    <div class="sidebar-footer">
-      <a href="/modules/settings/settings.php" class="<?= ($currentPage === 'settings.php') ? 'active' : '' ?>">
-        <i class="bi bi-gear"></i> Settings
-      </a>
-    </div>
+  <div class="sidebar-footer">
+    <a href="/modules/settings/settings.php" class="<?= ($currentPage === 'settings.php') ? 'active' : '' ?>">
+      <i class="bi bi-gear"></i> Settings
+    </a>
+  </div>
 </div>
