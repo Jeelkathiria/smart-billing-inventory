@@ -235,12 +235,13 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
       </thead>
       <tbody id="salesBody">
         <?php while ($sale = $sales->fetch_assoc()): ?>
-        <tr>
-          <td><span class="badge bg-secondary"><?= htmlspecialchars($sale['invoice_id']); ?></span></td>
-          <td><?= htmlspecialchars($sale['customer_name']); ?></td>
-          <td><?= date('d-m-Y H:i:s', strtotime($sale['sale_date'])); ?></td>
-          <td><strong>₹<?= number_format((float)$sale['total_amount'], 2); ?></strong></td>
-        </tr>
+       <tr>
+        <td><span class="badge bg-secondary"><?= !empty($sale['invoice_id']) ? htmlspecialchars($sale['invoice_id']) : '--'; ?></span></td>
+        <td><?= !empty($sale['customer_name']) ? htmlspecialchars($sale['customer_name']) : '--'; ?></td>
+        <td><?= !empty($sale['sale_date']) ? date('d-m-Y H:i:s', strtotime($sale['sale_date'])) : '--'; ?></td>
+        <td><strong>₹<?= isset($sale['total_amount']) ? number_format((float)$sale['total_amount'], 2) : '--'; ?></strong></td>
+      </tr>
+
         <?php endwhile; ?>
       </tbody>
     </table>

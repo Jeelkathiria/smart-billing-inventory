@@ -313,7 +313,8 @@ $result = $stmt->get_result();
             <div class="summary-card bg-primary d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="mb-1"><i class="bi bi-receipt-cutoff me-2"></i>Invoices Today</h6>
-                <h4><?php echo htmlspecialchars($todaySalesCount); ?></h4>
+                <h4><?php echo htmlspecialchars($todaySalesCount ?? '0'); ?></h4>
+
               </div>
               <i class="bi bi-journal-text fs-1 opacity-75"></i>
             </div>
@@ -351,21 +352,29 @@ $result = $stmt->get_result();
                 <th>Action</th>
               </tr>
             </thead>
-            <tbody>
+           <tbody>
               <?php if ($salesResult && $salesResult->num_rows > 0): ?>
               <?php while ($row = $salesResult->fetch_assoc()): ?>
               <tr>
-                <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id']); ?></span></td>
-                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                <td><?php echo date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
-                <td><strong>₹<?php echo number_format($row['total_amount'], 2); ?></strong></td>
+                <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['invoice_id'] ?? '--'); ?></span></td>
+                <td><?php echo !empty($row['customer_name']) ? htmlspecialchars($row['customer_name']) : '--'; ?></td>
                 <td>
-                  <a href="view_invoice.php?sale_id=<?php echo urlencode($row['sale_id']); ?>"
-                    class="btn btn-outline-primary btn-sm rounded-pill">
-                    <i class="bi bi-eye"></i> View
-                  </a>
+                    <?php 
+                        echo !empty($row['sale_date']) 
+                            ? date('d-m-Y H:i:s', strtotime($row['sale_date'])) 
+                            : '--'; 
+                    ?>
                 </td>
-              </tr>
+                <td><strong>₹<?php echo number_format($row['total_amount'] ?? 0, 2); ?></strong></td>
+                <td>
+                    <a href="view_invoice.php?sale_id=<?php echo urlencode($row['sale_id'] ?? ''); ?>"
+                      class="btn btn-outline-primary btn-sm rounded-pill">
+                      <i class="bi bi-eye"></i> View
+                    </a>
+                </td>
+            </tr>
+
+
               <?php endwhile; ?>
               <?php else: ?>
               <tr>
@@ -373,6 +382,7 @@ $result = $stmt->get_result();
               </tr>
               <?php endif; ?>
             </tbody>
+
           </table>
         </div>
         <!-- Pagination Controls -->

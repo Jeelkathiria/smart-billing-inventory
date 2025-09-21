@@ -30,9 +30,14 @@ $tax = 0;
 </head>
 <body class="bg-light">
 <div class="container mt-5 bg-white p-4 shadow">
-  <h2>Invoice #<?= htmlspecialchars($sale['invoice_id']) ?></h2>
+ <h2>Invoice #<?= htmlspecialchars($sale['invoice_id'] ?? '') ?></h2>
+<?php if (!empty($sale['customer_name'])): ?>
   <p>Customer: <?= htmlspecialchars($sale['customer_name']) ?></p>
+<?php endif; ?>
+<?php if (!empty($sale['sale_date'])): ?>
   <p>Date: <?= date('d-m-Y H:i', strtotime($sale['sale_date'])) ?></p>
+<?php endif; ?>
+
   
   <table class="table table-bordered text-center">
     <thead class="table-light">
