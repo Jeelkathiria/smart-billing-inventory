@@ -70,7 +70,7 @@ $role = $_SESSION['role'];
       <a href="/modules/categories.php" class="<?= ($currentPage === 'categories.php') ? 'active' : '' ?>">
         <i class="bi bi-tags"></i> Categories
       </a>
-      <a href="/modules/customers.php" class="<?= ($currentPage === 'customers.php') ? 'active' : '' ?>">
+      <a href="/modules/customers/customers.php" class="<?= ($currentPage === 'customers.php') ? 'active' : '' ?>">
         <i class="bi bi-people"></i> Customers
       </a>
       <a href="/modules/reports/report.php" class="<?= ($currentPage === 'report.php') ? 'active' : '' ?>">
