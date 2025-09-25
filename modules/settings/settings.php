@@ -11,33 +11,35 @@ if (!$user_id || !$store_id) {
     exit;
 }
 
-// Fetch current user and store info
+// Fetch current user info
 $stmt = $conn->prepare("SELECT username, role, password FROM users WHERE user_id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 $role = $user['role'] ?? '';
 
-$stmt = $conn->prepare("SELECT store_name, store_email, contact_number, store_code, store_type, billing_fields FROM stores WHERE store_id = ?");
+// Fetch current store info
+$stmt = $conn->prepare("SELECT store_name, store_email, contact_number, store_code, gstin, billing_fields 
+                        FROM stores WHERE store_id = ?");
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $store = $stmt->get_result()->fetch_assoc();
 $billing_fields = $store['billing_fields'] ? json_decode($store['billing_fields'], true) : [];
-$store_type = $store['store_type'] ?? 'custom';
 
-// AJAX handler
+// ================= AJAX HANDLER =================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
 
     $action = $_POST['action'];
     $current_password = $_POST['current_password'] ?? '';
 
+    // Verify password
     if (!$user || !password_verify($current_password, $user['password'])) {
         echo json_encode(['success' => false, 'msg' => 'Error: Password incorrect.']);
         exit;
     }
 
-    // Update profile
+    // ---------- Update Profile ----------
     if ($action === 'update_profile') {
         $newName = trim($_POST['username'] ?? '');
         $newPass = $_POST['password'] ?? '';
@@ -65,12 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
-    // Update store info
-    if ($action === 'update_store') {
+    // ---------- Update Store ----------
+    if ($action === 'update_store' && $role === 'admin') {
         $newName    = trim($_POST['store_name'] ?? '');
         $newEmail   = trim($_POST['store_email'] ?? '');
         $newContact = trim($_POST['contact_number'] ?? '');
-        $newType    = trim($_POST['store_type'] ?? 'custom');
+        $newGSTIN   = trim($_POST['gstin'] ?? '');
         $fields     = $_POST['fields'] ?? [];
         $billing    = json_encode($fields);
 
@@ -94,11 +96,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $changes[] = 'Contact changed';
         }
-        if ($newType !== $store['store_type'] || $billing !== $store['billing_fields']) {
-            $stmt = $conn->prepare("UPDATE stores SET store_type=?, billing_fields=? WHERE store_id=?");
-            $stmt->bind_param("ssi", $newType, $billing, $store_id);
+        if ($newGSTIN !== $store['gstin']) {
+            $stmt = $conn->prepare("UPDATE stores SET gstin=? WHERE store_id=?");
+            $stmt->bind_param("si", $newGSTIN, $store_id);
             $stmt->execute();
-            $changes[] = 'Store type/fields updated';
+            $changes[] = 'GSTIN updated';
+        }
+        if ($billing !== $store['billing_fields']) {
+            $stmt = $conn->prepare("UPDATE stores SET billing_fields=? WHERE store_id=?");
+            $stmt->bind_param("si", $billing, $store_id);
+            $stmt->execute();
+            $changes[] = 'Billing fields updated';
         }
 
         echo json_encode($changes
@@ -117,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   <title>Settings</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<style>
+  <style>
   /* ===== Layout ===== */
   .navbar {
     position: fixed;
@@ -196,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 25px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
   .settings-card h5 {
@@ -232,7 +240,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   .input-group .btn {
     border-radius: 0 8px 8px 0 !important;
   }
-</style>
+
+  .container {
+    margin-left: 220px;
+    padding: 20px;
+    padding-top: 80px;
+  }
+
+  .settings-wrapper {
+    max-width: 850px;
+    margin: 0 auto;
+  }
+
+  .settings-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .settings-card h5 {
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  }
+
+  .form-label {
+    font-weight: 500;
+  }
+
+  #billing-fields label {
+    display: block;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+
+  #billing-fields input[type="checkbox"] {
+    margin-right: 6px;
+  }
+
+  .btn-primary {
+    border-radius: 8px;
+    padding: 8px 16px;
+  }
+  </style>
+
+
+
 </head>
 
 <body>
@@ -249,25 +308,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
       <!-- Tabs -->
       <ul class="nav nav-tabs" id="settingsTab" role="tablist">
         <li class="nav-item">
-          <button class="nav-link active" id="profile-tab" data-bs-toggle="tab"
-            data-bs-target="#profile" type="button">Profile Settings</button>
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#profile" type="button">Profile
+            Settings</button>
         </li>
         <?php if ($role === 'admin'): ?>
         <li class="nav-item">
-          <button class="nav-link" id="store-tab" data-bs-toggle="tab"
-            data-bs-target="#store" type="button">Store Settings</button>
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#store" type="button">Store Settings</button>
         </li>
         <?php endif; ?>
       </ul>
 
-      <!-- Content -->
+      <!-- Tab Content -->
       <div class="tab-content">
 
         <!-- Profile Settings -->
         <div class="tab-pane fade show active" id="profile">
           <div class="settings-card">
             <h5>👤 Profile Information</h5>
-            <form id="profileForm">
+            <form class="profileForm">
               <div class="mb-3">
                 <label class="form-label">Full Name</label>
                 <input type="text" name="username" class="form-control"
@@ -275,18 +333,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
               </div>
               <div class="mb-3">
                 <label class="form-label">Role</label>
-                <input type="text" class="form-control"
-                  value="<?= htmlspecialchars($user['role']) ?>" readonly>
+                <input type="text" class="form-control" value="<?= htmlspecialchars($user['role']) ?>" readonly>
               </div>
+              <button type="submit" class="btn btn-primary">Update Profile</button>
+            </form>
+          </div>
+
+          <div class="settings-card">
+            <h5>🔒 Security</h5>
+            <form class="profileForm">
               <div class="mb-3">
-                <label class="form-label">New Password (optional)</label>
+                <label class="form-label">New Password</label>
                 <input type="password" name="password" class="form-control">
               </div>
               <div class="mb-3">
                 <label class="form-label">Confirm Password</label>
                 <input type="password" name="confirm_password" class="form-control">
               </div>
-              <button type="submit" class="btn btn-primary">Update Profile</button>
+              <button type="submit" class="btn btn-primary">Change Password</button>
             </form>
           </div>
         </div>
@@ -296,58 +360,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="tab-pane fade" id="store">
           <div class="settings-card">
             <h5>🏪 Store Information</h5>
-            <form id="storeForm">
+            <form class="storeForm">
               <div class="mb-3">
                 <label class="form-label">Store Name</label>
                 <input type="text" name="store_name" class="form-control"
                   value="<?= htmlspecialchars($store['store_name']) ?>">
               </div>
-
-              <div class="mb-3 position-relative">
+              <div class="mb-3">
                 <label class="form-label">Store Code</label>
-                <div class="input-group">
-                  <input type="text" id="storeCodeField" class="form-control"
-                    value="<?= htmlspecialchars($store['store_code']) ?>" readonly>
-                  <button type="button" class="btn btn-primary d-flex align-items-center" id="copyStoreCodeBtn">
-                    <span>Copy</span>
-                    <i class="bi bi-clipboard text-white ms-2" id="copyIcon"></i>
-                  </button>
-                </div>
+                <input type="text" class="form-control" value="<?= htmlspecialchars($store['store_code']) ?>" readonly>
               </div>
-
+              <div class="mb-3">
+                <label class="form-label">GSTIN Number</label>
+                <input type="text" name="gstin" class="form-control"
+                  value="<?= htmlspecialchars($store['gstin'] ?? '') ?>" placeholder="Enter GSTIN">
+              </div>
               <div class="mb-3">
                 <label class="form-label">Store Email</label>
                 <input type="email" name="store_email" class="form-control"
                   value="<?= htmlspecialchars($store['store_email']) ?>">
               </div>
-
               <div class="mb-3">
                 <label class="form-label">Contact Number</label>
                 <input type="text" name="contact_number" class="form-control"
                   value="<?= htmlspecialchars($store['contact_number']) ?>">
               </div>
-
-              <div class="mb-3">
-                <label class="form-label">Store Type</label>
-                <select name="store_type" id="store_type" class="form-select" onchange="loadDefaultFields(this.value)">
-                  <option value="supermarket" <?= $store_type==='supermarket'?'selected':'' ?>>Supermarket</option>
-                  <option value="cloth" <?= $store_type==='cloth'?'selected':'' ?>>Cloth Shop</option>
-                  <option value="restaurant" <?= $store_type==='restaurant'?'selected':'' ?>>Restaurant</option>
-                  <option value="custom" <?= $store_type==='custom'?'selected':'' ?>>Custom</option>
-                </select>
-              </div>
-
-              <div id="billing-fields" class="mb-3">
-                <label class="form-label d-block">Billing Fields</label>
-                <label><input type="checkbox" name="fields[table_no]" <?= !empty($billing_fields['table_no'])?'checked':'' ?>> Table/Order No</label>
-                <label><input type="checkbox" name="fields[customer_name]" <?= !empty($billing_fields['customer_name'])?'checked':'' ?>> Customer Name</label>
-                <label><input type="checkbox" name="fields[customer_mobile]" <?= !empty($billing_fields['customer_mobile'])?'checked':'' ?>> Customer Mobile</label>
-                <label><input type="checkbox" name="fields[address]" <?= !empty($billing_fields['address'])?'checked':'' ?>> Address</label>
-                <label><input type="checkbox" name="fields[gstin]" <?= !empty($billing_fields['gstin'])?'checked':'' ?>> GSTIN</label>
-                <label><input type="checkbox" name="fields[prescription]" <?= !empty($billing_fields['prescription'])?'checked':'' ?>> Prescription / Doctor Info</label>
-              </div>
-
               <button type="submit" class="btn btn-primary">Update Store Info</button>
+            </form>
+          </div>
+
+          <div class="settings-card">
+            <h5>🧾 Billing Fields</h5>
+            <form class="storeForm">
+              <div id="billing-fields" class="mb-3">
+                <label><input type="checkbox" name="fields[customer_name]"
+                    <?= !empty($billing_fields['customer_name'])?'checked':'' ?>> Customer Name</label>
+                <label><input type="checkbox" name="fields[customer_mobile]"
+                    <?= !empty($billing_fields['customer_mobile'])?'checked':'' ?>> Customer Mobile</label>
+                <label><input type="checkbox" name="fields[address]"
+                    <?= !empty($billing_fields['address'])?'checked':'' ?>> Address</label>
+              </div>
+              <button type="submit" class="btn btn-primary">Update Billing Fields</button>
             </form>
           </div>
         </div>
@@ -363,9 +416,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="modal-header">
           <h5 class="modal-title">Confirm Password</h5>
         </div>
-        <div class="modal-body">
-          <input type="password" id="confirmPasswordInput" class="form-control" placeholder="Enter your password">
-        </div>
+        <div class="modal-body"><input type="password" id="confirmPasswordInput" class="form-control"
+            placeholder="Enter your password"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" id="confirmPasswordBtn" class="btn btn-primary">Confirm</button>
@@ -374,19 +426,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     </div>
   </div>
 
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
   function showToast(msg) {
-    const html = `
-    <div class="position-fixed top-0 end-0 p-3" style="z-index:9999">
+    const html = `<div class="position-fixed top-0 end-0 p-3" style="z-index:9999">
       <div class="toast align-items-center text-bg-${msg.startsWith('Error')?'danger':'success'} border-0 show">
-        <div class="d-flex">
-          <div class="toast-body">${msg}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-      </div>
-    </div>`;
+        <div class="d-flex"><div class="toast-body">${msg}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div></div></div>`;
     document.body.insertAdjacentHTML('beforeend', html);
     setTimeout(() => document.querySelector('.toast')?.remove(), 2000);
   }
@@ -419,13 +466,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
       const formData = new FormData(e.target);
       pendingData = formData;
       pendingAction = action;
-      const modal = new bootstrap.Modal(document.getElementById('confirmPasswordModal'));
-      modal.show();
+      new bootstrap.Modal(document.getElementById('confirmPasswordModal')).show();
     }
+      document.querySelectorAll('.profileForm').forEach(form =>
+        form.addEventListener('submit', e => handleFormSubmit(e, 'update_profile'))
+      );
+      document.querySelectorAll('.storeForm').forEach(form =>
+        form.addEventListener('submit', e => handleFormSubmit(e, 'update_store'))
+      );
 
-    document.getElementById('profileForm').addEventListener('submit', e => handleFormSubmit(e, 'update_profile'));
-    const storeForm = document.getElementById('storeForm');
-    if (storeForm) storeForm.addEventListener('submit', e => handleFormSubmit(e, 'update_store'));
 
     document.getElementById('confirmPasswordBtn').addEventListener('click', () => {
       const pwd = document.getElementById('confirmPasswordInput').value;
@@ -447,30 +496,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
       document.getElementById('confirmPasswordInput').value = '';
     });
   });
-
-  // Default fields for store type
-  function loadDefaultFields(type) {
-    document.querySelectorAll("#billing-fields input").forEach(cb => cb.checked = false);
-
-    if (type === "restaurant") {
-      document.querySelector("input[name='fields[table_no]']").checked = true;
-      document.querySelector("input[name='fields[customer_name]']").checked = true;
-      document.querySelector("input[name='fields[customer_mobile]']").checked = true;
-      document.querySelector("input[name='fields[address]']").checked = true;
-    } else if (type === "supermarket") {
-      document.querySelector("input[name='fields[gstin]']").checked = true;
-    } else if (type === "cloth") {
-      document.querySelector("input[name='fields[customer_name]']").checked = true;
-      document.querySelector("input[name='fields[customer_mobile]']").checked = true;
-      document.querySelector("input[name='fields[address]']").checked = true;
-    } else if (type === "pharmacy") {
-      document.querySelector("input[name='fields[customer_name]']").checked = true;
-      document.querySelector("input[name='fields[customer_mobile]']").checked = true;
-      document.querySelector("input[name='fields[prescription]']").checked = true;
-    } else if (type === "stationary") {
-      document.querySelector("input[name='fields[customer_name]']").checked = true;
-    }
-  }
   </script>
 </body>
 
