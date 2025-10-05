@@ -24,7 +24,9 @@ $stmt = $conn->prepare("SELECT store_name, store_email, contact_number, store_co
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $store = $stmt->get_result()->fetch_assoc();
-$billing_fields = $store['billing_fields'] ? json_decode($store['billing_fields'], true) : [];
+$billing_fields = !empty($store['billing_fields']) ? json_decode($store['billing_fields'], true) : [];
+if (!is_array($billing_fields)) $billing_fields = [];
+
 
 // ================= AJAX HANDLER =================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -66,112 +68,194 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         );
         exit;
     }
+    // ---------- Update Store Info ----------
+if ($action === 'update_store_info' && $role === 'admin') {
+    $newName    = trim($_POST['store_name'] ?? '');
+    $newEmail   = trim($_POST['store_email'] ?? '');
+    $newContact = trim($_POST['contact_number'] ?? '');
+    $newGSTIN   = trim($_POST['gstin'] ?? '');
 
-    // ---------- Update Store ----------
-    if ($action === 'update_store' && $role === 'admin') {
-        $newName    = trim($_POST['store_name'] ?? '');
-        $newEmail   = trim($_POST['store_email'] ?? '');
-        $newContact = trim($_POST['contact_number'] ?? '');
-        $newGSTIN   = trim($_POST['gstin'] ?? '');
-        $fields     = $_POST['fields'] ?? [];
-        $billing    = json_encode($fields);
+    $changes = [];
 
-        $changes = [];
-
-        if ($newName !== $store['store_name']) {
-            $stmt = $conn->prepare("UPDATE stores SET store_name=? WHERE store_id=?");
-            $stmt->bind_param("si", $newName, $store_id);
-            $stmt->execute();
-            $changes[] = 'Name changed';
-        }
-        if ($newEmail !== $store['store_email']) {
-            $stmt = $conn->prepare("UPDATE stores SET store_email=? WHERE store_id=?");
-            $stmt->bind_param("si", $newEmail, $store_id);
-            $stmt->execute();
-            $changes[] = 'Email changed';
-        }
-        if ($newContact !== $store['contact_number']) {
-            $stmt = $conn->prepare("UPDATE stores SET contact_number=? WHERE store_id=?");
-            $stmt->bind_param("si", $newContact, $store_id);
-            $stmt->execute();
-            $changes[] = 'Contact changed';
-        }
-        if ($newGSTIN !== $store['gstin']) {
-            $stmt = $conn->prepare("UPDATE stores SET gstin=? WHERE store_id=?");
-            $stmt->bind_param("si", $newGSTIN, $store_id);
-            $stmt->execute();
-            $changes[] = 'GSTIN updated';
-        }
-        if ($billing !== $store['billing_fields']) {
-            $stmt = $conn->prepare("UPDATE stores SET billing_fields=? WHERE store_id=?");
-            $stmt->bind_param("si", $billing, $store_id);
-            $stmt->execute();
-            $changes[] = 'Billing fields updated';
-        }
-
-        echo json_encode($changes
-            ? ['success' => true, 'msg' => 'Store updated: ' . implode(' & ', $changes)]
-            : ['success' => false, 'msg' => 'No changes detected.']
-        );
-        exit;
+    if ($newName !== $store['store_name']) {
+        $stmt = $conn->prepare("UPDATE stores SET store_name=? WHERE store_id=?");
+        $stmt->bind_param("si", $newName, $store_id);
+        $stmt->execute();
+        $changes[] = 'Name changed';
     }
+    if ($newEmail !== $store['store_email']) {
+        $stmt = $conn->prepare("UPDATE stores SET store_email=? WHERE store_id=?");
+        $stmt->bind_param("si", $newEmail, $store_id);
+        $stmt->execute();
+        $changes[] = 'Email changed';
+    }
+    if ($newContact !== $store['contact_number']) {
+        $stmt = $conn->prepare("UPDATE stores SET contact_number=? WHERE store_id=?");
+        $stmt->bind_param("si", $newContact, $store_id);
+        $stmt->execute();
+        $changes[] = 'Contact changed';
+    }
+    if ($newGSTIN !== $store['gstin']) {
+        $stmt = $conn->prepare("UPDATE stores SET gstin=? WHERE store_id=?");
+        $stmt->bind_param("si", $newGSTIN, $store_id);
+        $stmt->execute();
+        $changes[] = 'GSTIN updated';
+    }
+
+    echo json_encode($changes
+        ? ['success' => true, 'msg' => 'Store updated: ' . implode(' & ', $changes)]
+        : ['success' => false, 'msg' => 'No changes detected.']
+    );
+    exit;
+}
+
+// ---------- Update Billing Fields ----------
+if ($action === 'update_billing_fields' && $role === 'admin') {
+    $fields = $_POST['fields'] ?? [];
+    $billing = json_encode($fields);
+    $old_billing = json_decode($store['billing_fields'], true) ?: [];
+
+    if ($fields != $old_billing) {
+        $stmt = $conn->prepare("UPDATE stores SET billing_fields=? WHERE store_id=?");
+        $stmt->bind_param("si", $billing, $store_id);
+        $stmt->execute();
+        echo json_encode(['success' => true, 'msg' => 'Billing fields updated']);
+    } else {
+        echo json_encode(['success' => false, 'msg' => 'No changes detected']);
+    }
+    exit;
+}
+
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Settings</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
-    /* ===== Layout ===== */
-    .navbar {
-      position: fixed; top: 0; left: 0; right: 0;
-      height: 60px; z-index: 1030;
-      background: #fff; border-bottom: 1px solid #dee2e6;
-      display: flex; align-items: center; padding: 0 20px;
-    }
-    .sidebar {
-      width: 220px; position: fixed; top: 0; bottom: 0;
-      background: #fff; border-right: 1px solid #dee2e6;
-      padding-top: 60px; display: flex; flex-direction: column;
-    }
-    .sidebar a {
-      padding: 12px 20px; color: #333; text-decoration: none;
-      display: flex; align-items: center; gap: 10px;
-      transition: background 0.2s;
-    }
-    .sidebar a:hover { background: #f0f0f0; border-left: 4px solid #007bff; }
+  /* ===== Layout ===== */
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1030;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+  }
 
-    .container { margin-left: 220px; padding: 20px; padding-top: 80px; }
+  .sidebar {
+    width: 220px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background: #fff;
+    border-right: 1px solid #dee2e6;
+    padding-top: 60px;
+    display: flex;
+    flex-direction: column;
+  }
 
-    /* ===== Settings Page ===== */
-    .settings-wrapper { max-width: 850px; margin: 0 auto; }
-    .settings-header { margin-bottom: 25px; }
-    .nav-tabs { border-bottom: 2px solid #dee2e6; }
-    .nav-tabs .nav-link { font-weight: 500; border-radius: 0; }
-    .tab-content { margin-top: 20px; }
+  .sidebar a {
+    padding: 12px 20px;
+    color: #333;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+  }
 
-    /* ===== Card Styling ===== */
-    .settings-card {
-      background: #fff; border: 1px solid #dee2e6; border-radius: 12px;
-      padding: 20px; margin-bottom: 25px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .settings-card h5 {
-      margin-bottom: 20px; font-size: 1.1rem; font-weight: 600;
-      color: #495057; border-bottom: 1px solid #eee; padding-bottom: 10px;
-    }
-    .form-label { font-weight: 500; }
+  .sidebar a:hover {
+    background: #f0f0f0;
+    border-left: 4px solid #007bff;
+  }
 
-    /* ===== Checkbox Group ===== */
-    #billing-fields label { display: block; margin-bottom: 8px; cursor: pointer; }
-    #billing-fields input[type="checkbox"] { margin-right: 6px; }
+  .sidebar-footer {
+    padding: 12px 20px;
+    margin-top: auto;
+  }
 
-    /* ===== Buttons ===== */
-    .btn-primary { border-radius: 8px; padding: 8px 16px; }
-    .input-group .btn { border-radius: 0 8px 8px 0 !important; }
+  .container {
+    margin-left: 70px;
+    padding: 10px;
+    padding-top: 70px;
+  }
+
+  /* ===== Settings Page ===== */
+  .settings-wrapper {
+    max-width: 850px;
+    margin: 0 auto;
+  }
+
+  .settings-header {
+    margin-bottom: 25px;
+  }
+
+  .nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .nav-tabs .nav-link {
+    font-weight: 500;
+    border-radius: 0;
+  }
+
+  .tab-content {
+    margin-top: 20px;
+  }
+
+  /* ===== Card Styling ===== */
+  .settings-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .settings-card h5 {
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  }
+
+  .form-label {
+    font-weight: 500;
+  }
+
+  /* ===== Checkbox Group ===== */
+  #billing-fields label {
+    display: block;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+
+  #billing-fields input[type="checkbox"] {
+    margin-right: 6px;
+  }
+
+  /* ===== Buttons ===== */
+  .btn-primary {
+    border-radius: 8px;
+    padding: 8px 16px;
+  }
+
+  .input-group .btn {
+    border-radius: 0 8px 8px 0 !important;
+  }
   </style>
 </head>
 
@@ -244,16 +328,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="tab-pane fade" id="store">
           <div class="settings-card">
             <h5>🏪 Store Information</h5>
-            <form class="storeForm">
+            <form class="storeForm" data-action="update_store_info">
               <div class="mb-3">
                 <label class="form-label">Store Name</label>
                 <input type="text" name="store_name" class="form-control"
-                  value="<?= htmlspecialchars($store['store_name']) ?>">
+                  value="<?= htmlspecialchars($store['store_name'] ?? '') ?>">
               </div>
               <div class="mb-3">
                 <label class="form-label">Store Code</label>
                 <input type="text" id="storeCodeField" class="form-control"
-                  value="<?= htmlspecialchars($store['store_code']) ?>" readonly>
+                  value="<?= htmlspecialchars($store['store_code'] ?? '') ?>" readonly>
               </div>
               <div class="mb-3">
                 <label class="form-label">GSTIN Number</label>
@@ -263,20 +347,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
               <div class="mb-3">
                 <label class="form-label">Store Email</label>
                 <input type="email" name="store_email" class="form-control"
-                  value="<?= htmlspecialchars($store['store_email']) ?>">
+                  value="<?= htmlspecialchars($store['store_email'] ?? '') ?>">
               </div>
               <div class="mb-3">
                 <label class="form-label">Contact Number</label>
                 <input type="text" name="contact_number" class="form-control"
-                  value="<?= htmlspecialchars($store['contact_number']) ?>">
+                  value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>">
               </div>
               <button type="submit" class="btn btn-primary">Update Store Info</button>
             </form>
+
           </div>
 
           <div class="settings-card">
             <h5>🧾 Billing Fields</h5>
-            <form class="storeForm">
+            <form class="storeForm" data-action="update_billing_fields">
               <div id="billing-fields" class="mb-3">
                 <label>
                   <input type="checkbox" name="fields[customer_name]"
@@ -287,8 +372,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <?= !empty($billing_fields['customer_mobile'])?'checked':'' ?>> Customer Mobile
                 </label>
                 <label>
-                  <input type="checkbox" name="fields[address]"
-                    <?= !empty($billing_fields['address'])?'checked':'' ?>> Address
+                  <input type="checkbox" name="fields[address]" <?= !empty($billing_fields['address'])?'checked':'' ?>>
+                  Address
                 </label>
               </div>
               <button type="submit" class="btn btn-primary">Update Billing Fields</button>
@@ -305,7 +390,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   <div class="modal fade" id="confirmPasswordModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Confirm Password</h5></div>
+        <div class="modal-header">
+          <h5 class="modal-title">Confirm Password</h5>
+        </div>
         <div class="modal-body">
           <input type="password" id="confirmPasswordInput" class="form-control" placeholder="Enter your password">
         </div>
@@ -319,71 +406,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    function showToast(msg) {
-      const html = `<div class="position-fixed top-0 end-0 p-3" style="z-index:9999">
+  function showToast(msg) {
+    const html = `<div class="position-fixed top-0 end-0 p-3" style="z-index:9999">
         <div class="toast align-items-center text-bg-${msg.startsWith('Error')?'danger':'success'} border-0 show">
           <div class="d-flex"><div class="toast-body">${msg}</div>
           <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
           </div></div></div>`;
-      document.body.insertAdjacentHTML('beforeend', html);
-      setTimeout(() => document.querySelector('.toast')?.remove(), 2000);
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.querySelector('.toast')?.remove(), 2000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Copy Store Code
+    const copyBtn = document.getElementById('copyStoreCodeBtn');
+    const copyIcon = document.getElementById('copyIcon');
+    const storeCodeField = document.getElementById('storeCodeField');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(storeCodeField.value);
+          copyIcon.classList.replace('bi-clipboard', 'bi-check2');
+          copyBtn.classList.replace('btn-primary', 'btn-success');
+          setTimeout(() => {
+            copyIcon.classList.replace('bi-check2', 'bi-clipboard');
+            copyBtn.classList.replace('btn-success', 'btn-primary');
+          }, 1500);
+        } catch (err) {
+          console.error('Copy failed', err);
+        }
+      });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Copy Store Code
-      const copyBtn = document.getElementById('copyStoreCodeBtn');
-      const copyIcon = document.getElementById('copyIcon');
-      const storeCodeField = document.getElementById('storeCodeField');
-      if (copyBtn) {
-        copyBtn.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(storeCodeField.value);
-            copyIcon.classList.replace('bi-clipboard', 'bi-check2');
-            copyBtn.classList.replace('btn-primary', 'btn-success');
-            setTimeout(() => {
-              copyIcon.classList.replace('bi-check2', 'bi-clipboard');
-              copyBtn.classList.replace('btn-success', 'btn-primary');
-            }, 1500);
-          } catch (err) {
-            console.error('Copy failed', err);
-          }
-        });
-      }
+    // Password confirmation + AJAX
+    let pendingData = null;
+    let pendingAction = '';
 
-      // Password confirmation + AJAX
-      let pendingData = null;
-      let pendingAction = '';
+    function handleFormSubmit(e, action) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      pendingData = formData;
+      pendingAction = action;
+      new bootstrap.Modal(document.getElementById('confirmPasswordModal')).show();
+    }
 
-      function handleFormSubmit(e, action) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        pendingData = formData;
-        pendingAction = action;
-        new bootstrap.Modal(document.getElementById('confirmPasswordModal')).show();
-      }
+    document.querySelectorAll('.profileForm').forEach(form =>
+      form.addEventListener('submit', e => handleFormSubmit(e, 'update_profile'))
+    );
+    document.querySelectorAll('.storeForm').forEach(form =>
+      form.addEventListener('submit', e => handleFormSubmit(e, e.target.dataset.action))
+    );
 
-      document.querySelectorAll('.profileForm').forEach(form =>
-        form.addEventListener('submit', e => handleFormSubmit(e, 'update_profile'))
-      );
-      document.querySelectorAll('.storeForm').forEach(form =>
-        form.addEventListener('submit', e => handleFormSubmit(e, 'update_store'))
-      );
+    document.getElementById('confirmPasswordBtn').addEventListener('click', () => {
+      const pwd = document.getElementById('confirmPasswordInput').value;
+      if (!pwd) return;
+      pendingData.append('current_password', pwd);
+      pendingData.append('action', pendingAction);
 
-      document.getElementById('confirmPasswordBtn').addEventListener('click', () => {
-        const pwd = document.getElementById('confirmPasswordInput').value;
-        if (!pwd) return;
-        pendingData.append('current_password', pwd);
-        pendingData.append('action', pendingAction);
+      fetch('', {
+          method: 'POST',
+          body: pendingData
+        })
+        .then(r => r.json())
+        .then(res => {
+          showToast(res.msg);
+        })
+        .catch(err => console.error(err));
 
-        fetch('', { method: 'POST', body: pendingData })
-          .then(r => r.json())
-          .then(res => { showToast(res.msg); })
-          .catch(err => console.error(err));
-
-        bootstrap.Modal.getInstance(document.getElementById('confirmPasswordModal')).hide();
-        document.getElementById('confirmPasswordInput').value = '';
-      });
+      bootstrap.Modal.getInstance(document.getElementById('confirmPasswordModal')).hide();
+      document.getElementById('confirmPasswordInput').value = '';
     });
+  });
   </script>
 </body>
+
 </html>
