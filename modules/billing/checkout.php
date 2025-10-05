@@ -62,16 +62,55 @@ foreach ($data['items'] as $item) {
 }
 
 /* ==================================================
-   4. CALCULATE TOTALS
+   4. CALCULATE TOTALS FROM PRODUCTS (NOT FRONTEND)
 ================================================== */
-$subtotal  = 0;
+$subtotal = 0;
 $total_tax = 0;
-foreach ($items as $item) {
-    $line_total = $item['price'] * $item['quantity'];
-    $subtotal  += $line_total;
-    $total_tax += $line_total * ($item['gst_percent'] / 100);
+
+// Get all product IDs from cart
+$product_ids = array_column($items, 'product_id');
+$placeholders = implode(',', array_fill(0, count($product_ids), '?'));
+$types = str_repeat('i', count($product_ids));
+
+// Fetch product info from DB
+$stmt = $conn->prepare("SELECT product_id, price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?");
+$stmt->bind_param($types.'i', ...array_merge($product_ids, [$store_id]));
+$stmt->execute();
+$res = $stmt->get_result();
+
+// Map product_id => product info
+$dbProducts = [];
+while($p = $res->fetch_assoc()) {
+    $dbProducts[$p['product_id']] = $p;
 }
+
+// Calculate totals
+foreach ($items as &$item) {
+    if (!isset($dbProducts[$item['product_id']])) {
+        throw new Exception("Product ID {$item['product_id']} not found");
+    }
+
+    $p = $dbProducts[$item['product_id']];
+
+    // Stock check
+    if ($item['quantity'] > $p['stock']) {
+        throw new Exception("Insufficient stock for product ID {$item['product_id']}");
+    }
+
+    // Use DB values
+    $item['price']       = (float)$p['price'];
+    $item['gst_percent'] = (float)$p['gst_percent'];
+
+    $line_total  = $item['price'] * $item['quantity'];
+    $line_tax    = $line_total * ($item['gst_percent']/100);
+
+    $subtotal   += $line_total;
+    $total_tax  += $line_tax;
+}
+
 $total_amount = $subtotal + $total_tax;
+
+
 $invoice_id   = uniqid('INV');
 
 /* ==================================================
