@@ -365,17 +365,29 @@ if ($action === 'update_billing_fields' && $role === 'admin') {
               <div id="billing-fields" class="mb-3">
                 <label>
                   <input type="checkbox" name="fields[customer_name]"
-                    <?= !empty($billing_fields['customer_name'])?'checked':'' ?>> Customer Name
+                    <?= !empty($billing_fields['customer_name']) ? 'checked' : '' ?>>
+                  Customer Name
                 </label>
+
                 <label>
                   <input type="checkbox" name="fields[customer_mobile]"
-                    <?= !empty($billing_fields['customer_mobile'])?'checked':'' ?>> Customer Mobile
+                    <?= !empty($billing_fields['customer_mobile']) ? 'checked' : '' ?>>
+                  Customer Mobile
                 </label>
+
                 <label>
-                  <input type="checkbox" name="fields[address]" <?= !empty($billing_fields['address'])?'checked':'' ?>>
+                  <input type="checkbox" name="fields[customer_email]"
+                    <?= !empty($billing_fields['customer_email']) ? 'checked' : '' ?>>
+                  Customer Email
+                </label>
+
+                <label>
+                  <input type="checkbox" name="fields[customer_address]"
+                    <?= !empty($billing_fields['customer_address']) ? 'checked' : '' ?>>
                   Address
                 </label>
               </div>
+
               <button type="submit" class="btn btn-primary">Update Billing Fields</button>
             </form>
           </div>

@@ -122,48 +122,80 @@ try {
        5a. CUSTOMER HANDLING
     ---------------------------------------------- */
     $customer_id = null;
-    if(isset($customerData['customer_mobile'])){
-        $stmt = $conn->prepare("SELECT customer_id FROM customers WHERE customer_mobile=? AND store_id=?");
-        $stmt->bind_param("si", $customerData['customer_mobile'], $store_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
 
-        if($row = $res->fetch_assoc()){
-            $customer_id = $row['customer_id'];
+    if(!empty($customerData)){
 
-            // Update customer dynamically (exclude updated_at)
-            $updateCols = [];
-            $updateVals = [];
-            foreach($customerData as $col => $val){
-                $updateCols[] = "$col=?";
-                $updateVals[] = $val;
-            }
-
-            if(count($updateCols) > 0){
-                $updateVals[] = $customer_id;
-                $updateVals[] = $store_id;
-                $sql = "UPDATE customers SET ".implode(", ", $updateCols)." WHERE customer_id=? AND store_id=?";
-                $stmt_up = $conn->prepare($sql);
-                $types = str_repeat('s', count($updateVals)-2) . "ii";
-                $stmt_up->bind_param($types, ...$updateVals);
-                $stmt_up->execute();
-                $stmt_up->close();
-            }
-
+        // Prefer mobile first, then email for lookup
+        if(!empty($customerData['customer_mobile'])){
+            $lookup_col = 'customer_mobile';
+            $lookup_val = $customerData['customer_mobile'];
+        } elseif(!empty($customerData['customer_email'])){
+            $lookup_col = 'customer_email';
+            $lookup_val = $customerData['customer_email'];
         } else {
-            // Insert new customer
-            $cols = array_keys($customerData);
-            $placeholders = array_fill(0, count($cols), "?");
-            $sql = "INSERT INTO customers (store_id,".implode(",", $cols).") VALUES (?, ".implode(",", $placeholders).")";
+            $lookup_col = null;
+        }
+
+        if($lookup_col){
+            $stmt = $conn->prepare("SELECT customer_id FROM customers WHERE $lookup_col=? AND store_id=?");
+            $stmt->bind_param("si", $lookup_val, $store_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+
+            if($row = $res->fetch_assoc()){
+                $customer_id = $row['customer_id'];
+
+                // Prepare dynamic update
+                $updateCols = [];
+                $updateVals = [];
+                foreach($customerData as $col => $val){
+                    $updateCols[] = "$col=?";
+                    $updateVals[] = ($val === '' ? null : $val); // convert empty string to NULL
+                }
+
+                if(count($updateCols) > 0){
+                    $updateVals[] = $customer_id;
+                    $updateVals[] = $store_id;
+                    $sql = "UPDATE customers SET ".implode(", ", $updateCols)." WHERE customer_id=? AND store_id=?";
+                    $stmt_up = $conn->prepare($sql);
+
+                    // Determine types
+                    $types = '';
+                    foreach($updateVals as $v){
+                        $types .= is_int($v) ? 'i' : 's';
+                    }
+
+                    $stmt_up->bind_param($types, ...$updateVals);
+                    $stmt_up->execute();
+                    $stmt_up->close();
+                }
+
+            } else {
+                // Insert new customer
+                $cols = array_keys($customerData);
+                $placeholders = array_fill(0, count($cols), "?");
+                $sql = "INSERT INTO customers (store_id,".implode(",", $cols).") VALUES (?, ".implode(",", $placeholders).")";
+                $stmt_ins = $conn->prepare($sql);
+
+                $types = "i".str_repeat('s', count($cols));
+                $values = array_merge([$store_id], array_map(fn($v) => $v === '' ? null : $v, array_values($customerData)));
+
+                $stmt_ins->bind_param($types, ...$values);
+                $stmt_ins->execute();
+                $customer_id = $stmt_ins->insert_id;
+                $stmt_ins->close();
+            }
+
+            $stmt->close();
+        } else {
+            // No mobile/email provided, insert as new customer with only store_id
+            $sql = "INSERT INTO customers (store_id) VALUES (?)";
             $stmt_ins = $conn->prepare($sql);
-            $types = "i".str_repeat('s', count($cols));
-            $values = array_merge([$store_id], array_values($customerData));
-            $stmt_ins->bind_param($types, ...$values);
+            $stmt_ins->bind_param("i", $store_id);
             $stmt_ins->execute();
             $customer_id = $stmt_ins->insert_id;
             $stmt_ins->close();
         }
-        $stmt->close();
     }
 
     /* ----------------------------------------------
@@ -188,12 +220,15 @@ try {
     }
 
     foreach($storeFields as $field => $enabled){
-        if($enabled && !in_array($field,['customer_mobile'])){ 
-            $columns[] = $field;
-            $placeholders[] = '?';
-            $values[] = $customerData[$field] ?? '';
-        }
+    // Include only fields you want in sales table
+    if($enabled && !in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) { 
+        $columns[] = $field;
+        $placeholders[] = '?';
+        $values[] = $customerData[$field] ?? null;
     }
+}
+
+
 
     $sql = "INSERT INTO sales (".implode(",", $columns).") VALUES (".implode(",", $placeholders).")";
     $stmt_sale = $conn->prepare($sql);

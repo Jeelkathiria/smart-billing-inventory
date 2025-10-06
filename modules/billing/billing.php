@@ -158,17 +158,18 @@ $categories = $catStmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <?php
     $labels = [
       'customer_name' => 'Customer Name',
+      'customer_email' => 'Customer Email',
       'customer_mobile' => 'Mobile',
-      'address' => 'Delivery Address',
+      'customer_address' => 'Delivery Address',
       'gstin' => 'GSTIN'
     ];
     foreach ($fields as $key => $enabled):
       if (!$enabled) continue;
       $label = $labels[$key] ?? ucfirst($key);
     ?>
-    <div class="col-md-<?php echo $key === 'address' ? 8 : 4; ?>">
+    <div class="col-md-<?php echo $key === 'customer_address' ? 8 : 4; ?>">
       <label><?php echo $label; ?></label>
-      <?php if ($key === 'address'): ?>
+      <?php if ($key === 'customer_address'): ?>
         <textarea id="<?php echo $key ?>" class="form-control" rows="2" placeholder="<?php echo $label ?>"></textarea>
       <?php else: ?>
         <input type="text" id="<?php echo $key ?>" class="form-control" placeholder="<?php echo $label ?>">
