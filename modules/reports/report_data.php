@@ -12,42 +12,42 @@ if (!isset($_SESSION['user_id'])) {
 $store_id = $_SESSION['store_id'];
 $view = $_GET['view'] ?? 'monthly';
 $labels = [];
-$data = [];
+$salesData = [];
+$profitData = [];
 
 switch ($view) {
     case 'daily':
-        $sql = "
-            SELECT DATE(sale_date) AS label, SUM(total_amount) AS total 
-            FROM sales 
-            WHERE store_id = ?
-            GROUP BY DATE(sale_date) 
-            ORDER BY DATE(sale_date) DESC 
-            LIMIT 7
-        ";
+        $groupBy = "DATE(s.sale_date)";
+        $orderBy = "DATE(s.sale_date) DESC";
+        $limit = "LIMIT 7";
         break;
-
     case 'yearly':
-        $sql = "
-            SELECT YEAR(sale_date) AS label, SUM(total_amount) AS total 
-            FROM sales 
-            WHERE store_id = ?
-            GROUP BY YEAR(sale_date) 
-            ORDER BY YEAR(sale_date)
-        ";
+        $groupBy = "YEAR(s.sale_date)";
+        $orderBy = "YEAR(s.sale_date)";
+        $limit = "";
         break;
-
     case 'monthly':
     default:
-        $sql = "
-            SELECT DATE_FORMAT(sale_date, '%Y-%m') AS label, SUM(total_amount) AS total 
-            FROM sales 
-            WHERE store_id = ?
-            GROUP BY label 
-            ORDER BY label DESC 
-            LIMIT 12
-        ";
+        $groupBy = "DATE_FORMAT(s.sale_date, '%Y-%m')";
+        $orderBy = "DATE_FORMAT(s.sale_date, '%Y-%m') DESC";
+        $limit = "LIMIT 12";
         break;
 }
+
+// Fetch sales and profit
+$sql = "
+    SELECT 
+        $groupBy AS label,
+        SUM(s.total_amount) AS total_sales,
+        SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+    FROM sales s
+    JOIN sale_items si ON s.sale_id = si.sale_id
+    JOIN products p ON si.product_id = p.product_id
+    WHERE s.store_id = ?
+    GROUP BY label
+    ORDER BY $orderBy
+    $limit
+";
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $store_id);
@@ -56,10 +56,12 @@ $result = $stmt->get_result();
 
 while ($row = $result->fetch_assoc()) {
     $labels[] = $row['label'];
-    $data[] = $row['total'];
+    $salesData[] = (float)$row['total_sales'];
+    $profitData[] = (float)$row['total_profit'];
 }
 
 echo json_encode([
     'labels' => array_reverse($labels),
-    'totals' => array_reverse($data)
+    'sales' => array_reverse($salesData),
+    'profit' => array_reverse($profitData)
 ]);

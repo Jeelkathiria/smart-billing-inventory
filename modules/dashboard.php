@@ -43,67 +43,10 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <title>Admin Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/common.css">
+
+
   <style>
-  body {
-    background-color: #eef2f7;
-  }
-
-  .navbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    z-index: 1030;
-    background-color: #ffffff;
-    border-bottom: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-  }
-
-  .sidebar {
-    width: 220px;
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    background: #ffffff;
-    border-right: 1px solid #dee2e6;
-    padding-top: 60px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sidebar .nav-links {
-    flex-grow: 1;
-  }
-
-  .sidebar a {
-    padding: 12px 20px;
-    color: #333;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.2s;
-  }
-
-  .sidebar a:hover {
-    background-color: #f0f0f0;
-    border-left: 4px solid #007bff;
-  }
-
-  .sidebar-footer {
-    padding: 12px 20px;
-    margin-top: auto;
-  }
-
-  .content {
-    margin-left: 220px;
-    padding: 20px;
-    padding-top: 80px;
-  }
-
   .card {
     border: none;
     border-radius: 10px;
@@ -220,36 +163,40 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
 
     <!-- Recent Billings Card -->
     <div class="card shadow-sm mt-5">
-  <div class="card-header bg-info text-white">
-    <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Billings</h6>
-  </div>
-  <div class="card-body p-0">
-    <table class="table table-hover table-bordered text-center mb-0" id="recentSalesTable">
-      <thead class="table-light sticky-top bg-light">
-        <tr>
-          <th>Invoice ID</th>
-          <th>Customer</th>
-          <th>Date & Time</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody id="salesBody">
-        <?php while ($sale = $sales->fetch_assoc()): ?>
-       <tr>
-        <td><span class="badge bg-secondary"><?= !empty($sale['invoice_id']) ? htmlspecialchars($sale['invoice_id']) : '--'; ?></span></td>
-        <td><?= !empty($sale['customer_name']) ? htmlspecialchars($sale['customer_name']) : '--'; ?></td>
-        <td><?= !empty($sale['sale_date']) ? date('d-m-Y H:i:s', strtotime($sale['sale_date'])) : '--'; ?></td>
-        <td><strong>₹<?= isset($sale['total_amount']) ? number_format((float)$sale['total_amount'], 2) : '--'; ?></strong></td>
-      </tr>
+      <div class="card-header bg-info text-white">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Billings</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover table-bordered text-center mb-0" id="recentSalesTable">
+          <thead class="table-light sticky-top bg-light">
+            <tr>
+              <th>Invoice ID</th>
+              <th>Customer</th>
+              <th>Date & Time</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="salesBody">
+            <?php while ($sale = $sales->fetch_assoc()): ?>
+            <tr>
+              <td><span
+                  class="badge bg-secondary"><?= !empty($sale['invoice_id']) ? htmlspecialchars($sale['invoice_id']) : '--'; ?></span>
+              </td>
+              <td><?= !empty($sale['customer_name']) ? htmlspecialchars($sale['customer_name']) : '--'; ?></td>
+              <td><?= !empty($sale['sale_date']) ? date('d-m-Y H:i:s', strtotime($sale['sale_date'])) : '--'; ?></td>
+              <td>
+                <strong>₹<?= isset($sale['total_amount']) ? number_format((float)$sale['total_amount'], 2) : '--'; ?></strong>
+              </td>
+            </tr>
 
-        <?php endwhile; ?>
-      </tbody>
-    </table>
-    <div class="text-center p-2">
-      <a href="/modules/sales/sales.php" class="btn btn-sm btn-outline-info">View All</a>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
+        <div class="text-center p-2">
+          <a href="/modules/sales/sales.php" class="btn btn-sm btn-outline-info">View All</a>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
     <!-- Sales Chart Card -->
     <div class="card shadow-sm my-4">
@@ -268,9 +215,10 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+
   <script>
   document.addEventListener('DOMContentLoaded', () => {
- 
+
     // Chart rendering
     async function loadSalesChart() {
       try {
@@ -285,12 +233,13 @@ $low_stock_count = $conn->query("SELECT COUNT(*) AS total FROM products WHERE st
             labels: data.dates,
             datasets: [{
               label: "Sales (₹)",
-              data: data.totals,
+              data: data.sales, // ✅ Correct key from PHP
               borderColor: "blue",
               backgroundColor: "rgba(0,0,255,0.1)",
               tension: 0.3,
               fill: true
             }]
+
           }
         });
       } catch (err) {

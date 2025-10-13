@@ -25,7 +25,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 // Define which pages each role can access
 $accessMap = [
     'admin'   => ['dashboard.php', 'billing.php', 'sales.php', 'products.php', 'categories.php', 'report.php', 'settings.php', 'customers.php', 'get_sales_chart_data.php','users.php'],
-    'manager' => ['dashboard.php', 'billing.php', 'sales.php', 'products.php', 'categories.php', 'report.php', 'customers.php', 'settings.php','users.php'],
+    'manager' => ['dashboard.php', 'billing.php', 'sales.php', 'products.php', 'categories.php', 'report.php', 'customers.php', 'settings.php',
+    'get_sales_chart_data.php','users.php'],
     'cashier' => ['dashboard.php', 'billing.php', 'sales.php', 'settings.php']
 ];
 

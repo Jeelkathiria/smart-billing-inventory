@@ -1,0 +1,102 @@
+body {
+    background-color: #eef2f7;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 7vh; /* ~60px equivalent */
+    z-index: 1030;
+    background-color: #ffffff;
+    border-bottom: 0.15vh solid #dee2e6;
+    display: flex;
+    align-items: center;
+    padding: 0 2vw; /* ~20px */
+    box-sizing: border-box;
+}
+
+.sidebar {
+    width: 15vw; /* ~220px equivalent */
+    min-width: 220px; /* keep minimum width for small screens */
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-right: 0.15vh solid #dee2e6;
+    padding-top: 9vh; /* to offset navbar height */
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.sidebar .nav-links {
+    flex-grow: 1;
+}
+
+.sidebar a {
+    padding: 1vh 2vw; /* ~12px 20px */
+    color: #333;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 1vw; /* ~10px */
+    transition: background 0.2s, border-left 0.2s;
+}
+
+.sidebar a:hover {
+    background-color: #f0f0f0;
+    border-left: 0.4vw solid #007bff; /* ~4px */
+}
+
+.sidebar-footer {
+    padding: 1vh 2vw; /* ~12px 20px */
+    margin-top: auto;
+}
+
+.content {
+    margin-left: 14vw; /* match sidebar width */
+    padding: 2vw; /* ~20px */
+    padding-top: 10vh; /* ~80px for navbar */
+    box-sizing: border-box;
+}
+
+@media(max-width: 1200px){
+    .sidebar {
+        width: 18vw;
+    }
+    .content {
+        margin-left: 18vw;
+    }
+}
+
+@media(max-width: 992px){
+    .sidebar {
+        width: 22vw;
+    }
+    .content {
+        margin-left: 22vw;
+    }
+}
+
+@media(max-width: 768px){
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding-top: 1vh;
+        border-right: none;
+    }
+    .content {
+        margin-left: 0;
+        padding-top: 2vh;
+        padding-left: 4vw;
+        padding-right: 4vw;
+    }
+    .sidebar a {
+        padding: 2vh 4vw;
+    }
+}

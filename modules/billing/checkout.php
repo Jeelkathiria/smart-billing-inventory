@@ -56,13 +56,13 @@ foreach ($data['items'] as $item) {
     $items[] = [
         'product_id'  => (int)$item['product_id'],
         'quantity'    => (int)$item['quantity'],
-        'price'       => (float)$item['price'],
+        'price'       => (float)$item['price'], // initial frontend price, will override
         'gst_percent' => isset($item['gst_percent']) ? (float)$item['gst_percent'] : 0
     ];
 }
 
 /* ==================================================
-   4. CALCULATE TOTALS FROM PRODUCTS (NOT FRONTEND)
+   4. CALCULATE TOTALS FROM PRODUCTS (DB values)
 ================================================== */
 $subtotal = 0;
 $total_tax = 0;
@@ -73,7 +73,7 @@ $placeholders = implode(',', array_fill(0, count($product_ids), '?'));
 $types = str_repeat('i', count($product_ids));
 
 // Fetch product info from DB
-$stmt = $conn->prepare("SELECT product_id, price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?");
+$stmt = $conn->prepare("SELECT product_id, sell_price, purchase_price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?");
 $stmt->bind_param($types.'i', ...array_merge($product_ids, [$store_id]));
 $stmt->execute();
 $res = $stmt->get_result();
@@ -84,7 +84,7 @@ while($p = $res->fetch_assoc()) {
     $dbProducts[$p['product_id']] = $p;
 }
 
-// Calculate totals
+// Calculate totals and validate stock
 foreach ($items as &$item) {
     if (!isset($dbProducts[$item['product_id']])) {
         throw new Exception("Product ID {$item['product_id']} not found");
@@ -97,8 +97,8 @@ foreach ($items as &$item) {
         throw new Exception("Insufficient stock for product ID {$item['product_id']}");
     }
 
-    // Use DB values
-    $item['price']       = (float)$p['price'];
+    // Override price & GST with DB values
+    $item['price']       = (float)$p['sell_price'];
     $item['gst_percent'] = (float)$p['gst_percent'];
 
     $line_total  = $item['price'] * $item['quantity'];
@@ -108,8 +108,9 @@ foreach ($items as &$item) {
     $total_tax  += $line_tax;
 }
 
-$total_amount = $subtotal + $total_tax;
-
+$subtotal      = round($subtotal, 2);
+$total_tax     = round($total_tax, 2);
+$total_amount  = round($subtotal + $total_tax, 2);
 
 $invoice_id   = uniqid('INV');
 
@@ -124,8 +125,6 @@ try {
     $customer_id = null;
 
     if(!empty($customerData)){
-
-        // Prefer mobile first, then email for lookup
         if(!empty($customerData['customer_mobile'])){
             $lookup_col = 'customer_mobile';
             $lookup_val = $customerData['customer_mobile'];
@@ -145,12 +144,12 @@ try {
             if($row = $res->fetch_assoc()){
                 $customer_id = $row['customer_id'];
 
-                // Prepare dynamic update
+                // Dynamic update
                 $updateCols = [];
                 $updateVals = [];
                 foreach($customerData as $col => $val){
                     $updateCols[] = "$col=?";
-                    $updateVals[] = ($val === '' ? null : $val); // convert empty string to NULL
+                    $updateVals[] = ($val === '' ? null : $val);
                 }
 
                 if(count($updateCols) > 0){
@@ -159,7 +158,6 @@ try {
                     $sql = "UPDATE customers SET ".implode(", ", $updateCols)." WHERE customer_id=? AND store_id=?";
                     $stmt_up = $conn->prepare($sql);
 
-                    // Determine types
                     $types = '';
                     foreach($updateVals as $v){
                         $types .= is_int($v) ? 'i' : 's';
@@ -188,7 +186,7 @@ try {
 
             $stmt->close();
         } else {
-            // No mobile/email provided, insert as new customer with only store_id
+            // Insert minimal customer
             $sql = "INSERT INTO customers (store_id) VALUES (?)";
             $stmt_ins = $conn->prepare($sql);
             $stmt_ins->bind_param("i", $store_id);
@@ -204,14 +202,12 @@ try {
     $sale_date = $data['date'] ?? date('Y-m-d H:i:s');
     if (!empty($data['date'])) {
         $dt = DateTime::createFromFormat('d-m-Y H:i', $data['date']);
-        if ($dt) {
-            $sale_date = $dt->format('Y-m-d H:i:s');
-        }
+        if ($dt) $sale_date = $dt->format('Y-m-d H:i:s');
     }
+
     $columns = ['invoice_id','store_id','created_by','sale_date','subtotal','tax_amount','total_amount'];
     $values  = [$invoice_id, $store_id, $user_id, $sale_date, $subtotal, $total_tax, $total_amount];
-
-    $placeholders = ['?','?','?','?','?','?','?'];
+    $placeholders = array_fill(0, count($columns), '?');
 
     if($customer_id){
         $columns[] = 'customer_id';
@@ -220,20 +216,16 @@ try {
     }
 
     foreach($storeFields as $field => $enabled){
-    // Include only fields you want in sales table
-    if($enabled && !in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) { 
-        $columns[] = $field;
-        $placeholders[] = '?';
-        $values[] = $customerData[$field] ?? null;
+        if($enabled && !in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) { 
+            $columns[] = $field;
+            $placeholders[] = '?';
+            $values[] = $customerData[$field] ?? null;
+        }
     }
-}
-
-
 
     $sql = "INSERT INTO sales (".implode(",", $columns).") VALUES (".implode(",", $placeholders).")";
     $stmt_sale = $conn->prepare($sql);
 
-    // Bind all as string or float dynamically
     $types = '';
     foreach($values as $v){
         $types .= is_int($v) ? 'i' : (is_float($v) ? 'd' : 's');
@@ -246,17 +238,32 @@ try {
     /* ----------------------------------------------
        5c. INSERT SALE ITEMS + UPDATE STOCK
     ---------------------------------------------- */
-    $stmt_item = $conn->prepare("INSERT INTO sale_items (store_id,sale_id,product_id,quantity,price,gst_percent) VALUES (?,?,?,?,?,?)");
-    $stmt_update = $conn->prepare("UPDATE products SET stock=stock-? WHERE product_id=? AND stock>=? AND store_id=?");
+    $stmt_item = $conn->prepare("INSERT INTO sale_items (store_id,sale_id,product_id,quantity,price,purchase_price,profit,gst_percent) VALUES (?,?,?,?,?,?,?,?)");
+    $stmt_update = $conn->prepare("UPDATE products SET stock=stock-? WHERE product_id=? AND store_id=? AND stock>=?");
 
     foreach($items as $item){
-        $stmt_item->bind_param("iiiidd", $store_id, $sale_id, $item['product_id'], $item['quantity'], $item['price'], $item['gst_percent']);
+        $purchase_price = (float)$dbProducts[$item['product_id']]['purchase_price'];
+        $profit = ($item['price'] - $purchase_price) * $item['quantity'];
+
+        $stmt_item->bind_param(
+            "iiiddidd", 
+            $store_id, 
+            $sale_id, 
+            $item['product_id'], 
+            $item['quantity'], 
+            $item['price'], 
+            $purchase_price, 
+            $profit, 
+            $item['gst_percent']
+        );
         $stmt_item->execute();
 
-        $stmt_update->bind_param("iiii", $item['quantity'], $item['product_id'], $item['quantity'], $store_id);
+        // Update stock
+        $stmt_update->bind_param("iiii", $item['quantity'], $item['product_id'], $store_id, $item['quantity']);
         $stmt_update->execute();
         if($stmt_update->affected_rows === 0) throw new Exception("Insufficient stock for product ID ".$item['product_id']);
     }
+
     $stmt_item->close();
     $stmt_update->close();
 

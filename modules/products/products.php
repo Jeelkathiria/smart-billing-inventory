@@ -1,292 +1,277 @@
 <?php
-
-
-// DB connection
 require_once __DIR__ . '/../../config/db.php';
-
-// Auth check
 require_once __DIR__ . '/../../auth/auth_check.php';
 
+$store_id = $_SESSION['store_id'] ?? 0;
 
-// Fetch categories only for this store
-$cat_stmt = $conn->prepare("SELECT * FROM categories WHERE store_id = ?");
+// --- Fetch Categories ---
+$cat_stmt = $conn->prepare("SELECT category_id, category_name FROM categories WHERE store_id = ?");
 $cat_stmt->bind_param("i", $store_id);
 $cat_stmt->execute();
-$categories_result = $cat_stmt->get_result();
-$categories = $categories_result; // for dropdown + modal
+$categories = $cat_stmt->get_result();
 
-// Handle Add Product with GST entered by user
+// --- Handle Add Product ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
-  $name = isset($_POST['name']) ? trim($_POST['name']) : '';
-  $category_id = (int) $_POST['category_id'];
-  $price = (float) $_POST['price'];
-  $stock = (int) $_POST['stock'];
-  $gst_percent = (float) $_POST['gst'];
-  $gst_amount = round($price * $gst_percent / 100, 2);
-  $total_price = round($price + $gst_amount, 2);
+    $name = trim($_POST['name'] ?? '');
+    $category_id = (int)($_POST['category_id'] ?? 0);
+    $purchase_price = (float)($_POST['purchase_price'] ?? 0);
+    $sell_price = (float)($_POST['sell_price'] ?? 0);
+    $gst_percent = (float)($_POST['gst'] ?? 0);
+    $stock = (int)($_POST['stock'] ?? 0);
 
-  if (!empty($name) && $category_id && $price >= 0 && $stock >= 0 && $gst_percent >= 0) {
-    $check = $conn->prepare("SELECT * FROM products WHERE product_name = ? AND store_id = ?");
-    $check->bind_param("si", $name, $store_id);
-    $check->execute();
-    $result = $check->get_result();
-    if ($result->num_rows === 0) {
-      $stmt = $conn->prepare("INSERT INTO products (product_name, category_id, price, stock, gst_percent, total_price, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
-      $stmt->bind_param('sididdi', $name, $category_id, $price, $stock, $gst_percent, $total_price, $store_id);
-      $stmt->execute();
+    if ($name && $category_id && $sell_price >= 0 && $purchase_price >= 0 && $gst_percent >= 0 && $stock >= 0) {
+        $gst_amount = round($sell_price * $gst_percent / 100, 2);
+        $total_price = round($sell_price + $gst_amount, 2);
+        $profit = round($sell_price - $purchase_price, 2);
+
+        // Prevent duplicates
+        $check = $conn->prepare("SELECT 1 FROM products WHERE product_name = ? AND store_id = ?");
+        $check->bind_param("si", $name, $store_id);
+        $check->execute();
+        if ($check->get_result()->num_rows === 0) {
+            $stmt = $conn->prepare("
+                INSERT INTO products 
+                (product_name, category_id, purchase_price, sell_price, gst_percent, total_price, profit, stock, store_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("siddiddii", $name, $category_id, $purchase_price, $sell_price, $gst_percent, $total_price, $profit, $stock, $store_id);
+            $stmt->execute();
+        }
     }
-  }
 }
 
-// Handle Edit Product
+// --- Handle Edit Product ---
 if (isset($_POST['edit_id'])) {
-  $edit_id = (int) $_POST['edit_id'];
-  $edit_name = trim($_POST['edit_name']);
-  $edit_category_id = (int) $_POST['edit_category_id'];
-  $edit_price = (float) $_POST['edit_price'];
-  $edit_gst = (float) $_POST['edit_gst'];
-  $edit_stock = (int) $_POST['edit_stock'];
-  $edit_gst_amount = round($edit_price * $edit_gst / 100, 2);
-  $edit_total_price = round($edit_price + $edit_gst_amount, 2);
+    $edit_id = (int)$_POST['edit_id'];
+    $edit_name = trim($_POST['edit_name']);
+    $edit_category_id = (int)$_POST['edit_category_id'];
+    $edit_purchase_price = (float)$_POST['edit_purchase_price'];
+    $edit_sell_price = (float)$_POST['edit_sell_price'];
+    $edit_gst = (float)$_POST['edit_gst'];
+    $edit_stock = (int)$_POST['edit_stock'];
 
-  $stmt = $conn->prepare("UPDATE products SET product_name = ?, category_id = ?, price = ?, gst_percent = ?, total_price = ?, stock = ? WHERE product_id = ? AND store_id = ?");
-  $stmt->bind_param("sididdii", $edit_name, $edit_category_id, $edit_price, $edit_gst, $edit_total_price, $edit_stock, $edit_id, $store_id);
-  $stmt->execute();
+    $edit_total_price = round($edit_sell_price + ($edit_sell_price * $edit_gst / 100), 2);
+    $edit_profit = round($edit_sell_price - $edit_purchase_price, 2);
+
+    $stmt = $conn->prepare("
+        UPDATE products 
+        SET product_name = ?, category_id = ?, purchase_price = ?, sell_price = ?, gst_percent = ?, total_price = ?, stock = ?, profit = ?
+        WHERE product_id = ? AND store_id = ?
+    ");
+    $stmt->bind_param("sididdiiii", $edit_name, $edit_category_id, $edit_purchase_price, $edit_sell_price, $edit_gst, $edit_total_price, $edit_stock, $edit_profit, $edit_id, $store_id);
+    $stmt->execute();
 }
 
-// Handle Delete
+// --- Handle Delete Product ---
 if (isset($_GET['delete'])) {
-  $delete_id = (int) $_GET['delete'];
-  $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
-  $stmt->bind_param("ii", $delete_id, $store_id);
-  $stmt->execute();
+    $delete_id = (int)$_GET['delete'];
+    $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
+    $stmt->bind_param("ii", $delete_id, $store_id);
+    $stmt->execute();
 }
 
-// Fetch Products
-$products_stmt = $conn->prepare("SELECT p.*, c.category_name AS category_name FROM products p JOIN categories c ON p.category_id = c.category_id WHERE p.store_id = ? ORDER BY p.product_id DESC");
+// --- Fetch Products ---
+$products_stmt = $conn->prepare("
+    SELECT p.*, c.category_name 
+    FROM products p
+    JOIN categories c ON p.category_id = c.category_id
+    WHERE p.store_id = ?
+    ORDER BY p.product_id DESC
+");
 $products_stmt->bind_param("i", $store_id);
 $products_stmt->execute();
 $products = $products_stmt->get_result();
 
-// Low stock alert
-$low_stmt = $conn->prepare("SELECT * FROM products WHERE stock < 5 AND store_id = ?");
+// --- Low Stock Alert ---
+$low_stmt = $conn->prepare("SELECT product_name, stock FROM products WHERE stock < 5 AND store_id = ?");
 $low_stmt->bind_param("i", $store_id);
 $low_stmt->execute();
 $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 ?>
 
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Product Management</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-
+  <link rel="stylesheet" href="/assets/css/common.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <style>
-     .navbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      z-index: 1030;
-      background-color: #ffffff;
-      border-bottom: 1px solid #dee2e6;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-    }
+  .content {
+    margin-left: 230px;
+    padding: 80px 30px;
+  }
 
-    .sidebar {
-      width: 220px;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      background: #ffffff;
-      border-right: 1px solid #dee2e6;
-      padding-top: 60px;
-      display: flex;
-      flex-direction: column;
-    }
+  .card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
 
-    .sidebar .nav-links {
-      flex-grow: 1;
-    }
+  .table thead th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+  }
 
-    .sidebar a {
-      padding: 12px 20px;
-      color: #333;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background 0.2s;
-    }
+  .btn {
+    border-radius: 6px;
+  }
 
-    .sidebar-footer {
-      padding: 12px 20px;
-      margin-top: auto;
-    }
-
-    .content {
-      margin-left: 220px;
-      padding: 20px;
-      padding-top: 40px; 
-    }
-    </style>
+  .alert ul {
+    margin-bottom: 0;
+  }
+  </style>
 </head>
-<body class="bg-light">
 
-<?php include __DIR__ . '/../../components/navbar.php'; ?>
-<?php include __DIR__ . '/../../components/sidebar.php'; ?>
+<body>
+  <?php include __DIR__ . '/../../components/navbar.php'; ?>
+  <?php include __DIR__ . '/../../components/sidebar.php'; ?>
 
-
-<div class="container content mt-5">
-  <h3 class="mb-4">🛒 Manage Products</h3>
-
-
-  <div class="alert alert-warning shadow-sm">
-    <h5>⚠️ Low Stock Alerts</h5>
-    <ul>
-      <?php if (count($low_stock_products) > 0) {
-        foreach ($low_stock_products as $prod) { ?>
-          <li><?= htmlspecialchars($prod['product_name']) ?> — Only <?= $prod['stock'] ?> left!</li>
-        <?php } 
-      } else { ?>
-        <li>All products have sufficient stock.</li>
-      <?php } ?>
-    </ul>
-  </div>
-
-  <!-- Add Product Form -->
-  <form method="POST" class="row g-3 mb-4 shadow-sm p-3 bg-white rounded">
-    <div class="col-md-2">
-      <input type="text" name="name" class="form-control" placeholder="Product Name" required>
+  <div class="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="fw-bold">🛍️ Product Management</h3>
+      <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm"><i
+          class="bi bi-plus-circle"></i> Add Product</button>
     </div>
-    <div class="col-md-2">
-      <select name="category_id" class="form-select" required>
-        <option value="">Select Category</option>
-        <?php while ($cat = $categories->fetch_assoc()) { ?>
-          <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
-        <?php } ?>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <input type="number" name="price" step="0.01" class="form-control" placeholder="Base Price" required>
-    </div>
-    <div class="col-md-2">
-      <input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)" required>
-    </div>
-    <div class="col-md-2">
-      <input type="number" name="stock" min="0" class="form-control" placeholder="Stock" required>
-    </div>
-    <div class="col-md-2">
-      <button class="btn btn-primary w-100">Add Product</button>
-    </div>
-  </form>
 
-  <!-- Product List -->
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <?php if ($products->num_rows > 0) { ?>
-        <table class="table table-hover align-middle">
-          <thead class="table-light">
+    <!-- Low Stock Alert -->
+    <?php if (count($low_stock_products) > 0): ?>
+    <div class="alert alert-warning shadow-sm">
+      <strong>⚠️ Low Stock Alert:</strong>
+      <ul>
+        <?php foreach ($low_stock_products as $prod): ?>
+        <li><?= htmlspecialchars($prod['product_name']) ?> — Only <?= $prod['stock'] ?> left!</li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+    <?php endif; ?>
+
+    <!-- Add Product Form -->
+    <div id="addProductForm" class="collapse mb-4">
+      <form method="POST" class="row g-3 shadow-sm p-4 bg-white rounded">
+        <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Product Name" required>
+        </div>
+        <div class="col-md-2">
+          <select name="category_id" class="form-select" required>
+            <option value="">Select Category</option>
+            <?php $categories->data_seek(0); while ($cat = $categories->fetch_assoc()): ?>
+            <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
+            <?php endwhile; ?>
+          </select>
+        </div>
+        <div class="col-md-2"><input type="number" name="purchase_price" step="0.01" class="form-control"
+            placeholder="Purchase Price" required></div>
+        <div class="col-md-2"><input type="number" name="sell_price" step="0.01" class="form-control"
+            placeholder="Sell Price" required></div>
+        <div class="col-md-1"><input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)"
+            required></div>
+        <div class="col-md-1"><input type="number" name="stock" min="0" class="form-control" placeholder="Stock"
+            required></div>
+        <div class="col-md-1 d-grid"><button class="btn btn-primary">Add</button></div>
+      </form>
+    </div>
+
+    <!-- Product List -->
+    <div class="card shadow-sm">
+      <div class="card-body table-responsive">
+        <?php if ($products->num_rows > 0): ?>
+        <table class="table align-middle table-hover">
+          <thead>
             <tr>
-              <th>ID</th>
-              <th>Product Name</th>
+              <th>#</th>
+              <th>Name</th>
               <th>Category</th>
-              <th>Base Price</th>
+              <th>Purchase</th>
+              <th>Sell</th>
               <th>GST (%)</th>
-              <th>Total Price</th>
+              <th>Total</th>
+              <th>Profit</th>
               <th>Stock</th>
-              <th>Action</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-          <?php while ($prod = $products->fetch_assoc()) { ?>
+            <?php while ($prod = $products->fetch_assoc()): ?>
             <tr>
               <td><?= $prod['product_id'] ?></td>
               <td><?= htmlspecialchars($prod['product_name']) ?></td>
               <td><?= htmlspecialchars($prod['category_name']) ?></td>
-              <td>₹<?= number_format($prod['price'], 2) ?></td>
-              <td><?= number_format($prod['gst_percent'], 2) ?>%</td>
+              <td>₹<?= number_format($prod['purchase_price'], 2) ?></td>
+              <td>₹<?= number_format($prod['sell_price'], 2) ?></td>
+              <td><?= $prod['gst_percent'] ?>%</td>
               <td>₹<?= number_format($prod['total_price'], 2) ?></td>
-              <td><?= $prod['stock'] ?></td>
+              <td>₹<?= number_format($prod['profit'], 2) ?></td>
+              <td class="<?= $prod['stock'] < 5 ? 'text-danger fw-bold' : '' ?>"><?= $prod['stock'] ?></td>
               <td>
-                <button onclick='editProduct(<?= json_encode($prod) ?>)' class="btn btn-sm btn-warning">Edit</button>
-                <button onclick="confirmDelete(<?= $prod['product_id'] ?>)" class="btn btn-sm btn-danger">Delete</button>
+                <button onclick='editProduct(<?= json_encode($prod) ?>)' class="btn btn-sm btn-warning"><i
+                    class="bi bi-pencil-square"></i></button>
+                <button onclick="confirmDelete(<?= $prod['product_id'] ?>)" class="btn btn-sm btn-danger"><i
+                    class="bi bi-trash"></i></button>
               </td>
             </tr>
-          <?php } ?>
+            <?php endwhile; ?>
           </tbody>
         </table>
-      <?php } else { ?>
+        <?php else: ?>
         <p class="text-center text-muted">No products added yet.</p>
-      <?php } ?>
+        <?php endif; ?>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Edit Product Modal -->
-<div class="modal fade" id="editModal" tabindex="-1">
-  <div class="modal-dialog">
-    <form method="POST" id="editForm" class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Edit Product</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" name="edit_id" id="edit_id">
-        <div class="mb-2">
-          <input type="text" name="edit_name" id="edit_name" class="form-control" required>
+  <!-- Edit Product Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <form method="POST" id="editForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Product</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="mb-2">
-          <select name="edit_category_id" id="edit_category_id" class="form-select" required>
-            <?php
-              $categories->data_seek(0);
-              while ($cat = $categories->fetch_assoc()) { ?>
+        <div class="modal-body">
+          <input type="hidden" name="edit_id" id="edit_id">
+          <div class="mb-3"><label class="form-label">Product Name</label><input type="text" name="edit_name"
+              id="edit_name" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">Category</label>
+            <select name="edit_category_id" id="edit_category_id" class="form-select" required>
+              <?php $categories->data_seek(0); while ($cat = $categories->fetch_assoc()): ?>
               <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
-            <?php } ?>
-          </select>
+              <?php endwhile; ?>
+            </select>
+          </div>
+          <div class="mb-3"><label class="form-label">Purchase Price</label><input type="number" step="0.01"
+              name="edit_purchase_price" id="edit_purchase_price" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">Sell Price</label><input type="number" step="0.01"
+              name="edit_sell_price" id="edit_sell_price" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">GST (%)</label><input type="number" step="0.01" name="edit_gst"
+              id="edit_gst" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label">Stock</label><input type="number" name="edit_stock"
+              id="edit_stock" class="form-control" min="0" required></div>
         </div>
-        <div class="mb-2">
-          <input type="number" step="0.01" name="edit_price" id="edit_price" class="form-control" required>
-        </div>
-        <div class="mb-2">
-          <input type="number" step="0.01" name="edit_gst" id="edit_gst" class="form-control" required>
-        </div>
-        <div class="mb-2">
-          <input type="number" name="edit_stock" min="0" id="edit_stock" class="form-control" required>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary">Update Product</button>
-      </div>
-    </form>
+        <div class="modal-footer"><button type="submit" class="btn btn-primary">Update</button></div>
+      </form>
+    </div>
   </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
   function confirmDelete(id) {
     Swal.fire({
-      title: 'Are you sure?',
-      text: "Product will be deleted permanently!",
+      title: 'Delete this product?',
+      text: 'This action cannot be undone.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        window.location = '?delete=' + id;
-      }
-    })
+    }).then((res) => {
+      if (res.isConfirmed) window.location = '?delete=' + id;
+    });
   }
 
   let editModal;
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
   });
 
@@ -294,14 +279,13 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     document.getElementById('edit_id').value = product.product_id;
     document.getElementById('edit_name').value = product.product_name;
     document.getElementById('edit_category_id').value = product.category_id;
-    document.getElementById('edit_price').value = product.price;
+    document.getElementById('edit_purchase_price').value = product.purchase_price;
+    document.getElementById('edit_sell_price').value = product.sell_price;
     document.getElementById('edit_gst').value = product.gst_percent;
     document.getElementById('edit_stock').value = product.stock;
-    if (typeof editModal === 'undefined') {
-      editModal = new bootstrap.Modal(document.getElementById('editModal'));
-    }
     editModal.show();
   }
-</script>
+  </script>
 </body>
+
 </html>
