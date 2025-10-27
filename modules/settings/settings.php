@@ -109,6 +109,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 }
+
+// Helper function for initials avatar
+function getInitials($name) {
+    $words = explode(" ", $name);
+    $initials = "";
+    foreach($words as $w) {
+        $initials .= strtoupper($w[0]);
+        if (strlen($initials) >= 2) break;
+    }
+    return $initials ?: "?";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -120,116 +131,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <link rel="stylesheet" href="/assets/css/common.css">
   <style>
-  /* Profile Card */
-  .profile-card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    margin-bottom: 30px;
-    max-width: 30vw;
-  }
+    /* ------------------- Profile Card ------------------- */
+    .profile-card, .store-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-bottom: 30px;
+        max-width: 100%;
+    }
+    .profile-header {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+        color: #fff;
+        position: relative;
+    }
+    .profile-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: #fff;
+        color: #2575fc;
+        font-weight: 700;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        text-transform: uppercase;
+    }
+    .profile-info h4 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .user-role {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        background: rgba(255,255,255,0.25);
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
 
-  .profile-header {
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    background: linear-gradient(135deg, #6a11cb, #2575fc);
-    color: #fff;
-    position: relative;
-  }
+    /* ------------------- Sections ------------------- */
+    .profile-section {
+        padding: 15px 20px;
+        border-top: 1px solid #f0f0f0;
+    }
+    .profile-section h5 {
+        margin-bottom: 12px;
+        font-size: 1rem;
+        color: #333;
+    }
 
-  .profile-img {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    border: 3px solid #fff;
-    margin-right: 15px;
-    object-fit: cover;
-  }
+    /* ------------------- Form Inputs ------------------- */
+    .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+    .form-input:focus {
+        border-color: #2575fc;
+        outline: none;
+        box-shadow: 0 0 5px rgba(37,117,252,0.4);
+    }
 
-  .profile-info h4 {
-    margin: 0;
-    font-size: 1.2rem;
-  }
+    /* ------------------- Buttons ------------------- */
+    .btn-submit {
+        width: 100%;
+        padding: 10px 0;
+        border: none;
+        border-radius: 8px;
+        background: #2575fc;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .btn-submit:hover {
+        background: #1a5ed8;
+    }
 
-  .user-role {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
+    /* ------------------- Billing Fields ------------------- */
+    #billing-fields label {
+        display: block;
+        margin-bottom: 8px;
+        cursor: pointer;
+    }
+    #billing-fields input[type="checkbox"] {
+        margin-right: 6px;
+    }
 
-  /* Sections */
-  .profile-section {
-    padding: 15px 20px;
-    border-top: 1px solid #f0f0f0;
-  }
-
-  .profile-section h5 {
-    margin-bottom: 12px;
-    font-size: 1rem;
-    color: #333;
-  }
-
-  /* Form Inputs */
-  .form-input {
-    width: 100%;
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: all 0.2s ease;
-  }
-
-  .form-input:focus {
-    border-color: #2575fc;
-    outline: none;
-    box-shadow: 0 0 5px rgba(37, 117, 252, 0.4);
-  }
-
-  /* Buttons */
-  .btn-submit {
-    width: 100%;
-    padding: 10px 0;
-    border: none;
-    border-radius: 8px;
-    background: #2575fc;
-    color: #fff;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .btn-submit:hover {
-    background: #1a5ed8;
-  }
-
-  /* Billing fields */
-  #billing-fields label {
-    display: block;
-    margin-bottom: 8px;
-    cursor: pointer;
-  }
-
-  #billing-fields input[type="checkbox"] {
-    margin-right: 6px;
-  }
-
-  /* Store Card Wider */
-  .store-card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    margin-bottom: 30px;
-    max-width: 30vw;
-  }
+    /* Responsive max-width */
+    @media (min-width: 768px) {
+        .profile-card, .store-card {
+            max-width: 400px;
+        }
+    }
   </style>
 </head>
 
@@ -257,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <div class="tab-pane fade show active" id="profile-tab">
           <div class="profile-card">
             <div class="profile-header">
-              <img src="https://via.placeholder.com/80" alt="Profile Picture" class="profile-img">
+              <div class="profile-avatar"><?= getInitials($user['username']) ?></div>
               <div class="profile-info">
                 <h4><?= htmlspecialchars($user['username']) ?></h4>
               </div>
@@ -310,15 +316,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
               <form class="storeForm" data-action="update_billing_fields">
                 <div id="billing-fields" class="mb-3">
                   <?php
-                $fields = [
-                  'customer_name' => 'Customer Name',
-                  'customer_mobile' => 'Customer Mobile',
-                  'customer_email' => 'Customer Email',
-                  'customer_address' => 'Address'
-                ];
-                foreach($fields as $key=>$label): ?>
-                  <label><input type="checkbox" name="fields[<?= $key ?>]"
-                      <?= !empty($billing_fields[$key])?'checked':'' ?>> <?= $label ?></label>
+                  $fields = [
+                    'customer_name' => 'Customer Name',
+                    'customer_mobile' => 'Customer Mobile',
+                    'customer_email' => 'Customer Email',
+                    'customer_address' => 'Address'
+                  ];
+                  foreach($fields as $key=>$label): ?>
+                    <label><input type="checkbox" name="fields[<?= $key ?>]"
+                        <?= !empty($billing_fields[$key])?'checked':'' ?>> <?= $label ?></label>
                   <?php endforeach; ?>
                 </div>
                 <button type="submit" class="btn-submit">Update Billing Fields</button>
@@ -367,7 +373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
   document.addEventListener('DOMContentLoaded', () => {
     let pendingData = null,
-      pendingAction = '';
+        pendingAction = '';
     const passwordModal = new bootstrap.Modal(document.getElementById('confirmPasswordModal'));
 
     function handleFormSubmit(e, action) {
@@ -404,5 +410,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
   });
   </script>
 </body>
-
 </html>

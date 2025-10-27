@@ -2,12 +2,8 @@
 require_once __DIR__ . '/../../config/db.php';
 session_start();
 
-// Always return JSON
 header('Content-Type: application/json');
-
-// Enable errors for debugging
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 /* ==================================================
@@ -22,7 +18,7 @@ $user_id  = $_SESSION['user_id'];
 $store_id = $_SESSION['store_id'];
 
 /* ==================================================
-   2. READ STORE SETTINGS
+   2. FETCH STORE BILLING FIELDS SETTINGS
 ================================================== */
 $store_stmt = $conn->prepare("SELECT billing_fields FROM stores WHERE store_id=?");
 $store_stmt->bind_param("i", $store_id);
@@ -33,171 +29,188 @@ $storeFields = json_decode($store['billing_fields'], true) ?: [];
 $store_stmt->close();
 
 /* ==================================================
-   3. READ & VALIDATE INPUT
+   3. READ FRONTEND INPUT
 ================================================== */
-$data = json_decode(file_get_contents("php://input"), true);
+$raw = file_get_contents("php://input");
+$data = json_decode($raw, true);
 
 if (!$data || !isset($data['items']) || !is_array($data['items']) || count($data['items']) === 0) {
     echo json_encode(['status' => 'error', 'message' => 'Cart is empty']);
     exit();
 }
 
-// Collect only enabled customer fields
+/* ==================================================
+   4. COLLECT CUSTOMER DATA (Only Enabled Fields)
+================================================== */
 $customerData = [];
-foreach($storeFields as $field => $enabled){
-    if($enabled && isset($data[$field])){
-        $customerData[$field] = trim($data[$field]);
+foreach ($storeFields as $field => $enabled) {
+    if ($enabled && array_key_exists($field, $data)) {
+        $val = is_string($data[$field]) ? trim($data[$field]) : $data[$field];
+        $customerData[$field] = ($val === '' ? null : $val);
     }
 }
 
-// Collect items
+/* ==================================================
+   5. SANITIZE ITEMS
+================================================== */
 $items = [];
 foreach ($data['items'] as $item) {
     $items[] = [
-        'product_id'  => (int)$item['product_id'],
-        'quantity'    => (int)$item['quantity'],
-        'price'       => (float)$item['price'], // initial frontend price, will override
-        'gst_percent' => isset($item['gst_percent']) ? (float)$item['gst_percent'] : 0
+        'product_id'  => (int)($item['product_id'] ?? 0),
+        'quantity'    => max(0, (int)($item['quantity'] ?? 0)),
+        'price'       => (float)($item['price'] ?? 0),
+        'gst_percent' => (float)($item['gst_percent'] ?? 0)
     ];
 }
 
-/* ==================================================
-   4. CALCULATE TOTALS FROM PRODUCTS (DB values)
-================================================== */
-$subtotal = 0;
-$total_tax = 0;
+$product_ids = array_values(array_filter(array_column($items, 'product_id'), fn($id) => $id > 0));
+if (empty($product_ids)) {
+    echo json_encode(['status' => 'error', 'message' => 'No valid products in cart']);
+    exit();
+}
 
-// Get all product IDs from cart
-$product_ids = array_column($items, 'product_id');
+/* ==================================================
+   6. FETCH PRODUCT DETAILS FROM DB
+================================================== */
 $placeholders = implode(',', array_fill(0, count($product_ids), '?'));
 $types = str_repeat('i', count($product_ids));
+$sql = "SELECT product_id, sell_price, purchase_price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?";
+$stmt = $conn->prepare($sql);
 
-// Fetch product info from DB
-$stmt = $conn->prepare("SELECT product_id, sell_price, purchase_price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?");
-$stmt->bind_param($types.'i', ...array_merge($product_ids, [$store_id]));
+$params = array_merge($product_ids, [$store_id]);
+$bind_params = [];
+$bind_params[] = ($types . 'i');
+foreach ($params as $i => &$val) $bind_params[] = &$val;
+
+call_user_func_array([$stmt, 'bind_param'], $bind_params);
 $stmt->execute();
 $res = $stmt->get_result();
 
-// Map product_id => product info
 $dbProducts = [];
-while($p = $res->fetch_assoc()) {
-    $dbProducts[$p['product_id']] = $p;
+while ($p = $res->fetch_assoc()) {
+    $dbProducts[(int)$p['product_id']] = $p;
 }
+$stmt->close();
 
-// Calculate totals and validate stock
+/* ==================================================
+   7. CALCULATE TOTALS & VALIDATE STOCK
+================================================== */
+$subtotal = 0.0;
+$total_tax = 0.0;
+
 foreach ($items as &$item) {
     if (!isset($dbProducts[$item['product_id']])) {
-        throw new Exception("Product ID {$item['product_id']} not found");
+        echo json_encode(['status' => 'error', 'message' => "Product ID {$item['product_id']} not found"]);
+        exit();
     }
 
     $p = $dbProducts[$item['product_id']];
+    $stock = (int)$p['stock'];
 
-    // Stock check
-    if ($item['quantity'] > $p['stock']) {
-        throw new Exception("Insufficient stock for product ID {$item['product_id']}");
+    if ($item['quantity'] > $stock) {
+        echo json_encode(['status' => 'error', 'message' => "Insufficient stock for product ID {$item['product_id']}"]);
+        exit();
     }
 
-    // Override price & GST with DB values
-    $item['price']       = (float)$p['sell_price'];
+    $item['price'] = (float)$p['sell_price'];
     $item['gst_percent'] = (float)$p['gst_percent'];
 
-    $line_total  = $item['price'] * $item['quantity'];
-    $line_tax    = $line_total * ($item['gst_percent']/100);
+    $line_total = $item['price'] * $item['quantity'];
+    $line_tax = $line_total * ($item['gst_percent'] / 100);
 
-    $subtotal   += $line_total;
-    $total_tax  += $line_tax;
+    $subtotal += $line_total;
+    $total_tax += $line_tax;
 }
+unset($item);
 
-$subtotal      = round($subtotal, 2);
-$total_tax     = round($total_tax, 2);
-$total_amount  = round($subtotal + $total_tax, 2);
-
-$invoice_id   = uniqid('INV');
+$subtotal = round($subtotal, 2);
+$total_tax = round($total_tax, 2);
+$total_amount = round($subtotal + $total_tax, 2);
+$invoice_id = uniqid('INV');
 
 /* ==================================================
-   5. START TRANSACTION
+   8. TRANSACTION START
 ================================================== */
 $conn->begin_transaction();
+
 try {
     /* ----------------------------------------------
-       5a. CUSTOMER HANDLING
+       8a. CUSTOMER HANDLING
     ---------------------------------------------- */
     $customer_id = null;
 
-    if(!empty($customerData)){
-        if(!empty($customerData['customer_mobile'])){
+    if (!empty($customerData)) {
+        $lookup_col = null;
+        $lookup_val = null;
+
+        if (!empty($customerData['customer_mobile'])) {
             $lookup_col = 'customer_mobile';
             $lookup_val = $customerData['customer_mobile'];
-        } elseif(!empty($customerData['customer_email'])){
+        } elseif (!empty($customerData['customer_email'])) {
             $lookup_col = 'customer_email';
             $lookup_val = $customerData['customer_email'];
-        } else {
-            $lookup_col = null;
         }
 
-        if($lookup_col){
+        if ($lookup_col) {
             $stmt = $conn->prepare("SELECT customer_id FROM customers WHERE $lookup_col=? AND store_id=?");
             $stmt->bind_param("si", $lookup_val, $store_id);
             $stmt->execute();
             $res = $stmt->get_result();
 
-            if($row = $res->fetch_assoc()){
+            if ($row = $res->fetch_assoc()) {
                 $customer_id = $row['customer_id'];
 
-                // Dynamic update
+                // Update fields if any provided
                 $updateCols = [];
                 $updateVals = [];
-                foreach($customerData as $col => $val){
+                foreach ($customerData as $col => $val) {
                     $updateCols[] = "$col=?";
-                    $updateVals[] = ($val === '' ? null : $val);
+                    $updateVals[] = $val;
                 }
 
-                if(count($updateCols) > 0){
+                if (!empty($updateCols)) {
                     $updateVals[] = $customer_id;
                     $updateVals[] = $store_id;
-                    $sql = "UPDATE customers SET ".implode(", ", $updateCols)." WHERE customer_id=? AND store_id=?";
+                    $sql = "UPDATE customers SET " . implode(',', $updateCols) . " WHERE customer_id=? AND store_id=?";
                     $stmt_up = $conn->prepare($sql);
 
-                    $types = '';
-                    foreach($updateVals as $v){
-                        $types .= is_int($v) ? 'i' : 's';
-                    }
+                    $types = str_repeat('s', count($updateVals));
+                    $bind = [$types];
+                    foreach ($updateVals as &$v) $bind[] = &$v;
+                    call_user_func_array([$stmt_up, 'bind_param'], $bind);
 
-                    $stmt_up->bind_param($types, ...$updateVals);
                     $stmt_up->execute();
                     $stmt_up->close();
                 }
-
             } else {
-                // Insert new customer
+                // Insert new
                 $cols = array_keys($customerData);
-                $placeholders = array_fill(0, count($cols), "?");
-                $sql = "INSERT INTO customers (store_id,".implode(",", $cols).") VALUES (?, ".implode(",", $placeholders).")";
+                $placeholders = implode(',', array_fill(0, count($cols), '?'));
+                $sql = "INSERT INTO customers (store_id," . implode(',', $cols) . ") VALUES (?, $placeholders)";
                 $stmt_ins = $conn->prepare($sql);
 
-                $types = "i".str_repeat('s', count($cols));
-                $values = array_merge([$store_id], array_map(fn($v) => $v === '' ? null : $v, array_values($customerData)));
+                $types = 'i' . str_repeat('s', count($cols));
+                $values = array_merge([$store_id], array_values($customerData));
+                $bind = [$types];
+                foreach ($values as &$v) $bind[] = &$v;
+                call_user_func_array([$stmt_ins, 'bind_param'], $bind);
 
-                $stmt_ins->bind_param($types, ...$values);
                 $stmt_ins->execute();
                 $customer_id = $stmt_ins->insert_id;
                 $stmt_ins->close();
             }
-
             $stmt->close();
         } else {
-            // Insert minimal customer
-            $sql = "INSERT INTO customers (store_id) VALUES (?)";
-            $stmt_ins = $conn->prepare($sql);
-            $stmt_ins->bind_param("i", $store_id);
-            $stmt_ins->execute();
-            $customer_id = $stmt_ins->insert_id;
-            $stmt_ins->close();
+            $stmt = $conn->prepare("INSERT INTO customers (store_id) VALUES (?)");
+            $stmt->bind_param("i", $store_id);
+            $stmt->execute();
+            $customer_id = $stmt->insert_id;
+            $stmt->close();
         }
     }
 
     /* ----------------------------------------------
-       5b. INSERT SALE
+       8b. INSERT SALE
     ---------------------------------------------- */
     $sale_date = $data['date'] ?? date('Y-m-d H:i:s');
     if (!empty($data['date'])) {
@@ -205,63 +218,77 @@ try {
         if ($dt) $sale_date = $dt->format('Y-m-d H:i:s');
     }
 
-    $columns = ['invoice_id','store_id','created_by','sale_date','subtotal','tax_amount','total_amount'];
-    $values  = [$invoice_id, $store_id, $user_id, $sale_date, $subtotal, $total_tax, $total_amount];
+    $columns = ['invoice_id', 'store_id', 'created_by', 'sale_date', 'subtotal', 'tax_amount', 'total_amount'];
+    $values = [$invoice_id, $store_id, $user_id, $sale_date, $subtotal, $total_tax, $total_amount];
     $placeholders = array_fill(0, count($columns), '?');
 
-    if($customer_id){
+    if ($customer_id) {
         $columns[] = 'customer_id';
         $placeholders[] = '?';
         $values[] = $customer_id;
     }
 
-    foreach($storeFields as $field => $enabled){
-        if($enabled && !in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) { 
+    foreach ($storeFields as $field => $enabled) {
+        if (!in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) {
             $columns[] = $field;
             $placeholders[] = '?';
             $values[] = $customerData[$field] ?? null;
         }
     }
 
-    $sql = "INSERT INTO sales (".implode(",", $columns).") VALUES (".implode(",", $placeholders).")";
+    $sql = "INSERT INTO sales (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
     $stmt_sale = $conn->prepare($sql);
 
     $types = '';
-    foreach($values as $v){
-        $types .= is_int($v) ? 'i' : (is_float($v) ? 'd' : 's');
+    foreach ($values as $v) {
+        if (is_int($v)) $types .= 'i';
+        elseif (is_float($v)) $types .= 'd';
+        else $types .= 's';
     }
-    $stmt_sale->bind_param($types, ...$values);
+
+    $bind = [$types];
+    foreach ($values as &$v) $bind[] = &$v;
+    call_user_func_array([$stmt_sale, 'bind_param'], $bind);
+
     $stmt_sale->execute();
     $sale_id = $stmt_sale->insert_id;
     $stmt_sale->close();
 
     /* ----------------------------------------------
-       5c. INSERT SALE ITEMS + UPDATE STOCK
+       8c. SALE ITEMS + STOCK UPDATE
     ---------------------------------------------- */
-    $stmt_item = $conn->prepare("INSERT INTO sale_items (store_id,sale_id,product_id,quantity,price,purchase_price,profit,gst_percent) VALUES (?,?,?,?,?,?,?,?)");
-    $stmt_update = $conn->prepare("UPDATE products SET stock=stock-? WHERE product_id=? AND store_id=? AND stock>=?");
+    $stmt_item = $conn->prepare("
+        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, price, purchase_price, profit, gst_percent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt_update = $conn->prepare("
+        UPDATE products SET stock = stock - ? WHERE product_id = ? AND store_id = ? AND stock >= ?
+    ");
 
-    foreach($items as $item){
-        $purchase_price = (float)$dbProducts[$item['product_id']]['purchase_price'];
+    foreach ($items as $item) {
+        $p = $dbProducts[$item['product_id']];
+        $purchase_price = (float)$p['purchase_price'];
         $profit = ($item['price'] - $purchase_price) * $item['quantity'];
 
         $stmt_item->bind_param(
-            "iiiddidd", 
-            $store_id, 
-            $sale_id, 
-            $item['product_id'], 
-            $item['quantity'], 
-            $item['price'], 
-            $purchase_price, 
-            $profit, 
+            "iiiddidd",
+            $store_id,
+            $sale_id,
+            $item['product_id'],
+            $item['quantity'],
+            $item['price'],
+            $purchase_price,
+            $profit,
             $item['gst_percent']
         );
         $stmt_item->execute();
 
-        // Update stock
         $stmt_update->bind_param("iiii", $item['quantity'], $item['product_id'], $store_id, $item['quantity']);
         $stmt_update->execute();
-        if($stmt_update->affected_rows === 0) throw new Exception("Insufficient stock for product ID ".$item['product_id']);
+
+        if ($stmt_update->affected_rows === 0) {
+            throw new Exception("Stock update failed for product ID {$item['product_id']}");
+        }
     }
 
     $stmt_item->close();
@@ -270,17 +297,16 @@ try {
     $conn->commit();
 
     echo json_encode([
-        'status'     => 'success',
-        'sale_id'    => $sale_id,
+        'status' => 'success',
+        'sale_id' => $sale_id,
         'invoice_id' => $invoice_id,
-        'subtotal'   => $subtotal,
-        'tax'        => $total_tax,
-        'total'      => $total_amount
+        'subtotal' => $subtotal,
+        'tax' => $total_tax,
+        'total' => $total_amount
     ]);
-
-} catch(Exception $e){
+} catch (Exception $e) {
     $conn->rollback();
-    echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 
 $conn->close();

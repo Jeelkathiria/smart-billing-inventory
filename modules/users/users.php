@@ -11,7 +11,7 @@ if (!$user_id || !$store_id) {
     exit;
 }
 
-// Restrict access
+// Restrict access — only admin or manager
 if (!in_array($role, ['admin', 'manager'])) {
     echo '
     <div class="container mt-5">
@@ -23,13 +23,17 @@ if (!in_array($role, ['admin', 'manager'])) {
     exit;
 }
 
-// Fetch cashiers for current store
+// ✅ Fetch all cashiers (including email)
 $stmt = $conn->prepare("
-    SELECT user_id, username, email, role,
-           CASE 
-               WHEN last_activity >= (NOW() - INTERVAL 5 MINUTE) THEN 'online'
-               ELSE 'offline'
-           END AS status
+    SELECT 
+        user_id, 
+        username, 
+        email,
+        role,
+        CASE 
+            WHEN last_activity >= (NOW() - INTERVAL 5 MINUTE) THEN 'online'
+            ELSE 'offline'
+        END AS status
     FROM users
     WHERE store_id = ? AND role = 'cashier'
     ORDER BY username
@@ -151,8 +155,8 @@ $cashiers = $result->fetch_all(MYSQLI_ASSOC);
                 <?php $count = 1; foreach ($cashiers as $cashier): ?>
                 <tr>
                   <td class="ps-4"><?= $count++; ?></td>
-                  <td class="fw-semibold"><?= htmlspecialchars($cashier['username']); ?></td>
-                  <td><?= htmlspecialchars($cashier['email']); ?></td>
+                  <td class="fw-semibold"><?= htmlspecialchars($cashier['username'] ?? 'N/A'); ?></td>
+                  <td><?= htmlspecialchars($cashier['email'] ?? 'N/A'); ?></td>
                   <td>
                     <span class="d-inline-flex align-items-center">
                       <span class="dot <?= $cashier['status']==='online' ? 'bg-success' : 'bg-danger'; ?>"></span>

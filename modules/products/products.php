@@ -99,7 +99,6 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/common.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
   <style>
   .content {
     margin-left: 230px;
@@ -124,6 +123,21 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   .alert ul {
     margin-bottom: 0;
   }
+
+  /* 🔴 Full Row Highlight for Low Stock */
+  .low-stock-row {
+    background-color: #ffefef !important;
+  }
+
+  .low-stock-row td {
+    color: #c62828 !important;
+    font-weight: 600;
+  }
+
+  /* 🔍 Search Box */
+  .search-box {
+    max-width: 300px;
+  }
   </style>
 </head>
 
@@ -134,8 +148,12 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   <div class="content">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h3 class="fw-bold">🛍️ Product Management</h3>
-      <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm"><i
-          class="bi bi-plus-circle"></i> Add Product</button>
+      <div class="d-flex gap-2">
+        <input type="text" id="searchInput" class="form-control search-box" placeholder="Search by product name...">
+        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm">
+          <i class="bi bi-plus-circle"></i> Add Product
+        </button>
+      </div>
     </div>
 
     <!-- Low Stock Alert -->
@@ -179,7 +197,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <div class="card shadow-sm">
       <div class="card-body table-responsive">
         <?php if ($products->num_rows > 0): ?>
-        <table class="table align-middle table-hover">
+        <table class="table align-middle table-hover" id="productTable">
           <thead>
             <tr>
               <th>#</th>
@@ -196,7 +214,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
           </thead>
           <tbody>
             <?php while ($prod = $products->fetch_assoc()): ?>
-            <tr>
+            <tr class="<?= $prod['stock'] < 5 ? 'low-stock-row' : '' ?>">
               <td><?= $prod['product_id'] ?></td>
               <td><?= htmlspecialchars($prod['product_name']) ?></td>
               <td><?= htmlspecialchars($prod['category_name']) ?></td>
@@ -205,7 +223,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
               <td><?= $prod['gst_percent'] ?>%</td>
               <td>₹<?= number_format($prod['total_price'], 2) ?></td>
               <td>₹<?= number_format($prod['profit'], 2) ?></td>
-              <td class="<?= $prod['stock'] < 5 ? 'text-danger fw-bold' : '' ?>"><?= $prod['stock'] ?></td>
+              <td><?= $prod['stock'] ?></td>
               <td>
                 <button onclick='editProduct(<?= json_encode($prod) ?>)' class="btn btn-sm btn-warning"><i
                     class="bi bi-pencil-square"></i></button>
@@ -258,6 +276,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+  // 🔥 Confirm Delete
   function confirmDelete(id) {
     Swal.fire({
       title: 'Delete this product?',
@@ -270,11 +289,24 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     });
   }
 
+  // 🛠 Edit Modal Setup
   let editModal;
   document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
+    // 🔍 Search Filter
+    const searchInput = document.getElementById('searchInput');
+    const tableRows = document.querySelectorAll('#productTable tbody tr');
+    searchInput.addEventListener('keyup', function() {
+      const query = this.value.toLowerCase();
+      tableRows.forEach(row => {
+        const name = row.children[1].textContent.toLowerCase();
+        row.style.display = name.includes(query) ? '' : 'none';
+      });
+    });
   });
 
+  // ✏️ Edit Product Function
   function editProduct(product) {
     document.getElementById('edit_id').value = product.product_id;
     document.getElementById('edit_name').value = product.product_name;

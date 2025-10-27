@@ -65,6 +65,7 @@ if (isset($_POST['register'])) {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
 
+
     if ($role === 'admin') {
         $store_name = trim($_POST['store_name']);
         $store_email = trim($_POST['store_email']);
@@ -94,7 +95,9 @@ if (isset($_POST['register'])) {
     } else {
         // Employee (manager/cashier) registration
         $store_code_input = trim($_POST['store_code']);
-        if (empty($store_code_input) || empty($username) || empty($password)) {
+        $email = trim($_POST['email']);
+
+        if (empty($store_code_input) || empty($username) || empty($password) || empty($email)) {
             $register_error = "Please fill all required fields.";
         } else {
             // Validate store code
@@ -108,8 +111,9 @@ if (isset($_POST['register'])) {
                 $store_id = $res->fetch_assoc()['store_id'];
                 // Create employee (manager or cashier)
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("INSERT INTO users (username, password, role, store_id, created_at) VALUES (?, ?, ?, ?, NOW())");
-                $stmt->bind_param("sssi", $username, $hashedPassword, $role, $store_id);
+                $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, store_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $stmt->bind_param("ssssi", $username, $email, $hashedPassword, $role, $store_id);
+
                 if ($stmt->execute()) {
                     $register_success = ucfirst($role) . " registered under store successfully!";
                 } else {
@@ -327,13 +331,17 @@ if (isset($_POST['register'])) {
           </div>
           <div id="adminFields">
             <div class="mb-3"><label class="form-label fw-semibold">Store Name</label><input type="text" name="store_name" class="form-control"></div>
-            <div class="mb-3"><label class="form-label fw-semibold">Store Email</label><input type="email" name="store_email" class="form-control"></div>
+            <div class="mb-3">
+            <label class="form-label fw-semibold">E-mail</label>
+            <input type="email" name="email" class="form-cfontrol" required>
+          </div>
             <div class="mb-3"><label class="form-label fw-semibold">Contact Number</label><input type="text" name="contact_number" class="form-control"></div>
           </div>
           <div id="employeeFields" style="display:none;">
             <div class="mb-3"><label class="form-label fw-semibold">Store Code</label><input type="text" name="store_code" class="form-control"></div>
           </div>
           <div class="mb-3"><label class="form-label fw-semibold">Username</label><input type="text" name="username" class="form-control" required></div>
+          <div class="mb-3"><label class="form-label fw-semibold">E-mail</label><input type="text" name="E-mail" class="form-control" required></div>
           <div class="mb-3"><label class="form-label fw-semibold">Password</label><input type="password" name="password" class="form-control" required></div>
           <button type="submit" name="register" class="btn btn-success w-100 py-2 fw-semibold">Register</button>
         </form>

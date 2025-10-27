@@ -9,7 +9,12 @@ $stmt = $conn->prepare("SELECT store_type, billing_fields FROM stores WHERE stor
 $stmt->bind_param('i', $store_id);
 $stmt->execute();
 $store = $stmt->get_result()->fetch_assoc() ?: ['store_type' => '', 'billing_fields' => '{}'];
-$fields = json_decode($store['billing_fields'], true) ?: [];
+
+$fields = [];
+if (!empty($store['billing_fields'])) {
+    $decoded = json_decode($store['billing_fields'], true);
+    if (is_array($decoded)) $fields = $decoded;
+}
 
 // Fetch categories
 $catStmt = $conn->prepare("SELECT category_id, category_name FROM categories WHERE store_id = ?");
@@ -17,10 +22,10 @@ $catStmt->bind_param('i', $store_id);
 $catStmt->execute();
 $categories = $catStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Labels for billing fields
+// Billing field labels
 $labels = [
     'customer_name' => 'Customer Name',
-    'customer_email' => 'Customer Email',
+    'customer_email' => 'Email',
     'customer_mobile' => 'Mobile',
     'customer_address' => 'Delivery Address',
     'gstin' => 'GSTIN'
@@ -31,65 +36,11 @@ $labels = [
 
 <head>
   <meta charset="UTF-8">
-  <title>Billing</title>
+  <title>🧾 Live Billing</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-   <link rel="stylesheet" href="/assets/css/common.css">
-  <style>
-
-  .scanner-box {
-    border: 2px dashed #ccc;
-    padding: 15px;
-    text-align: center;
-    margin-bottom: 20px;
-  }
-
-  .table td,
-  .table th {
-    vertical-align: middle;
-  }
-
-  .input-error {
-    border-color: red;
-    animation: shake 0.3s;
-  }
-
-  @keyframes shake {
-    0% {
-      transform: translateX(0)
-    }
-
-    25% {
-      transform: translateX(-5px)
-    }
-
-    50% {
-      transform: translateX(5px)
-    }
-
-    75% {
-      transform: translateX(-5px)
-    }
-
-    100% {
-      transform: translateX(0)
-    }
-  }
-
-  #successToast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #28a745;
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 8px;
-    display: none;
-    z-index: 9999;
-    font-weight: 500;
-  }
-  </style>
+  <link rel="stylesheet" href="/assets/css/common.css">
 </head>
 
 <body>
@@ -99,10 +50,7 @@ $labels = [
   <div class="content">
     <h3 class="mb-4">🧾 Live Billing</h3>
 
-    <div class="scanner-box">
-      <input type="text" id="barcodeInput" class="form-control" placeholder="Scan or enter barcode...">
-    </div>
-
+    <!-- Customer Details -->
     <div class="row g-3 mb-3">
       <div class="col-md-4">
         <label>Date & Time</label>
@@ -110,20 +58,21 @@ $labels = [
       </div>
 
       <?php foreach ($fields as $key => $enabled):
-                if (!$enabled) continue;
-                $label = $labels[$key] ?? ucfirst($key);
-            ?>
+          if (!$enabled) continue;
+          $label = $labels[$key] ?? ucfirst($key);
+      ?>
       <div class="col-md-<?php echo $key === 'customer_address' ? 8 : 4; ?>">
-        <label><?php echo $label; ?></label>
+        <label><?= $label ?></label>
         <?php if ($key === 'customer_address'): ?>
-        <textarea id="<?php echo $key ?>" class="form-control" rows="2" placeholder="<?php echo $label ?>"></textarea>
+        <textarea id="<?= $key ?>" class="form-control" rows="2" placeholder="<?= $label ?>"></textarea>
         <?php else: ?>
-        <input type="text" id="<?php echo $key ?>" class="form-control" placeholder="<?php echo $label ?>">
+        <input type="text" id="<?= $key ?>" class="form-control" placeholder="<?= $label ?>">
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
     </div>
 
+    <!-- Category / Product Selection -->
     <div class="row mb-3">
       <div class="col-md-4">
         <label>Category</label>
@@ -149,8 +98,9 @@ $labels = [
       </div>
     </div>
 
+    <!-- Cart Table -->
     <table class="table table-bordered" id="billingTable">
-      <thead class="table-dark">
+      <thead>
         <tr>
           <th>Sr. No</th>
           <th>Product</th>
@@ -162,6 +112,7 @@ $labels = [
       <tbody></tbody>
     </table>
 
+    <!-- Totals -->
     <div class="text-end">
       <p><strong>Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
       <p><strong>Tax:</strong> ₹<span id="taxAmount">0.00</span></p>
@@ -170,259 +121,251 @@ $labels = [
     </div>
   </div>
 
-  <div id="successToast">✅ Billing Successful!</div>
+  <!-- ✅ Success Toast -->
+  <div id="successToast" class="position-fixed top-0 end-0 bg-success text-white p-3 rounded shadow"
+    style="margin:20px;display:none;z-index:9999;">✅ Billing Successful!</div>
 
+  <!-- ✅ Alert Modal -->
+  <div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="alertModalLabel">Notice</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body fs-5" id="alertModalBody">...</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- ================= JS ================= -->
   <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const $ = id => document.getElementById(id);
-  let cart = [];
-  let productsList = {};
+  document.addEventListener('DOMContentLoaded', () => {
+    const $ = id => document.getElementById(id);
+    let cart = [];
+    let productsList = {};
+    const enabledFields = <?= json_encode(array_keys(array_filter($fields))) ?>;
+    const labels = <?= json_encode($labels) ?>;
 
-  const enabledFields = <?php echo json_encode(array_keys(array_filter($fields))); ?>;
-  const labels = <?php echo json_encode($labels); ?>;
+    // Modal Popup
+    function showPopup(message, title = "Notice") {
+      const modalEl = document.getElementById('alertModal');
+      if (!modalEl) return alert(message);
+      modalEl.querySelector('#alertModalLabel').textContent = title;
+      modalEl.querySelector('#alertModalBody').textContent = message;
+      const modal = new bootstrap.Modal(modalEl);
+      modal.show();
+    }
 
-  // --- Date & Time ---
-  const pad = n => n.toString().padStart(2, '0');
-  const getDateTime = () => {
-    const d = new Date();
-    return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-  $('invoice_date').value = getDateTime();
+    // Toast
+    function showToast(id, duration = 2000) {
+      const t = $(id);
+      if (!t) return;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', duration);
+    }
 
-  // --- Reset Form ---
-  const resetForm = () => {
-    cart = [];
-    renderTable();
+    // Date & Time
+    const pad = n => n.toString().padStart(2, '0');
+    const getDateTime = () => {
+      const d = new Date();
+      return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
     $('invoice_date').value = getDateTime();
-    $('categorySelect').value = '';
-    $('productSelect').innerHTML = '<option value="">Select Product</option>';
-    $('productSelect').disabled = true;
-    $('qtyInput').value = 1;
-    $('barcodeInput').value = '';
-    $('addProductBtn').disabled = true;
 
-    enabledFields.forEach(k => { if ($(k)) $(k).value = ''; });
-  };
-
-  // --- Show Toast ---
-  const showToast = (id, duration = 2000) => {
-    const t = $(id);
-    if (!t) return;
-    t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', duration);
-  };
-
-  // --- Fetch Products by Category ---
-  $('categorySelect').addEventListener('change', async () => {
-    const catId = $('categorySelect').value;
-    const productSelect = $('productSelect');
-    productSelect.disabled = true;
-    productSelect.innerHTML = '<option>Loading...</option>';
-    $('addProductBtn').disabled = true;
-    productsList = {};
-
-    if (!catId) {
-      productSelect.innerHTML = '<option value="">Select Product</option>';
-      return;
-    }
-
-    try {
-      const res = await fetch(`../sales/fetch_products.php?category_id=${catId}`);
-      const products = await res.json();
-
-      productSelect.innerHTML = '<option value="">Select Product</option>';
-
-      if (Array.isArray(products) && products.length) {
-        products.forEach(p => {
-          productsList[p.product_id] = p;
-          const stock = parseInt(p.stock) || 0;
-          productSelect.innerHTML += `
-            <option value="${p.product_id}" ${stock===0?'disabled':''}>
-              ${p.product_name}${stock===0?' (Out of Stock)':''}
-            </option>`;
-        });
-      } else {
-        productSelect.innerHTML += '<option value="" disabled>No products available</option>';
-      }
-
-      productSelect.disabled = false;
-    } catch (e) {
-      console.error(e);
-      productSelect.innerHTML = '<option value="" disabled>Error loading</option>';
-    }
-  });
-
-  // --- Product Select Change ---
-  $('productSelect').addEventListener('change', async () => {
-    const productId = $('productSelect').value;
-    $('addProductBtn').disabled = true;
-    if (!productId) return;
-
-    try {
-      const res = await fetch(`../sales/fetch_price.php?product_id=${productId}`);
-      const data = await res.json();
-
-      if (data.status === 'success') {
-        const p = data.product;
-        productsList[productId] = {
-          product_id: p.product_id,
-          product_name: $('productSelect').selectedOptions[0].text,
-          sell_price: p.sell_price,
-          gst_percent: p.gst_percent,
-          profit: p.profit,
-          stock: p.stock
-        };
-
-        $('addProductBtn').disabled = p.stock <= 0;
-        if (p.stock <= 0) alert('Product out of stock');
-      } else {
-        alert(data.message || 'Failed to fetch product info');
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Error fetching product info');
-    }
-  });
-
-  // --- Barcode Input ---
-  $('barcodeInput').addEventListener('input', function() {
-    const code = this.value.trim();
-    const found = Object.entries(productsList).find(([_, p]) => p.barcode === code);
-    $('productSelect').value = found ? found[0] : '';
-    $('addProductBtn').disabled = !$('productSelect').value;
-  });
-
-  // --- Add Product to Cart ---
-  $('addProductBtn').addEventListener('click', async () => {
-    const productId = $('productSelect').value;
-    const qty = Math.max(1, parseInt($('qtyInput').value) || 1);
-    if (!productId) return alert('Select product');
-
-    const product = productsList[productId];
-    if (!product) return alert('Product not found');
-
-    try {
-        // Fetch latest price, gst, stock from backend
-        const res = await fetch(`../sales/fetch_price.php?product_id=${productId}`);
-        const data = await res.json();
-        if (data.status !== 'success') return alert(data.message || 'Price fetch failed');
-
-        const p = data.product;
-        const stock = parseInt(p.stock) || 0;
-        if (stock === 0) return alert(`${product.product_name} out of stock`);
-        if (qty > stock) return alert(`Only ${stock} in stock`);
-
-        const price = parseFloat(p.sell_price) || 0;
-        const gst = parseFloat(p.gst_percent) || 0;
-        const gstAmt = price * gst / 100;
-
-        cart.push({
-            product_id: productId,
-            product_name: product.product_name, // <-- Use name from productsList
-            quantity: qty,
-            price: price,
-            gst_percent: gst,
-            amount: price * qty,
-            gst: gstAmt * qty,
-            total: (price + gstAmt) * qty
-        });
-
-        renderTable();
-
-        $('barcodeInput').value = '';
-        $('productSelect').value = '';
-        $('addProductBtn').disabled = true;
-
-    } catch (e) {
-        console.error(e);
-        alert('Failed to fetch product price');
-    }
-});
-
-
-  // --- Render Cart Table ---
-  function renderTable() {
-    const tbody = document.querySelector("#billingTable tbody");
-    tbody.innerHTML = '';
-    let sub = 0, gst = 0;
-
-    cart.forEach((item, i) => {
-      sub += item.amount;
-      gst += item.gst;
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i+1}</td>
-        <td>${item.product_name}</td>
-        <td>${item.quantity}</td>
-        <td>₹${item.total.toFixed(2)}</td>
-        <td><button class="btn btn-danger btn-sm" data-index="${i}">Remove</button></td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    tbody.querySelectorAll('button[data-index]').forEach(b => {
-      b.addEventListener('click', () => {
-        cart.splice(parseInt(b.dataset.index), 1);
-        renderTable();
+    // Reset Form
+    const resetForm = () => {
+      cart = [];
+      renderTable();
+      $('invoice_date').value = getDateTime();
+      $('categorySelect').value = '';
+      $('productSelect').innerHTML = '<option value="">Select Product</option>';
+      $('productSelect').disabled = true;
+      $('qtyInput').value = 1;
+      if ($('barcodeInput')) $('barcodeInput').value = '';
+      $('addProductBtn').disabled = true;
+      enabledFields.forEach(k => {
+        if ($(k)) $(k).value = '';
       });
-    });
-
-    $('subTotal').innerText = sub.toFixed(2);
-    $('taxAmount').innerText = gst.toFixed(2);
-    $('totalAmount').innerText = (sub + gst).toFixed(2);
-  }
-
-  // --- Checkout / Generate Invoice ---
-  $('generateInvoiceBtn').addEventListener('click', async () => {
-    if (!cart.length) return alert('Cart empty');
-
-    // Validate required fields
-    for (let k of enabledFields) {
-      const el = $(k);
-      if (el && !el.value.trim()) {
-        el.classList.add('input-error');
-        setTimeout(() => el.classList.remove('input-error'), 500);
-        el.focus();
-        return alert(`${labels[k] || k} is required`);
-      }
-    }
-
-    const data = {
-      date: $('invoice_date').value,
-      items: cart.map(i => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        price: i.price,
-        gst_percent: i.gst_percent
-      }))
     };
 
-    // Include enabled customer fields
-    enabledFields.forEach(k => { const el = $(k); if (el) data[k] = el.value.trim(); });
+    // Fetch Products by Category
+    $('categorySelect').addEventListener('change', async () => {
+      const catId = $('categorySelect').value;
+      const productSelect = $('productSelect');
+      productSelect.disabled = true;
+      productSelect.innerHTML = '<option>Loading...</option>';
+      $('addProductBtn').disabled = true;
+      productsList = {};
 
-    try {
-      const res = await fetch('./checkout.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      const r = await res.json();
-      if (r.status === 'success') {
-        showToast('successToast');
-        resetForm();
-        window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
-      } else {
-        alert(r.message || 'Checkout failed');
+      if (!catId) {
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        return;
       }
-    } catch (e) {
-      console.error(e);
-      alert('Checkout failed');
-    }
-  });
-});
-</script>
 
+      try {
+        const res = await fetch(`../sales/fetch_products.php?category_id=${catId}`);
+        const products = await res.json();
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        if (Array.isArray(products) && products.length) {
+          products.forEach(p => {
+            productsList[p.product_id] = p;
+            const stock = parseInt(p.stock) || 0;
+            productSelect.innerHTML +=
+              `<option value="${p.product_id}" ${stock===0?'disabled':''}>${p.product_name}${stock===0?' (Out of Stock)':''}</option>`;
+          });
+        } else productSelect.innerHTML += '<option disabled>No products available</option>';
+        productSelect.disabled = false;
+      } catch (e) {
+        console.error(e);
+        productSelect.innerHTML = '<option disabled>Error loading</option>';
+      }
+    });
+
+    // Product selection → fetch price from backend
+    $('productSelect').addEventListener('change', async () => {
+      const productId = $('productSelect').value;
+      const addBtn = $('addProductBtn');
+      addBtn.disabled = true;
+
+      if (!productId) return;
+
+      try {
+        const res = await fetch(`../sales/fetch_price.php?product_id=${productId}`);
+        const data = await res.json();
+
+        if (data.status === 'success' && data.product) {
+          const p = data.product;
+          // Save full details in productsList
+          productsList[productId] = {
+            ...productsList[productId],
+            sell_price: p.sell_price,
+            gst_percent: p.gst_percent,
+            profit: p.profit,
+            stock: p.stock
+          };
+          addBtn.disabled = false;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // Add Product to Cart
+    $('addProductBtn').addEventListener('click', () => {
+      const productId = $('productSelect').value;
+      const qty = parseInt($('qtyInput').value) || 1;
+      if (!productId) return showPopup('Please select a product.');
+
+      const p = productsList[productId];
+      if (!p) return showPopup('Product data not found.');
+
+      const price = parseFloat(p.sell_price) || 0;
+      const gstPercent = parseFloat(p.gst_percent) || 0;
+
+      // Calculate amounts
+      const amount = price * qty;
+      const gst = (amount * gstPercent) / 100;
+      const total = amount + gst;
+
+      cart.push({
+        product_id: productId,
+        product_name: p.product_name,
+        quantity: qty,
+        price,
+        gst_percent: gstPercent,
+        amount,
+        gst,
+        total
+      });
+
+      renderTable();
+      $('productSelect').value = '';
+      $('qtyInput').value = 1;
+      addBtn.disabled = true;
+    });
+
+
+    // Render Cart Table
+    function renderTable() {
+      const tbody = document.querySelector("#billingTable tbody");
+      tbody.innerHTML = '';
+      let sub = 0,
+        gst = 0;
+      cart.forEach((item, i) => {
+        sub += item.amount;
+        gst += item.gst;
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          `<td>${i+1}</td><td>${item.product_name}</td><td>${item.quantity}</td><td>₹${item.amount.toFixed(2)}</td><td><button class="btn btn-danger btn-sm" data-index="${i}">Remove</button></td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('button[data-index]').forEach(b => {
+        b.addEventListener('click', () => {
+          cart.splice(parseInt(b.dataset.index), 1);
+          renderTable();
+        });
+      });
+      $('subTotal').innerText = sub.toFixed(2);
+      $('taxAmount').innerText = gst.toFixed(2);
+      $('totalAmount').innerText = (sub + gst).toFixed(2);
+    }
+
+    // Generate Invoice
+    $('generateInvoiceBtn').addEventListener('click', async () => {
+      if (!cart.length) return showPopup(
+        'Your cart is empty. Please add at least one product before generating invoice.', 'Empty Cart');
+      for (let k of enabledFields) {
+        const el = $(k);
+        if (el && !el.value.trim()) {
+          el.classList.add('input-error');
+          setTimeout(() => el.classList.remove('input-error'), 500);
+          el.focus();
+          return showPopup(`${labels[k]||k} is required.`, 'Missing Information');
+        }
+      }
+
+      const data = {
+        date: $('invoice_date').value,
+        items: cart.map(i => ({
+          product_id: i.product_id,
+          quantity: i.quantity,
+          price: i.price,
+          gst_percent: i.gst_percent
+        }))
+      };
+      Object.keys(labels).forEach(k => {
+        const el = $(k);
+        data[k] = el && el.value.trim() ? el.value.trim() : null;
+      });
+
+      try {
+        const res = await fetch('./checkout.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+        const r = await res.json();
+        if (r.status === 'success') {
+          showToast('successToast');
+          resetForm();
+          window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
+        } else showPopup(r.message || 'Checkout failed.', 'Error');
+      } catch (e) {
+        console.error(e);
+        showPopup('Checkout failed. Please try again.', 'Error');
+      }
+    });
+  });
+  </script>
 </body>
 
 </html>
