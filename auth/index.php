@@ -1,22 +1,45 @@
 <?php
 session_start();
-$login_error = null;
-$register_error = null;
-$register_success = null;
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../vendor/autoload.php'; // PHPMailer
 
-// Check query parameter (after redirect)
-if (isset($_GET['login_error'])) {
-    $login_error = $_GET['login_error'];
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+$login_error = "";
+
+/* ---------------------- SEND OTP FUNCTION ---------------------- */
+function sendOTP($email, $otp)
+{
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'testing992017@gmail.com';
+        $mail->Password = 'ewtg cscr mycx cabc';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        $mail->setFrom('testing992017@gmail.com', 'SmartBiz Verification');
+        $mail->addAddress($email);
+        $mail->isHTML(true);
+        $mail->Subject = "SmartBiz OTP Verification";
+        $mail->Body = "
+            <h3>Your SmartBiz OTP is <b>$otp</b></h3>
+            <p>Valid for 3 minutes. Please do not share it.</p>
+        ";
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
 }
-require_once __DIR__ . '/../config/db.php'; // MySQLi connection
 
-// -------- Handle Login --------
-// -------- Handle Login (POST) --------
+/* ---------------------- LOGIN ---------------------- */
 if (isset($_POST['login'])) {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
-
-    $error = null;
 
     if (empty($username) || empty($password)) {
         $error = "Please fill all fields.";
@@ -29,390 +52,412 @@ if (isset($_POST['login'])) {
         if ($result && $result->num_rows === 1) {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user['password'])) {
-                // ✅ Success
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['store_id'] = $user['store_id'];
                 $_SESSION['login_time'] = time();
-
-                // Redirect to dashboard
                 header("Location: /modules/dashboard.php");
                 exit();
-            } else {
-                $error = "Invalid password.";
-            }
-        } else {
-            $error = "User not found.";
-        }
+            } else $error = "Invalid password.";
+        } else $error = "User not found.";
     }
 
-    // If error → redirect back with query parameter
-    if ($error) {
-        header("Location: /auth/index.php?login_error=" . urlencode($error));
+    if (isset($error)) {
+        header("Location: index.php?login_error=" . urlencode($error));
         exit();
     }
 }
 
-
-// -------- Handle Registration --------
-function generateStoreCode() {
-    return strtoupper(substr(uniqid('ST'), -6)); // e.g., ST9A2B1
-}
-
-if (isset($_POST['register'])) {
+/* ---------------------- REGISTER AJAX ---------------------- */
+if (isset($_POST['register_ajax'])) {
+    $email = trim($_POST['email']);
     $role = $_POST['role'];
     $username = trim($_POST['username']);
-    $password = $_POST['password'];
 
+    // duplicate checks
+    $checkUser = $conn->prepare("SELECT username FROM users WHERE username = ?");
+    $checkUser->bind_param("s", $username);
+    $checkUser->execute();
+    $checkUser->store_result();
+    if ($checkUser->num_rows > 0) {
+        echo json_encode(['status' => 'username_exists']);
+        exit;
+    }
+
+    $check = $conn->prepare("SELECT email FROM users WHERE email = ?");
+    $check->bind_param("s", $email);
+    $check->execute();
+    $check->store_result();
+    if ($check->num_rows > 0) {
+        echo json_encode(['status' => 'email_exists']);
+        exit;
+    }
 
     if ($role === 'admin') {
-        $store_name = trim($_POST['store_name']);
         $store_email = trim($_POST['store_email']);
-        $contact_number = trim($_POST['contact_number']);
-
-        if (empty($store_name) || empty($username) || empty($password)) {
-            $register_error = "Please fill all required fields.";
-        } else {
-            // Create store with unique code
-            $store_code = generateStoreCode();
-            $stmt = $conn->prepare("INSERT INTO stores (store_name, store_email, contact_number, store_code, created_at) VALUES (?, ?, ?, ?, NOW())");
-            $stmt->bind_param("ssss", $store_name, $store_email, $contact_number, $store_code);
-            $stmt->execute();
-            $store_id = $conn->insert_id;
-
-            // Create admin user
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("INSERT INTO users (username, password, role, store_id, created_at) VALUES (?, ?, 'admin', ?, NOW())");
-            $stmt->bind_param("ssi", $username, $hashedPassword, $store_id);
-            if ($stmt->execute()) {
-                $register_success = "Admin registered! Your store code: <b>$store_code</b>. Share this with employees.";
-            } else {
-                $register_error = "Error: " . $conn->error;
-            }
-        }
-
-    } else {
-        // Employee (manager/cashier) registration
-        $store_code_input = trim($_POST['store_code']);
-        $email = trim($_POST['email']);
-
-        if (empty($store_code_input) || empty($username) || empty($password) || empty($email)) {
-            $register_error = "Please fill all required fields.";
-        } else {
-            // Validate store code
-            $stmt = $conn->prepare("SELECT store_id FROM stores WHERE store_code = ?");
-            $stmt->bind_param("s", $store_code_input);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            if ($res->num_rows === 0) {
-                $register_error = "Invalid store code.";
-            } else {
-                $store_id = $res->fetch_assoc()['store_id'];
-                // Create employee (manager or cashier)
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("INSERT INTO users (username, email, password, role, store_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-                $stmt->bind_param("ssssi", $username, $email, $hashedPassword, $role, $store_id);
-
-                if ($stmt->execute()) {
-                    $register_success = ucfirst($role) . " registered under store successfully!";
-                } else {
-                    $register_error = "Error: " . $conn->error;
-                }
-            }
+        $check2 = $conn->prepare("SELECT store_email FROM stores WHERE store_email = ?");
+        $check2->bind_param("s", $store_email);
+        $check2->execute();
+        $check2->store_result();
+        if ($check2->num_rows > 0) {
+            echo json_encode(['status' => 'store_exists']);
+            exit;
         }
     }
+
+    $otp = rand(100000, 999999);
+    $_SESSION['register_data'] = $_POST;
+    $_SESSION['otp'] = $otp;
+    $_SESSION['otp_expiry'] = time() + 180;
+
+    if (sendOTP($email, $otp)) {
+        echo json_encode(['status' => 'otp_sent']);
+    } else {
+        echo json_encode(['status' => 'mail_failed']);
+    }
+    exit;
 }
 
- 
+/* ---------------------- LIVE USERNAME CHECK ---------------------- */
+if (isset($_POST['check_username'])) {
+    $username = trim($_POST['username']);
+    $stmt = $conn->prepare("SELECT username FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->store_result();
+    echo json_encode(['exists' => $stmt->num_rows > 0]);
+    exit;
+}
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SmartBiz – Smart Billing & Inventory</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-     body { scroll-behavior: smooth; }
-
-  /* Navbar Blur */
-  .navbar.scrolled {
-    backdrop-filter: blur(8px);
-    background: rgba(255,255,255,0.85) !important;
-    transition: background 0.3s ease;
+  body {
+    background: #f8f9fa;
+    scroll-behavior: smooth;
   }
 
-  /* Hero Text Animation */
-  .hero h1 {
-    font-size: 3rem; font-weight: bold;
-    animation: fadeDown 1s ease-out;
-  }
-  @keyframes fadeDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Feature Card Hover */
-  .feature-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  .feature-card:hover {
-    transform: translateY(-8px) scale(1.03);
-    box-shadow: 0 10px 20px rgba(102, 16, 242, 0.2);
+  .auth-section {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9998;
+    justify-content: center;
+    align-items: center;
   }
 
-  /* Glass Effect for Auth Box */
   .auth-box {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255,255,255,0.3);
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
   }
 
-  /* Gradient Buttons */
-  .btn-gradient {
-    background: linear-gradient(45deg, #6f42c1, #6610f2);
-    color: white;
-    border: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  small.text-danger {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
   }
-  .btn-gradient:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 16, 242, 0.4);
+
+  #otpModal {
+    z-index: 10000 !important;
   }
-    .hero {
-      background: linear-gradient(135deg, #6f42c1, #6610f2);
-      color: white;
-      padding: 120px 0;
-      text-align: center;
-    }
-    .hero h1 { font-size: 3rem; font-weight: bold; }
-    .feature-icon {
-      font-size: 2rem; color: #6610f2;
-    }
-    .auth-section {
-      display: none; /* initially hidden */
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 9999;
-      justify-content: center;
-      align-items: center;
-    }
-    .auth-box {
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      max-width: 400px;
-      width: 100%;
-    }
+
+  #successModal {
+    z-index: 10550 !important;
+  }
+
+  /* Toast positioning */
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20000;
+  }
   </style>
 </head>
+
 <body>
-
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm fixed-top">
-  <div class="container">
-    <a class="navbar-brand fw-bold text-primary" href="#">SmartBiz</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
-        <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
-        <li class="nav-item"><button class="btn btn-primary ms-2" onclick="openAuth()">Login / Register</button></li>
-      </ul>
-    </div>
-  </div>
-</nav>
-
-<!-- Hero Section -->
-<section class="hero">
-  <div class="container">
-    <h1>Smart Billing & Inventory Management</h1>
-    <p class="lead mt-3">Automate billing, track inventory in real-time, and make data-driven decisions — completely free.</p>
-    <button class="btn btn-light btn-lg mt-4" onclick="openAuth()">Get Started</button>
-  </div>
-</section>
-
-<!-- Features Section -->
-<section class="py-5" id="features">
-  <div class="container text-center">
-    <h2 class="fw-bold mb-4">Powerful Features</h2>
-    <div class="row g-4">
-      <div class="col-md-4">
-        <div class="p-4 shadow rounded h-100">
-          <div class="feature-icon mb-3">⚡</div>
-          <h5>Automated Reorder Alerts</h5>
-          <p>Never run out of stock again. Get alerts before inventory runs low.</p>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-4 shadow rounded h-100">
-          <div class="feature-icon mb-3">📈</div>
-          <h5>AI Demand Forecasting</h5>
-          <p>Smart predictions help you stock the right products at the right time.</p>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-4 shadow rounded h-100">
-          <div class="feature-icon mb-3">🏬</div>
-          <h5>Multi-Location Tracking</h5>
-          <p>Manage inventory across all your stores seamlessly in one platform.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- About Section -->
-<section class="py-5 bg-light" id="about">
-  <div class="container">
-    <div class="row align-items-center">
-      <div class="col-md-6">
-        <img src="https://tse2.mm.bing.net/th/id/OIP.0iDGsgQZIw4KdZhjdrQ1GQHaEK?rs=1&pid=ImgDetMain&o=7&rm=3" class="img-fluid rounded shadow" alt="Warehouse">
-      </div>
-      <div class="col-md-6">
-        <h2 class="fw-bold">Why SmartBiz?</h2>
-        <p class="lead">SmartBiz makes business operations simple, fast, and intelligent. From billing to inventory insights — everything in one dashboard.</p>
-        <ul class="list-unstyled">
-          <li>✔ Free forever — no hidden costs</li>
-          <li>✔ Real-time data & analytics</li>
-          <li>✔ Secure and user-friendly</li>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
+    <div class="container">
+      <a class="navbar-brand fw-bold text-primary" href="#">SmartBiz</a>
+      <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span
+          class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><button class="btn btn-primary ms-2" onclick="openAuth()">Login / Register</button></li>
         </ul>
       </div>
     </div>
-  </div>
-</section>
+  </nav>
 
-<!-- Footer -->
-<footer class="py-4 text-center bg-dark text-light">
-  <p class="mb-0">© 2025 SmartBiz. All rights reserved.</p>
-</footer>
+  <section class="hero text-center text-white"
+    style="background:linear-gradient(135deg,#6f42c1,#6610f2);padding:120px 0;">
+    <div class="container">
+      <h1>Smart Billing & Inventory Management</h1>
+      <p class="lead mt-3">Automate your store operations efficiently — for free.</p>
+      <button class="btn btn-light btn-lg mt-4" onclick="openAuth()">Get Started</button>
+    </div>
+  </section>
 
-<!-- Auth Section (from your PHP code) -->
-<section class="auth-section" id="auth">
-  <div class="auth-box">
-    <button class="btn-close float-end mb-2" onclick="closeAuth()"></button>
-    <ul class="nav nav-tabs mb-4 justify-content-center">
-      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#loginTab">Login</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#registerTab">Register</button></li>
-    </ul>
-    <div class="tab-content">
-      <!-- Login Tab -->
-      <div class="tab-pane fade show active" id="loginTab">
-    <?php if($login_error): ?>
-        <div class='alert alert-danger'><?= htmlspecialchars($login_error) ?></div>
-    <?php endif; ?>
-    <form method="POST">
-        <input type="text" name="username" class="form-control mb-3" placeholder="Username" required>
-        <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
-        <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
-    </form>
-</div>
+  <!-- Authentication Modal -->
+  <section class="auth-section" id="auth">
+    <div class="auth-box">
+      <button class="btn-close float-end mb-2" onclick="closeAuth()"></button>
+      <ul class="nav nav-tabs mb-4 justify-content-center">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab"
+            data-bs-target="#loginTab">Login</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab"
+            data-bs-target="#registerTab">Register</button></li>
+      </ul>
 
-      <!-- Register Tab -->
-      <div class="tab-pane fade" id="registerTab">
-        <?php if(isset($register_error)): ?><div class="alert alert-danger text-center"><?= $register_error ?></div><?php endif; ?>
-        <?php if(isset($register_success)): ?><div class="alert alert-success text-center"><?= $register_success ?></div><?php endif; ?>
-        <form method="POST" id="registerForm">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Select Role</label>
-            <select name="role" id="roleSelect" class="form-select" required>
-              <option value="" disabled selected>Choose Role</option>
-              <option value="admin">Admin (Create Store)</option>
-              <option value="manager">Manager</option>
-              <option value="cashier">Cashier</option>
-            </select>
-          </div>
-          <div id="adminFields">
-            <div class="mb-3"><label class="form-label fw-semibold">Store Name</label><input type="text" name="store_name" class="form-control"></div>
+      <div class="tab-content">
+        <!-- LOGIN -->
+        <div class="tab-pane fade show active" id="loginTab">
+          <?php if(isset($_GET['login_error'])): ?>
+          <div class="alert alert-danger"><?= htmlspecialchars($_GET['login_error']) ?></div>
+          <?php endif; ?>
+          <form method="POST">
+            <input type="text" name="username" class="form-control mb-3" placeholder="Username" required>
+            <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
+            <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
+          </form>
+        </div>
+
+        <!-- REGISTER -->
+        <div class="tab-pane fade" id="registerTab">
+          <form method="POST" id="registerForm">
+            <input type="hidden" name="register_ajax" value="1">
+
             <div class="mb-3">
-            <label class="form-label fw-semibold">E-mail</label>
-            <input type="email" name="email" class="form-cfontrol" required>
-          </div>
-            <div class="mb-3"><label class="form-label fw-semibold">Contact Number</label><input type="text" name="contact_number" class="form-control"></div>
-          </div>
-          <div id="employeeFields" style="display:none;">
-            <div class="mb-3"><label class="form-label fw-semibold">Store Code</label><input type="text" name="store_code" class="form-control"></div>
-          </div>
-          <div class="mb-3"><label class="form-label fw-semibold">Username</label><input type="text" name="username" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label fw-semibold">E-mail</label><input type="text" name="E-mail" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label fw-semibold">Password</label><input type="password" name="password" class="form-control" required></div>
-          <button type="submit" name="register" class="btn btn-success w-100 py-2 fw-semibold">Register</button>
-        </form>
+              <label class="fw-semibold">Select Role</label>
+              <select name="role" id="roleSelect" class="form-select" required>
+                <option value="" disabled selected>Choose Role</option>
+                <option value="admin">Admin (Create Store)</option>
+                <option value="manager">Manager</option>
+                <option value="cashier">Cashier</option>
+              </select>
+              <small id="roleError" class="text-danger"></small>
+            </div>
+
+            <div id="adminFields">
+              <input type="text" name="store_name" class="form-control mb-2" placeholder="Store Name">
+              <input type="email" name="store_email" class="form-control mb-2" placeholder="Store Email">
+              <input type="text" name="contact_number" class="form-control mb-2" placeholder="Contact Number">
+            </div>
+
+            <div id="employeeFields" style="display:none;">
+              <input type="text" name="store_code" class="form-control mb-2" placeholder="Store Code">
+            </div>
+
+            <input type="text" name="username" id="usernameInput" class="form-control mb-2" placeholder="Username"
+              required>
+            <small id="usernameMsg" class="text-danger"></small>
+
+            <input type="email" name="email" id="emailInput" class="form-control mb-2" placeholder="Personal Email"
+              required>
+            <small id="emailMsg" class="text-danger"></small>
+
+            <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
+            <small id="passwordError" class="text-danger"></small>
+
+            <button type="submit" id="registerBtn" class="btn btn-success w-100">Register</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OTP Modal -->
+  <div class="modal fade" id="otpModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content p-4 text-center">
+        <h5 class="fw-bold mb-3">Verify Your Email</h5>
+        <p>Enter the 6-digit OTP sent to your email.</p>
+        <input type="text" id="otpInput" maxlength="6" class="form-control text-center mb-3" placeholder="Enter OTP">
+        <div id="otpMessage" class="text-danger mb-2"></div>
+        <button id="verifyOtpBtn" class="btn btn-primary w-100 mb-2">Verify OTP</button>
+        <small id="timerText">Resend in 40s</small><br>
+        <button id="resendBtn" class="btn btn-link p-0 mt-2" disabled>Resend OTP</button>
       </div>
     </div>
   </div>
-</section>
 
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  // Initialize animations
-  AOS.init({ duration: 800, once: true });
+  <!-- ✅ Success Modal -->
+  <div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content p-4 text-center">
+        <h5 class="fw-bold mb-3 text-success">✅ Registration Successful!</h5>
+        <div id="userDetails" class="mb-3 text-start"></div>
+        <button class="btn btn-success w-100" id="okSuccessBtn" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
 
-  // Navbar blur on scroll
-  window.addEventListener('scroll', function() {
-    const nav = document.querySelector('.navbar');
-    nav.classList.toggle('scrolled', window.scrollY > 50);
-  });
+  <!-- Toast for Store Exists -->
+  <div class="toast-container">
+    <div id="storeToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">Store already exists!</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
 
-  // 🔹 Auth popup open/close
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script>
   function openAuth() {
-    document.getElementById('auth').style.display = 'flex';
-  }
-  function closeAuth() {
-    // Hide popup
-    document.getElementById('auth').style.display = 'none';
-    // Clear any alert messages when closed
-    document.querySelectorAll('#auth .alert').forEach(el => el.remove());
+    $('#auth').css('display', 'flex');
   }
 
-  // 🔹 Handle role-based fields in Register
-  document.getElementById('roleSelect').addEventListener('change', function() {
+  function closeAuth() {
+    $('#auth').hide();
+  }
+
+  $('#roleSelect').on('change', function() {
     if (this.value === 'admin') {
-      document.getElementById('adminFields').style.display = 'block';
-      document.getElementById('employeeFields').style.display = 'none';
+      $('#adminFields').show();
+      $('#employeeFields').hide();
     } else {
-      document.getElementById('adminFields').style.display = 'none';
-      document.getElementById('employeeFields').style.display = 'block';
+      $('#adminFields').hide();
+      $('#employeeFields').show();
     }
   });
 
-  // 🔹 Auto-open auth popup if there’s any PHP message
-  <?php if ($login_error || $register_error || $register_success): ?>
-    openAuth();
-
-    <?php if ($login_error): ?>
-      // Force Login tab active
-      var loginTabTrigger = document.querySelector('[data-bs-target="#loginTab"]');
-      if (loginTabTrigger) {
-        var tab = new bootstrap.Tab(loginTabTrigger);
-        tab.show();
+  // username live check
+  $('#usernameInput').on('input', function() {
+    const username = $(this).val();
+    if (username.length < 3) return $('#usernameMsg').text('');
+    $.post('index.php', {
+      check_username: 1,
+      username
+    }, res => {
+      const data = JSON.parse(res);
+      if (data.exists) {
+        $('#usernameMsg').text('Username already exists ❌');
+        $('#registerBtn').prop('disabled', true);
+      } else {
+        $('#usernameMsg').text('');
+        $('#registerBtn').prop('disabled', false);
       }
-    <?php endif; ?>
+    });
+  });
 
-    <?php if ($register_error || $register_success): ?>
-      // Force Register tab active
-      var registerTabTrigger = document.querySelector('[data-bs-target="#registerTab"]');
-      if (registerTabTrigger) {
-        var tab = new bootstrap.Tab(registerTabTrigger);
-        tab.show();
+  // Verify OTP
+  $('#verifyOtpBtn').click(() => {
+    const otp = $('#otpInput').val().trim();
+    if (!otp) return $('#otpMessage').text('Please enter OTP');
+
+    $('#otpMessage').text('Verifying...');
+
+    $.post('verify_otp.php', {
+        otp
+      })
+      .done(res => {
+        let data;
+        try {
+          data = typeof res === 'object' ? res : JSON.parse(res);
+        } catch {
+          $('#otpMessage').text('❌ Server error');
+          return;
+        }
+
+        if (data.status === 'success') {
+          $('#otpMessage').removeClass('text-danger').addClass('text-success').text('✅ OTP Verified!');
+          setTimeout(() => {
+            const otpModal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
+            otpModal.hide();
+            $('#userDetails').html(`
+              <p><b>Username:</b> ${data.username}</p>
+              <p><b>Email:</b> ${data.email}</p>
+              <p><b>Role:</b> ${data.role}</p>
+              ${data.store_code ? `<p><b>Store Code:</b> ${data.store_code}</p>` : ''}
+            `);
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            successModal.show();
+          }, 1000);
+        } else if (data.status === 'invalid_otp') {
+          $('#otpMessage').text('❌ OTP is not valid');
+        } else if (data.status === 'session_expired') {
+          $('#otpMessage').text('⚠️ Session expired, please register again.');
+        } else {
+          $('#otpMessage').text('❌ Something went wrong');
+        }
+      })
+      .fail(() => $('#otpMessage').text('❌ Network error'));
+  });
+
+  // Register Submit
+  $('#registerForm').on('submit', function(e) {
+    e.preventDefault();
+
+    $('small.text-danger').text('');
+
+    $.ajax({
+      url: 'index.php',
+      method: 'POST',
+      data: $(this).serialize(),
+      success: function(response) {
+        try {
+          const res = JSON.parse(response);
+
+          if (res.status === 'otp_sent') {
+            const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+            otpModal.show();
+            let timer = 40;
+            const resendBtn = $('#resendBtn');
+            const timerText = $('#timerText');
+            resendBtn.prop('disabled', true);
+            const countdown = setInterval(() => {
+              timer--;
+              timerText.text(`Resend in ${timer}s`);
+              if (timer <= 0) {
+                clearInterval(countdown);
+                resendBtn.prop('disabled', false);
+                timerText.text('');
+              }
+            }, 1000);
+          } else if (res.status === 'username_exists') {
+            $('#usernameMsg').text('Username already exists ❌');
+          } else if (res.status === 'email_exists') {
+            $('#emailMsg').text('Email already exists ❌');
+          } else if (res.status === 'store_exists') {
+            const toast = new bootstrap.Toast(document.getElementById('storeToast'));
+            toast.show();
+          } else {
+            alert('Something went wrong: ' + res.status);
+          }
+
+        } catch {
+          console.error('Invalid JSON:', response);
+        }
+      },
+      error: function() {
+        alert('Server error. Please try again.');
       }
-    <?php endif; ?>
-  <?php endif; ?>
+    });
+  });
 
-  // 🔹 Clean URL (remove ?login_error=... etc)
-  if (window.location.search.length > 0) {
-    const cleanUrl = window.location.href.split('?')[0];
-    window.history.replaceState({}, document.title, cleanUrl);
-  }
-</script>
-
+  // Redirect to login on success OK
+  $('#okSuccessBtn').click(function() {
+    $('#auth').show();
+    const authTabs = new bootstrap.Tab(document.querySelector('[data-bs-target="#loginTab"]'));
+    authTabs.show();
+     // Clear registration fields
+      document.querySelectorAll('#registerForm input').forEach(input => input.value = '');
+  });
+  </script>
 </body>
+
 </html>

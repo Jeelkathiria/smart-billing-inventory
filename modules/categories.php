@@ -10,18 +10,34 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
 
 $store_id = $_SESSION['store_id'];
 
-// Insert category
+/* -------------------- ADD CATEGORY -------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['category_name']))) {
   $category_name = trim($_POST['category_name']);
+
+  // Check if category already exists for this store
+  $check = $conn->prepare("SELECT category_id FROM categories WHERE category_name = ? AND store_id = ?");
+  $check->bind_param("si", $category_name, $store_id);
+  $check->execute();
+  $exists = $check->get_result()->num_rows > 0;
+  $check->close();
+
+  if ($exists) {
+    header("Location: categories.php?exists=" . urlencode($category_name));
+    exit();
+  }
+
+  // Insert new category
   $sql = "INSERT INTO categories (category_name, store_id) VALUES (?, ?)";
   $stmt = $conn->prepare($sql);
   $stmt->bind_param("si", $category_name, $store_id);
   $stmt->execute();
-  header("Location: categories.php");
+  $stmt->close();
+
+  header("Location: categories.php?success=1");
   exit();
 }
 
-// Delete category
+/* -------------------- DELETE CATEGORY -------------------- */
 if (isset($_GET['delete'])) {
   $delete_id = (int) $_GET['delete'];
   $sql = "DELETE FROM categories WHERE category_id = ? AND store_id = ?";
@@ -33,118 +49,118 @@ if (isset($_GET['delete'])) {
     header('Location: categories.php?error=Cannot%20delete%20category%20with%20products%20assigned');
     exit();
   }
+  $stmt->close();
+  header("Location: categories.php?deleted=1");
+  exit();
 }
 
-// Fetch categories
+/* -------------------- FETCH CATEGORIES -------------------- */
 $sql = "SELECT * FROM categories WHERE store_id = ? ORDER BY category_id DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $result = $stmt->get_result();
+$stmt->close();
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <title>Manage Categories</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/common.css">
+  <link rel="stylesheet" href="../assets/css/common.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
-  body {
-    background-color: #f4f6f9;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  h3 {
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 2rem;
-  }
-
-  /* Add Category Card */
-  .add-category-card {
-    background: #fff;
-    border-radius: 0.8rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    transition: all 0.2s ease;
-  }
-
-  .add-category-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .form-control {
-    font-size: 0.95rem;
-    border-radius: 0.5rem;
-    padding: 0.6rem 1rem;
-  }
-
-  .btn-primary {
-    font-size: 0.9rem;
-    border-radius: 0.5rem;
-    transition: all 0.2s ease;
-  }
-
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-  }
-
-  /* Category Table Card */
-  .card-table {
-    border: none;
-    border-radius: 0.8rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-  }
-
-  .table thead {
-    background-color: #e9ecef;
-  }
-
-  .table th {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #495057;
-  }
-
-  .table td {
-    vertical-align: middle;
-    font-size: 0.9rem;
-  }
-
-  .table-hover tbody tr:hover {
-    background-color: #f1f3f5;
-    transition: all 0.15s ease;
-  }
-
-  .btn-danger {
-    border-radius: 0.5rem;
-    font-size: 0.85rem;
-  }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .content {
-      margin-left: 0;
-      padding: 5vh 2vw;
-    }
-
-    .add-category-card {
-      padding: 1rem;
+    body {
+      background-color: #f4f6f9;
+      font-family: 'Poppins', sans-serif;
     }
 
     h3 {
-      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 2rem;
     }
-  }
+
+    .add-category-card {
+      background: #fff;
+      border-radius: 0.8rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      transition: all 0.2s ease;
+    }
+
+    .add-category-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .form-control {
+      font-size: 0.95rem;
+      border-radius: 0.5rem;
+      padding: 0.6rem 1rem;
+    }
+
+    .btn-primary {
+      font-size: 0.9rem;
+      border-radius: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .card-table {
+      border: none;
+      border-radius: 0.8rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .table thead {
+      background-color: #e9ecef;
+    }
+
+    .table th {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #495057;
+    }
+
+    .table td {
+      vertical-align: middle;
+      font-size: 0.9rem;
+    }
+
+    .table-hover tbody tr:hover {
+      background-color: #f1f3f5;
+      transition: all 0.15s ease;
+    }
+
+    .btn-danger {
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+      .content {
+        margin-left: 0;
+        padding: 5vh 2vw;
+      }
+
+      .add-category-card {
+        padding: 1rem;
+      }
+
+      h3 {
+        font-size: 1.5rem;
+      }
+    }
   </style>
 </head>
 
@@ -204,7 +220,37 @@ $result = $stmt->get_result();
     </div>
   </div>
 
-  <?php if (isset($_GET['error'])): ?>
+  <!-- Alerts -->
+  <?php if (isset($_GET['exists'])): ?>
+  <script>
+  Swal.fire({
+    icon: 'warning',
+    title: 'Duplicate Category',
+    text: "Category '<?= htmlspecialchars($_GET['exists']) ?>' already exists!",
+    confirmButtonColor: '#0d6efd'
+  });
+  </script>
+  <?php elseif (isset($_GET['success'])): ?>
+  <script>
+  Swal.fire({
+    icon: 'success',
+    title: 'Added!',
+    text: 'Category added successfully.',
+    timer: 1500,
+    showConfirmButton: false
+  });
+  </script>
+  <?php elseif (isset($_GET['deleted'])): ?>
+  <script>
+  Swal.fire({
+    icon: 'success',
+    title: 'Deleted!',
+    text: 'Category deleted successfully.',
+    timer: 1500,
+    showConfirmButton: false
+  });
+  </script>
+  <?php elseif (isset($_GET['error'])): ?>
   <script>
   Swal.fire({
     icon: 'error',
@@ -233,5 +279,4 @@ $result = $stmt->get_result();
   }
   </script>
 </body>
-
 </html>
