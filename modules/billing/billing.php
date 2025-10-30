@@ -259,6 +259,7 @@ $labels = [
 
     // Add Product to Cart
     $('addProductBtn').addEventListener('click', () => {
+      const addBtn = $('addProductBtn'); // ✅ Fix: define here too
       const productId = $('productSelect').value;
       const qty = parseInt($('qtyInput').value) || 1;
       if (!productId) return showPopup('Please select a product.');
@@ -269,7 +270,6 @@ $labels = [
       const price = parseFloat(p.sell_price) || 0;
       const gstPercent = parseFloat(p.gst_percent) || 0;
 
-      // Calculate amounts
       const amount = price * qty;
       const gst = (amount * gstPercent) / 100;
       const total = amount + gst;

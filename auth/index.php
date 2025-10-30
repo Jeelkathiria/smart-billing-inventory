@@ -184,6 +184,11 @@ if (isset($_POST['check_username'])) {
     right: 1rem;
     z-index: 20000;
   }
+
+    #forgotLink:hover {
+    color: #82a8e1ff !important;
+    text-decoration: none;
+  }
   </style>
 </head>
 
@@ -230,6 +235,15 @@ if (isset($_POST['check_username'])) {
           <form method="POST">
             <input type="text" name="username" class="form-control mb-3" placeholder="Username" required>
             <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
+            <div class="text-center mt-2">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+            <a href="#" id="forgotLink" class="text-primary" 
+              style="font-size:14px; text-decoration:none; color:#0d6efd;">
+              Forgot Password?
+            </a>
+          </div>
+          </div>
+
             <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
           </form>
         </div>
@@ -303,6 +317,25 @@ if (isset($_POST['check_username'])) {
       </div>
     </div>
   </div>
+
+  <!-- Forgot Password Modal -->
+<div class="modal fade" id="forgotModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-4 text-center">
+      <h5 class="fw-bold mb-3">Reset Your Password</h5>
+      <input type="email" id="forgotEmail" class="form-control mb-2" placeholder="Enter your registered email">
+      <div id="forgotMessage" class="text-danger mb-2"></div>
+      <button id="sendResetOtpBtn" class="btn btn-primary w-100 mb-2">Send OTP</button>
+
+      <div id="resetSection" style="display:none;">
+        <input type="text" id="resetOtpInput" maxlength="6" class="form-control text-center mb-2" placeholder="Enter OTP">
+        <input type="password" id="newPassword" class="form-control mb-2" placeholder="New Password">
+        <button id="resetPasswordBtn" class="btn btn-success w-100">Reset Password</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
   <!-- Toast for Store Exists -->
   <div class="toast-container">
@@ -457,6 +490,69 @@ if (isset($_POST['check_username'])) {
      // Clear registration fields
       document.querySelectorAll('#registerForm input').forEach(input => input.value = '');
   });
+
+  // Open forgot password modal
+$('#forgotLink').click(function(e) {
+  e.preventDefault();
+  const modal = new bootstrap.Modal(document.getElementById('forgotModal'));
+  modal.show();
+  $('#forgotMessage').text('');
+  $('#resetSection').hide();
+  $('#forgotEmail').val('');
+});
+
+// Send reset OTP
+$('#sendResetOtpBtn').click(function() {
+  const email = $('#forgotEmail').val().trim();
+  if (!email) return $('#forgotMessage').text('Enter your email');
+
+  $('#forgotMessage').text('Sending OTP...');
+  $.post('forgot_password.php', { action: 'send_otp', email }, res => {
+    try {
+      const data = JSON.parse(res);
+      if (data.status === 'otp_sent') {
+        $('#forgotMessage').text('OTP sent to your email ✔');
+        $('#resetSection').slideDown();
+      } else if (data.status === 'email_not_found') {
+        $('#forgotMessage').text('Email not registered ❌');
+      } else {
+        $('#forgotMessage').text('Error sending OTP');
+      }
+    } catch {
+      $('#forgotMessage').text('Server error');
+    }
+  });
+});
+
+// Reset password
+$('#resetPasswordBtn').click(function() {
+  const otp = $('#resetOtpInput').val().trim();
+  const newPassword = $('#newPassword').val().trim();
+  if (!otp || !newPassword) return $('#forgotMessage').text('Please fill all fields');
+
+  $('#forgotMessage').text('Verifying...');
+  $.post('forgot_password.php', { action: 'verify_otp', otp, newPassword }, res => {
+    try {
+      const data = JSON.parse(res);
+      if (data.status === 'success') {
+        $('#forgotMessage').removeClass('text-danger').addClass('text-success').text('Password reset successfully ✔');
+        setTimeout(() => {
+          const modal = bootstrap.Modal.getInstance(document.getElementById('forgotModal'));
+          modal.hide();
+        }, 1200);
+      } else if (data.status === 'invalid_otp') {
+        $('#forgotMessage').text('Invalid OTP ❌');
+      } else if (data.status === 'expired') {
+        $('#forgotMessage').text('OTP expired ⏰');
+      } else {
+        $('#forgotMessage').text('Something went wrong');
+      }
+    } catch {
+      $('#forgotMessage').text('Server error');
+    }
+  });
+});
+
   </script>
 </body>
 

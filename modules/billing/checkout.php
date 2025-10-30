@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 session_start();
+date_default_timezone_set('Asia/Kolkata');
 
 header('Content-Type: application/json');
 ini_set('display_errors', 1);
@@ -18,7 +19,7 @@ $user_id  = $_SESSION['user_id'];
 $store_id = $_SESSION['store_id'];
 
 /* ==================================================
-   2. FETCH STORE BILLING FIELDS SETTINGS
+   2. FETCH STORE BILLING FIELDS
 ================================================== */
 $store_stmt = $conn->prepare("SELECT billing_fields FROM stores WHERE store_id=?");
 $store_stmt->bind_param("i", $store_id);
@@ -35,19 +36,21 @@ $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 
 if (!$data || !isset($data['items']) || !is_array($data['items']) || count($data['items']) === 0) {
-    echo json_encode(['status' => 'error', 'message' => 'Cart is empty']);
+    echo json_encode(['status' => 'error', 'message' => 'Incomplete request data']);
     exit();
 }
 
 /* ==================================================
-   4. COLLECT CUSTOMER DATA (Only Enabled Fields)
+   4. SANITIZE CUSTOMER DATA (Set NULL if empty)
 ================================================== */
-$customerData = [];
-foreach ($storeFields as $field => $enabled) {
-    if ($enabled && array_key_exists($field, $data)) {
-        $val = is_string($data[$field]) ? trim($data[$field]) : $data[$field];
-        $customerData[$field] = ($val === '' ? null : $val);
-    }
+$customer_name    = !empty(trim($data['customer_name'] ?? '')) ? trim($data['customer_name']) : null;
+$customer_email   = !empty(trim($data['customer_email'] ?? '')) ? trim($data['customer_email']) : null;
+$customer_mobile  = !empty(trim($data['customer_mobile'] ?? '')) ? trim($data['customer_mobile']) : null;
+$customer_address = !empty(trim($data['customer_address'] ?? '')) ? trim($data['customer_address']) : null;
+
+/* Default name if not provided */
+if (empty($customer_name)) {
+    $customer_name = 'Walk-in Customer';
 }
 
 /* ==================================================
@@ -70,22 +73,23 @@ if (empty($product_ids)) {
 }
 
 /* ==================================================
-   6. FETCH PRODUCT DETAILS FROM DB
+   6. FETCH PRODUCTS FROM DB
 ================================================== */
 $placeholders = implode(',', array_fill(0, count($product_ids), '?'));
 $types = str_repeat('i', count($product_ids));
-$sql = "SELECT product_id, sell_price, purchase_price, gst_percent, stock FROM products WHERE product_id IN ($placeholders) AND store_id=?";
+$sql = "SELECT product_id, sell_price, purchase_price, gst_percent, stock 
+        FROM products 
+        WHERE product_id IN ($placeholders) AND store_id=?";
 $stmt = $conn->prepare($sql);
 
 $params = array_merge($product_ids, [$store_id]);
 $bind_params = [];
 $bind_params[] = ($types . 'i');
 foreach ($params as $i => &$val) $bind_params[] = &$val;
-
 call_user_func_array([$stmt, 'bind_param'], $bind_params);
+
 $stmt->execute();
 $res = $stmt->get_result();
-
 $dbProducts = [];
 while ($p = $res->fetch_assoc()) {
     $dbProducts[(int)$p['product_id']] = $p;
@@ -129,133 +133,81 @@ $total_amount = round($subtotal + $total_tax, 2);
 $invoice_id = uniqid('INV');
 
 /* ==================================================
-   8. TRANSACTION START
+   8. BEGIN TRANSACTION
 ================================================== */
 $conn->begin_transaction();
 
 try {
+
     /* ----------------------------------------------
-       8a. CUSTOMER HANDLING
+       8a. CREATE / FIND CUSTOMER (only if data provided)
     ---------------------------------------------- */
     $customer_id = null;
 
-    if (!empty($customerData)) {
-        $lookup_col = null;
-        $lookup_val = null;
+    $hasCustomerData = (
+        ($customer_name && $customer_name !== 'Walk-in Customer') ||
+        !empty($customer_mobile) ||
+        !empty($customer_email) ||
+        !empty($customer_address)
+    );
 
-        if (!empty($customerData['customer_mobile'])) {
-            $lookup_col = 'customer_mobile';
-            $lookup_val = $customerData['customer_mobile'];
-        } elseif (!empty($customerData['customer_email'])) {
-            $lookup_col = 'customer_email';
-            $lookup_val = $customerData['customer_email'];
+    if ($hasCustomerData) {
+        // Try finding existing customer
+        if (!empty($customer_mobile) || !empty($customer_email)) {
+            $check_customer = $conn->prepare("
+                SELECT customer_id FROM customers 
+                WHERE (customer_mobile = ? OR customer_email = ?) AND store_id = ? LIMIT 1
+            ");
+            $check_customer->bind_param("ssi", $customer_mobile, $customer_email, $store_id);
+            $check_customer->execute();
+            $res = $check_customer->get_result();
+
+            if ($res->num_rows > 0) {
+                $customer_id = $res->fetch_assoc()['customer_id'];
+            }
+            $check_customer->close();
         }
 
-        if ($lookup_col) {
-            $stmt = $conn->prepare("SELECT customer_id FROM customers WHERE $lookup_col=? AND store_id=?");
-            $stmt->bind_param("si", $lookup_val, $store_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-
-            if ($row = $res->fetch_assoc()) {
-                $customer_id = $row['customer_id'];
-
-                // Update fields if any provided
-                $updateCols = [];
-                $updateVals = [];
-                foreach ($customerData as $col => $val) {
-                    $updateCols[] = "$col=?";
-                    $updateVals[] = $val;
-                }
-
-                if (!empty($updateCols)) {
-                    $updateVals[] = $customer_id;
-                    $updateVals[] = $store_id;
-                    $sql = "UPDATE customers SET " . implode(',', $updateCols) . " WHERE customer_id=? AND store_id=?";
-                    $stmt_up = $conn->prepare($sql);
-
-                    $types = str_repeat('s', count($updateVals));
-                    $bind = [$types];
-                    foreach ($updateVals as &$v) $bind[] = &$v;
-                    call_user_func_array([$stmt_up, 'bind_param'], $bind);
-
-                    $stmt_up->execute();
-                    $stmt_up->close();
-                }
-            } else {
-                // Insert new
-                $cols = array_keys($customerData);
-                $placeholders = implode(',', array_fill(0, count($cols), '?'));
-                $sql = "INSERT INTO customers (store_id," . implode(',', $cols) . ") VALUES (?, $placeholders)";
-                $stmt_ins = $conn->prepare($sql);
-
-                $types = 'i' . str_repeat('s', count($cols));
-                $values = array_merge([$store_id], array_values($customerData));
-                $bind = [$types];
-                foreach ($values as &$v) $bind[] = &$v;
-                call_user_func_array([$stmt_ins, 'bind_param'], $bind);
-
-                $stmt_ins->execute();
-                $customer_id = $stmt_ins->insert_id;
-                $stmt_ins->close();
-            }
-            $stmt->close();
-        } else {
-            $stmt = $conn->prepare("INSERT INTO customers (store_id) VALUES (?)");
-            $stmt->bind_param("i", $store_id);
-            $stmt->execute();
-            $customer_id = $stmt->insert_id;
-            $stmt->close();
+        // If not found, insert new customer
+        if (!$customer_id) {
+            $insert_customer = $conn->prepare("
+                INSERT INTO customers (customer_name, customer_mobile, customer_email, customer_address, store_id)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $insert_customer->bind_param("ssssi", $customer_name, $customer_mobile, $customer_email, $customer_address, $store_id);
+            $insert_customer->execute();
+            $customer_id = $insert_customer->insert_id;
+            $insert_customer->close();
         }
     }
 
     /* ----------------------------------------------
        8b. INSERT SALE
     ---------------------------------------------- */
-    $sale_date = $data['date'] ?? date('Y-m-d H:i:s');
-    if (!empty($data['date'])) {
-        $dt = DateTime::createFromFormat('d-m-Y H:i', $data['date']);
-        if ($dt) $sale_date = $dt->format('Y-m-d H:i:s');
-    }
-
-    $columns = ['invoice_id', 'store_id', 'created_by', 'sale_date', 'subtotal', 'tax_amount', 'total_amount'];
-    $values = [$invoice_id, $store_id, $user_id, $sale_date, $subtotal, $total_tax, $total_amount];
-    $placeholders = array_fill(0, count($columns), '?');
-
-    if ($customer_id) {
-        $columns[] = 'customer_id';
-        $placeholders[] = '?';
-        $values[] = $customer_id;
-    }
-
-    foreach ($storeFields as $field => $enabled) {
-        if (!in_array($field, ['customer_mobile', 'customer_address', 'customer_email'])) {
-            $columns[] = $field;
-            $placeholders[] = '?';
-            $values[] = $customerData[$field] ?? null;
-        }
-    }
-
-    $sql = "INSERT INTO sales (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
-    $stmt_sale = $conn->prepare($sql);
-
-    $types = '';
-    foreach ($values as $v) {
-        if (is_int($v)) $types .= 'i';
-        elseif (is_float($v)) $types .= 'd';
-        else $types .= 's';
-    }
-
-    $bind = [$types];
-    foreach ($values as &$v) $bind[] = &$v;
-    call_user_func_array([$stmt_sale, 'bind_param'], $bind);
-
+    $sale_date = date('Y-m-d H:i:s');
+    $stmt_sale = $conn->prepare("
+        INSERT INTO sales 
+        (invoice_id, store_id, customer_id, customer_name, subtotal, tax_amount, total_amount, created_by, sale_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt_sale->bind_param(
+        'siissddis',
+        $invoice_id,
+        $store_id,
+        $customer_id,
+        $customer_name,
+        $subtotal,
+        $total_tax,
+        $total_amount,
+        $user_id,
+        $sale_date
+    );
     $stmt_sale->execute();
     $sale_id = $stmt_sale->insert_id;
     $stmt_sale->close();
 
     /* ----------------------------------------------
-       8c. SALE ITEMS + STOCK UPDATE
+       8c. INSERT SALE ITEMS & UPDATE STOCK
     ---------------------------------------------- */
     $stmt_item = $conn->prepare("
         INSERT INTO sale_items (store_id, sale_id, product_id, quantity, price, purchase_price, profit, gst_percent)
@@ -302,7 +254,8 @@ try {
         'invoice_id' => $invoice_id,
         'subtotal' => $subtotal,
         'tax' => $total_tax,
-        'total' => $total_amount
+        'total' => $total_amount,
+        'message' => 'Billing successful!'
     ]);
 } catch (Exception $e) {
     $conn->rollback();

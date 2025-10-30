@@ -1,7 +1,17 @@
 <?php
 require_once __DIR__ . "/../../config/db.php";
-require_once __DIR__ . '/../../auth/auth_check.php';
+require_once __DIR__ . "/../../auth/auth_check.php";
 
+/* ------------------------------------------
+   Helper for Safe HTML Output
+------------------------------------------- */
+function e($value) {
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
+
+/* ------------------------------------------
+   SESSION & BASIC SETUP
+------------------------------------------- */
 $user_id  = $_SESSION['user_id'];
 $role     = $_SESSION['role'];
 $store_id = $_SESSION['store_id'];
@@ -16,7 +26,9 @@ if (!isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)
 
 $today = date('Y-m-d');
 
-// Today's summary
+/* ------------------------------------------
+   TODAY’S SUMMARY
+------------------------------------------- */
 $stmt = $conn->prepare("SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
                         FROM sales 
                         WHERE DATE(sale_date) = ? AND store_id = ?");
@@ -27,27 +39,67 @@ $todaySalesCount = $todayRes['sales_count'] ?? 0;
 $todayRevenue    = $todayRes['revenue'] ?? 0;
 $stmt->close();
 
-$filterDate = $_GET['filter_date'] ?? '';
+/* ------------------------------------------
+   FILTERS & PAGINATION
+------------------------------------------- */
+$records_per_page = 8;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$start = ($page - 1) * $records_per_page;
 
-$sql = "SELECT s.sale_id, s.invoice_id, s.total_amount, s.sale_date, c.customer_name
-        FROM sales s
-        LEFT JOIN customers c ON s.customer_id = c.customer_id
-        WHERE s.store_id = ?";
+$filter_invoice = $_GET['invoice_id'] ?? '';
+$filter_date = $_GET['filter_date'] ?? '';
+
+$where = "WHERE s.store_id = ?";
 $params = [$store_id];
 $types = "i";
 
 if ($role === 'cashier') {
-    $sql .= " AND s.created_by = ?";
+    $where .= " AND s.created_by = ?";
     $params[] = $user_id;
     $types .= "i";
 }
-if (!empty($filterDate)) {
-    $sql .= " AND DATE(s.sale_date) = ?";
-    $params[] = $filterDate;
+
+if (!empty($filter_invoice)) {
+    $where .= " AND s.invoice_id LIKE ?";
+    $params[] = "%{$filter_invoice}%";
     $types .= "s";
 }
 
-$sql .= " ORDER BY s.sale_date DESC";
+if (!empty($filter_date)) {
+    $where .= " AND DATE(s.sale_date) = ?";
+    $params[] = $filter_date;
+    $types .= "s";
+}
+
+/* ------------------------------------------
+   COUNT TOTAL RECORDS
+------------------------------------------- */
+$count_sql = "SELECT COUNT(*) AS total FROM sales s $where";
+$count_stmt = $conn->prepare($count_sql);
+$count_stmt->bind_param($types, ...$params);
+$count_stmt->execute();
+$total_rows = ($count_stmt->get_result()->fetch_assoc())['total'] ?? 0;
+$count_stmt->close();
+
+$total_pages = ceil($total_rows / $records_per_page);
+
+/* ------------------------------------------
+   FETCH PAGINATED SALES DATA
+------------------------------------------- */
+$sql = "
+    SELECT s.sale_id, s.invoice_id, s.total_amount, s.subtotal, s.tax_amount, s.sale_date,
+           COALESCE(c.customer_name, '--') AS customer_name
+    FROM sales s
+    LEFT JOIN customers c ON s.customer_id = c.customer_id
+    $where
+    ORDER BY s.sale_date DESC
+    LIMIT ?, ?
+";
+
+$params[] = $start;
+$params[] = $records_per_page;
+$types .= "ii";
+
 $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
@@ -64,23 +116,22 @@ $salesResult = $stmt->get_result();
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/common.css">
   <style>
+  body {
+    background-color: #f8f9fa;
+  }
+
   .card {
-    border: none;
     border-radius: 1.5ch;
-    background-color: #fff;
     box-shadow: 0 0.8ch 2ch rgba(0, 0, 0, 0.05);
   }
 
   .card-header {
     background: linear-gradient(90deg, #007bff, #0056d2);
     color: #fff;
-    padding: 2ch 4ch;
-    font-size: 2ch;
     border-radius: 1.5ch 1.5ch 0 0;
   }
 
   .summary-card {
-    padding: 3ch 4ch;
     border-radius: 1.5ch;
     display: flex;
     justify-content: space-between;
@@ -88,6 +139,7 @@ $salesResult = $stmt->get_result();
     color: #fff;
     height: 18vh;
     box-shadow: 0 1ch 2.5ch rgba(0, 0, 0, 0.1);
+    padding: 3ch 4ch;
     transition: transform 0.3s ease;
   }
 
@@ -95,11 +147,11 @@ $salesResult = $stmt->get_result();
     transform: translateY(-0.5ch);
   }
 
-  .summary-card.bg-green {
+  .bg-green {
     background: linear-gradient(135deg, #28a745, #218838);
   }
 
-  .summary-card.bg-blue {
+  .bg-blue {
     background: linear-gradient(135deg, #0d6efd, #0a58ca);
   }
 
@@ -113,64 +165,9 @@ $salesResult = $stmt->get_result();
     color: rgba(255, 255, 255, 0.85);
   }
 
-  .search-wrapper {
-    position: relative;
-    width: 100%;
-  }
-
-  .search-wrapper input {
-    padding-left: 4ch;
-    border-radius: 1.5ch;
-    font-size: 1.8ch;
-    height: 6vh;
-    box-shadow: 0 0.4ch 1.2ch rgba(0, 0, 0, 0.05);
-  }
-
-  .search-wrapper .bi-search {
-    position: absolute;
-    top: 50%;
-    left: 1.5ch;
-    transform: translateY(-50%);
-    color: #6c757d;
-    font-size: 1.8ch;
-  }
-
-  .btn {
-    border-radius: 2ch;
-    font-size: 1.6ch;
-  }
-
-  #toggleFilter {
-    border-radius: 50%;
-    width: 6ch;
-    height: 6ch;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .table {
-    font-size: 2ch;
-  }
-
   .table thead {
     background-color: #0d6efd;
-    color: white;
-    font-size: 1.6ch;
-  }
-
-  tbody tr:hover {
-    background-color: #f0f6ff;
-  }
-
-  .pagination .page-item .page-link {
-    border-radius: 50%;
-    width: 4ch;
-    height: 4ch;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.8ch;
+    color: #fff;
   }
   </style>
 </head>
@@ -185,7 +182,7 @@ $salesResult = $stmt->get_result();
         <div class="summary-card bg-green">
           <div>
             <h6><i class="bi bi-cash-coin me-2"></i>Revenue Today</h6>
-            <h4>₹<?= number_format($todayRevenue, 2); ?></h4>
+            <h4>₹<?= e(number_format($todayRevenue, 2)); ?></h4>
           </div>
           <i class="bi bi-bar-chart-line fs-1 opacity-75"></i>
         </div>
@@ -194,7 +191,7 @@ $salesResult = $stmt->get_result();
         <div class="summary-card bg-blue">
           <div>
             <h6><i class="bi bi-receipt-cutoff me-2"></i>Invoices Today</h6>
-            <h4><?= htmlspecialchars($todaySalesCount); ?></h4>
+            <h4><?= e($todaySalesCount); ?></h4>
           </div>
           <i class="bi bi-journal-text fs-1 opacity-75"></i>
         </div>
@@ -210,32 +207,25 @@ $salesResult = $stmt->get_result();
       </div>
 
       <div class="card-body" style="padding: 3ch 4ch;">
-        <div class="d-flex justify-content-between align-items-center gap-3 mb-4">
-          <div class="flex-grow-1 search-wrapper">
-            <i class="bi bi-search"></i>
-            <input type="text" id="searchInput" class="form-control" placeholder="Search Invoice ID or Customer..."
-              onkeyup="filterTable()">
-          </div>
-
-          <form method="GET" id="filterForm" class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-outline-secondary" id="toggleFilter">
-              <i class="bi bi-funnel-fill" id="filterIcon"></i>
-            </button>
-            <input type="date" class="form-control" name="filter_date" id="filterDate"
-              value="<?= htmlspecialchars($filterDate); ?>"
-              style="max-width:30ch; display: <?= $filterDate ? 'block' : 'none'; ?>;" />
-            <input type="submit" style="display:none;">
-          </form>
-        </div>
+        <form method="GET" class="d-flex align-items-center gap-3 mb-4">
+          <input type="text" name="invoice_id" class="form-control" placeholder="Search Invoice ID..."
+            value="<?= e($filter_invoice); ?>" style="max-width:30ch;">
+          <input type="date" name="filter_date" class="form-control" value="<?= e($filter_date); ?>"
+            style="max-width:22ch;">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
+          <a href="sales.php" class="btn btn-secondary"><i class="bi bi-x-circle"></i> Reset</a>
+        </form>
 
         <div class="table-responsive">
-          <table class="table table-bordered table-hover align-middle text-center" id="salesTable">
+          <table class="table table-bordered table-hover align-middle text-center">
             <thead>
               <tr>
                 <th>Invoice ID</th>
                 <th>Customer Name</th>
                 <th>Date & Time</th>
-                <th>Total Amount</th>
+                <th>Subtotal</th>
+                <th>Tax</th>
+                <th>Total</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -243,10 +233,12 @@ $salesResult = $stmt->get_result();
               <?php if($salesResult && $salesResult->num_rows > 0): ?>
               <?php while($row = $salesResult->fetch_assoc()): ?>
               <tr>
-                <td><span class="badge bg-secondary"><?= htmlspecialchars($row['invoice_id']); ?></span></td>
-                <td><?= htmlspecialchars($row['customer_name'] ?? '--'); ?></td>
-                <td><?= date('d-m-Y H:i:s', strtotime($row['sale_date'])); ?></td>
-                <td><strong>₹<?= number_format($row['total_amount'], 2); ?></strong></td>
+                <td><span class="badge bg-secondary"><?= e($row['invoice_id']); ?></span></td>
+                <td><?= e($row['customer_name']); ?></td>
+                <td><?= e(date('d-m-Y H:i:s', strtotime($row['sale_date']))); ?></td>
+                <td>₹<?= e(number_format($row['subtotal'], 2)); ?></td>
+                <td>₹<?= e(number_format($row['tax_amount'], 2)); ?></td>
+                <td><strong>₹<?= e(number_format($row['total_amount'], 2)); ?></strong></td>
                 <td>
                   <a href="view_invoice.php?sale_id=<?= urlencode($row['sale_id']); ?>"
                     class="btn btn-outline-primary btn-sm rounded-pill">
@@ -257,98 +249,39 @@ $salesResult = $stmt->get_result();
               <?php endwhile; ?>
               <?php else: ?>
               <tr>
-                <td colspan="5" class="text-muted">No sales history available.</td>
+                <td colspan="7" class="text-muted">No sales history available.</td>
               </tr>
               <?php endif; ?>
             </tbody>
           </table>
         </div>
 
-        <ul class="pagination justify-content-center mt-4" id="paginationControls"></ul>
+        <!-- Pagination -->
+        <nav>
+          <ul class="pagination justify-content-center mt-4">
+            <?php if ($page > 1): ?>
+            <li class="page-item"><a class="page-link"
+                href="?page=<?= $page - 1 ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>">Previous</a>
+            </li>
+            <?php endif; ?>
+
+            <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+            <li class="page-item <?= ($p == $page) ? 'active' : ''; ?>">
+              <a class="page-link"
+                href="?page=<?= $p ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>"><?= $p; ?></a>
+            </li>
+            <?php endfor; ?>
+
+            <?php if ($page < $total_pages): ?>
+            <li class="page-item"><a class="page-link"
+                href="?page=<?= $page + 1 ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>">Next</a>
+            </li>
+            <?php endif; ?>
+          </ul>
+        </nav>
       </div>
     </div>
   </main>
-
-  <script>
-  // Search
-  function filterTable() {
-    const input = document.getElementById('searchInput').value.toLowerCase();
-    document.querySelectorAll('#salesTable tbody tr').forEach(row => {
-      const invoice = row.cells[0].innerText.toLowerCase();
-      const customer = row.cells[1].innerText.toLowerCase();
-      row.style.display = invoice.includes(input) || customer.includes(input) ? '' : 'none';
-    });
-  }
-
-  // Filter toggle
-  const toggleBtn = document.getElementById("toggleFilter");
-  const filterDateInput = document.getElementById("filterDate");
-  const filterIcon = document.getElementById("filterIcon");
-  const form = document.getElementById("filterForm");
-
-  toggleBtn.addEventListener("click", () => {
-    const isVisible = filterDateInput.style.display === "block";
-    filterDateInput.style.display = isVisible ? "none" : "block";
-    if (isVisible) window.location.href = window.location.pathname;
-    filterIcon.classList.toggle("text-primary", !isVisible);
-  });
-  filterDateInput.addEventListener("change", () => form.submit());
-
-  // Pagination
-  const rowsPerPage = 8;
-  const rows = Array.from(document.querySelectorAll("#salesTable tbody tr"));
-  const pagination = document.getElementById("paginationControls");
-
-  function showPage(page) {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    rows.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
-    pagination.querySelectorAll("li").forEach((btn, i) =>
-      btn.classList.toggle("active", i === page));
-  }
-
-  function setupPagination() {
-  const pages = Math.ceil(rows.length / rowsPerPage);
-  pagination.innerHTML = "";
-  for (let i = 1; i <= pages; i++) {
-    const li = document.createElement("li");
-    li.className = `page-item${i === 1 ? " active" : ""}`;
-    li.innerHTML = `<a class='page-link' href='#'>${i}</a>`;
-
-    li.addEventListener("click", e => {
-      e.preventDefault();
-      showPage(i);
-      updateActivePage(i);
-    });
-
-    pagination.appendChild(li);
-  }
-}
-
-function updateActivePage(page) {
-  const allPages = pagination.querySelectorAll(".page-item");
-  allPages.forEach((li, index) => {
-    if (index + 1 === page) {
-      li.classList.add("active");
-    } else {
-      li.classList.remove("active");
-    }
-  });
-}
-
-function showPage(page) {
-  const start = (page - 1) * rowsPerPage;
-  const end = start + rowsPerPage;
-  rows.forEach((row, index) => {
-    row.style.display = index >= start && index < end ? "" : "none";
-  });
-}
-
-// Initial setup
-setupPagination();
-showPage(1);
-
-  </script>
 </body>
 
 </html>
