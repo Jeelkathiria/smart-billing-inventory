@@ -169,7 +169,7 @@ $stmt->close();
   <?php include '../components/sidebar.php'; ?>
 
   <div class="container content mt-4">
-    <h3 class="text-center mb-4">📂 Manage Categories</h3>
+    <h3 class="text-center mb-4"><i class="bi bi-folder2-open me-2"></i>Manage Categories</h3>
 
     <!-- Add Category -->
     <div class="add-category-card">

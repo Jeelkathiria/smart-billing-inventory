@@ -68,114 +68,125 @@ $stmt->close();
   <title>Customer Management</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/common.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-  .card {
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
-  }
+    body {
+      background-color: #f7f9fc;
+    }
 
-  .card-header {
-    background: linear-gradient(135deg, #007bff, #6610f2);
-    color: white;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    padding: 1rem 1.5rem;
-  }
 
-  .table th {
-    background-color: #f0f3fa;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-  }
+    .card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+      overflow: hidden;
+    }
 
-  .table td {
-    vertical-align: middle;
-  }
+    .card-header {
+      background: linear-gradient(135deg, #007bff, #6610f2);
+      color: white;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      padding: 1rem 1.5rem;
+    }
 
-  .table-hover tbody tr:hover {
-    background-color: #f8f9ff;
-  }
+    .table th {
+      background-color: #f1f3f9;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+    }
 
-  .search-wrapper {
-    position: relative;
-    margin: 15px auto;
-    max-width: 700px;
-  }
+    .table td {
+      vertical-align: middle;
+    }
 
-  #searchInput {
-    width: 100%;
-    padding: 12px 16px 12px 40px;
-    border-radius: 50px;
-    border: 1px solid #ced4da;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
-  }
+    .table-hover tbody tr:hover {
+      background-color: #f8f9ff;
+      transition: 0.2s ease;
+    }
 
-  #searchInput:focus {
-    border-color: #007bff;
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.15);
-  }
+    .search-wrapper {
+      position: relative;
+      margin: 20px auto;
+      max-width: 700px;
+    }
 
-  .search-icon {
-    position: absolute;
-    top: 50%;
-    left: 15px;
-    transform: translateY(-50%);
-    color: #6c757d;
-  }
+    #searchInput {
+      width: 100%;
+      padding: 12px 16px 12px 40px;
+      border-radius: 50px;
+      border: 1px solid #ced4da;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
 
-  .pagination {
-    justify-content: center;
-    margin-top: 25px;
-  }
+    #searchInput:focus {
+      border-color: #007bff;
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.15);
+    }
 
-  .page-link {
-    border-radius: 50px !important;
-    color: #007bff;
-    font-weight: 500;
-  }
+    .search-icon {
+      position: absolute;
+      top: 50%;
+      left: 15px;
+      transform: translateY(-50%);
+      color: #6c757d;
+    }
 
-  .page-item.active .page-link {
-    background-color: #007bff;
-    border-color: #007bff;
-  }
+    .pagination {
+      justify-content: center;
+      margin-top: 25px;
+    }
 
-  /* Modal */
-  .modal-content {
-    border-radius: 15px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  }
+    .page-link {
+      border-radius: 50px !important;
+      color: #007bff;
+      font-weight: 500;
+    }
 
-  .modal-header {
-    background: linear-gradient(135deg, #007bff, #6610f2);
-    color: white;
-    border: none;
-  }
+    .page-item.active .page-link {
+      background-color: #007bff;
+      border-color: #007bff;
+    }
 
-  .btn-primary {
-    border-radius: 50px;
-    padding: 8px 18px;
-  }
+    .modal-content {
+      border-radius: 15px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
 
-  .btn-danger {
-    border-radius: 50px;
-  }
+    .modal-header {
+      background: linear-gradient(135deg, #007bff, #6610f2);
+      color: white;
+      border: none;
+    }
 
-  h2.page-title {
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 1.5rem;
-    color: #333;
-    letter-spacing: 0.5px;
-  }
+    .btn {
+      border-radius: 50px;
+      padding: 6px 14px;
+    }
+
+    .btn-outline-primary:hover {
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    .btn-outline-danger:hover {
+      background-color: #dc3545;
+      color: #fff;
+    }
+
+    h2.page-title {
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #333;
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 
@@ -183,79 +194,78 @@ $stmt->close();
   <?php include '../../components/navbar.php'; ?>
   <?php include '../../components/sidebar.php'; ?>
 
-  <div class="content">
-
+  <div class="content container">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-people-fill me-2"></i> Customer Records</span>
+        <small class="text-light"><i class="bi bi-database-check me-1"></i>Total: <?= $total ?></small>
       </div>
 
       <div class="search-wrapper">
         <i class="bi bi-search search-icon"></i>
-        <input type="text" id="searchInput" placeholder="Search by Name, Mobile, or Email" class="form-control">
+        <input type="text" id="searchInput" placeholder="🔍 Search by Name, Mobile, or Email" class="form-control">
       </div>
 
       <div class="card-body table-responsive">
         <table class="table table-hover align-middle text-center">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Mobile</th>
-              <th>Email</th>
-              <th>Address</th>
-              <th>Actions</th>
+              <th><i class="bi bi-hash"></i></th>
+              <th><i class="bi bi-person-badge me-1"></i> Name</th>
+              <th><i class="bi bi-telephone me-1"></i> Mobile</th>
+              <th><i class="bi bi-envelope me-1"></i> Email</th>
+              <th><i class="bi bi-geo-alt me-1"></i> Address</th>
+              <th><i class="bi bi-gear me-1"></i> Actions</th>
             </tr>
           </thead>
           <tbody>
             <?php if ($customers): ?>
-            <?php foreach ($customers as $c): ?>
-            <tr>
-              <td><?= $c['customer_id'] ?></td>
-              <td><?= htmlspecialchars($c['customer_name'] ?: '--') ?></td>
-              <td><?= htmlspecialchars($c['customer_mobile'] ?: '--') ?></td>
-              <td><?= htmlspecialchars($c['customer_email'] ?: '--') ?></td>
-              <td><?= htmlspecialchars($c['customer_address'] ?: '--') ?></td>
-              <td>
-                <button class="btn btn-sm btn-outline-primary me-1"
-                  onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
-                <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this customer?')">
-                  <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </td>
-            </tr>
-            <?php endforeach; ?>
+              <?php foreach ($customers as $c): ?>
+                <tr>
+                  <td><?= $c['customer_id'] ?></td>
+                  <td><?= htmlspecialchars($c['customer_name'] ?: '--') ?></td>
+                  <td><?= htmlspecialchars($c['customer_mobile'] ?: '--') ?></td>
+                  <td><?= htmlspecialchars($c['customer_email'] ?: '--') ?></td>
+                  <td><?= htmlspecialchars($c['customer_address'] ?: '--') ?></td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary me-1"
+                      onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this customer?')">
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash3-fill"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
             <?php else: ?>
-            <tr>
-              <td colspan="6" class="text-muted py-4">No customers found.</td>
-            </tr>
+              <tr>
+                <td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle me-2"></i>No customers found.</td>
+              </tr>
             <?php endif; ?>
           </tbody>
         </table>
 
-        <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
-        <nav>
-          <ul class="pagination">
-            <?php if ($page > 1): ?>
-            <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">Prev</a></li>
-            <?php endif; ?>
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-            <li class="page-item <?= ($i === $page) ? 'active' : '' ?>">
-              <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
-            </li>
-            <?php endfor; ?>
-            <?php if ($page < $totalPages): ?>
-            <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next</a></li>
-            <?php endif; ?>
-          </ul>
-        </nav>
+          <nav>
+            <ul class="pagination">
+              <?php if ($page > 1): ?>
+                <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>"><i class="bi bi-arrow-left"></i> Prev</a></li>
+              <?php endif; ?>
+              <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <li class="page-item <?= ($i === $page) ? 'active' : '' ?>">
+                  <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+                </li>
+              <?php endfor; ?>
+              <?php if ($page < $totalPages): ?>
+                <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next <i class="bi bi-arrow-right"></i></a></li>
+              <?php endif; ?>
+            </ul>
+          </nav>
         <?php endif; ?>
       </div>
     </div>
@@ -274,25 +284,25 @@ $stmt->close();
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="customer_id" id="edit_id">
             <div class="mb-3">
-              <label class="form-label">Name *</label>
+              <label class="form-label"><i class="bi bi-person-fill me-1"></i>Name *</label>
               <input type="text" name="customer_name" id="edit_name" class="form-control" required>
             </div>
             <div class="mb-3">
-              <label class="form-label">Mobile</label>
+              <label class="form-label"><i class="bi bi-telephone-fill me-1"></i>Mobile</label>
               <input type="text" name="customer_mobile" id="edit_mobile" class="form-control">
             </div>
             <div class="mb-3">
-              <label class="form-label">Email</label>
+              <label class="form-label"><i class="bi bi-envelope-fill me-1"></i>Email</label>
               <input type="email" name="customer_email" id="edit_email" class="form-control">
             </div>
             <div class="mb-3">
-              <label class="form-label">Address</label>
+              <label class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Address</label>
               <textarea name="customer_address" id="edit_address" class="form-control" rows="2"></textarea>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary px-4">Save Changes</button>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
+            <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save2 me-1"></i> Save Changes</button>
           </div>
         </form>
       </div>
@@ -301,22 +311,22 @@ $stmt->close();
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-  function editCustomer(id, name, mobile, email, address) {
-    document.getElementById('edit_id').value = id;
-    document.getElementById('edit_name').value = name;
-    document.getElementById('edit_mobile').value = mobile;
-    document.getElementById('edit_email').value = email;
-    document.getElementById('edit_address').value = address;
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-  }
+    function editCustomer(id, name, mobile, email, address) {
+      document.getElementById('edit_id').value = id;
+      document.getElementById('edit_name').value = name;
+      document.getElementById('edit_mobile').value = mobile;
+      document.getElementById('edit_email').value = email;
+      document.getElementById('edit_address').value = address;
+      new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
 
-  document.getElementById('searchInput').addEventListener('keyup', function() {
-    const filter = this.value.toLowerCase();
-    document.querySelectorAll('tbody tr').forEach(row => {
-      const text = row.innerText.toLowerCase();
-      row.style.display = text.includes(filter) ? '' : 'none';
+    document.getElementById('searchInput').addEventListener('keyup', function() {
+      const filter = this.value.toLowerCase();
+      document.querySelectorAll('tbody tr').forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+      });
     });
-  });
   </script>
 </body>
 

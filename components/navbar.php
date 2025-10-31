@@ -1,5 +1,4 @@
 <!-- Navbar -->
-<link rel="stylesheet" href="/assets/css/custom-theme.css">
 
 <nav class="navbar shadow-sm px-4">
   <div class="container-fluid d-flex justify-content-between align-items-center">

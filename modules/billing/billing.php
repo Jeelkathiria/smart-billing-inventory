@@ -36,7 +36,7 @@ $labels = [
 
 <head>
   <meta charset="UTF-8">
-  <title>🧾 Live Billing</title>
+  <title><i class="bi bi-receipt"></i> Live Billing</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
@@ -48,12 +48,12 @@ $labels = [
   <?php include '../../components/sidebar.php'; ?>
 
   <div class="content">
-    <h3 class="mb-4">🧾 Live Billing</h3>
+    <h3 class="mb-4"><i class="bi bi-receipt"></i>Billing</h3>
 
     <!-- Customer Details -->
     <div class="row g-3 mb-3">
       <div class="col-md-4">
-        <label>Date & Time</label>
+        <label><i class="bi bi-calendar3"></i> Date & Time</label>
         <input type="text" id="invoice_date" class="form-control" readonly>
       </div>
 
@@ -62,7 +62,7 @@ $labels = [
           $label = $labels[$key] ?? ucfirst($key);
       ?>
       <div class="col-md-<?php echo $key === 'customer_address' ? 8 : 4; ?>">
-        <label><?= $label ?></label>
+        <label><i class="bi bi-person-lines-fill"></i> <?= $label ?></label>
         <?php if ($key === 'customer_address'): ?>
         <textarea id="<?= $key ?>" class="form-control" rows="2" placeholder="<?= $label ?>"></textarea>
         <?php else: ?>
@@ -75,7 +75,7 @@ $labels = [
     <!-- Category / Product Selection -->
     <div class="row mb-3">
       <div class="col-md-4">
-        <label>Category</label>
+        <label><i class="bi bi-tag"></i> Category</label>
         <select id="categorySelect" class="form-select">
           <option value="">Select Category</option>
           <?php foreach ($categories as $cat): ?>
@@ -84,17 +84,19 @@ $labels = [
         </select>
       </div>
       <div class="col-md-4">
-        <label>Product</label>
+        <label><i class="bi bi-box-seam"></i> Product</label>
         <select id="productSelect" class="form-select" disabled>
           <option value="">Select Product</option>
         </select>
       </div>
       <div class="col-md-2">
-        <label>Qty</label>
+        <label> Qty</label>
         <input type="number" id="qtyInput" class="form-control" value="1" min="1">
       </div>
       <div class="col-md-2 d-flex align-items-end">
-        <button id="addProductBtn" class="btn btn-success w-100" disabled>Add</button>
+        <button id="addProductBtn" class="btn btn-success w-100" disabled>
+          <i class="bi bi-cart-plus"></i> Add
+        </button>
       </div>
     </div>
 
@@ -102,11 +104,11 @@ $labels = [
     <table class="table table-bordered" id="billingTable">
       <thead>
         <tr>
-          <th>Sr. No</th>
-          <th>Product</th>
-          <th>Qty</th>
-          <th>Amount</th>
-          <th>Action</th>
+          <th><i class="bi bi-list-ol"></i> Sr. No</th>
+          <th><i class="bi bi-box"></i> Product</th>
+          <th><i class="bi bi-basket"></i> Qty</th>
+          <th><i class="bi bi-cash"></i> Amount</th>
+          <th><i class="bi bi-trash"></i> Action</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -114,23 +116,29 @@ $labels = [
 
     <!-- Totals -->
     <div class="text-end">
-      <p><strong>Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
-      <p><strong>Tax:</strong> ₹<span id="taxAmount">0.00</span></p>
-      <h5><strong>Total:</strong> ₹<span id="totalAmount">0.00</span></h5>
-      <button class="btn btn-primary mt-2" id="generateInvoiceBtn">Generate Invoice</button>
+      <p><strong><i class="bi bi-calculator"></i> Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
+      <p><strong><i class="bi bi-receipt-cutoff"></i> Tax:</strong> ₹<span id="taxAmount">0.00</span></p>
+      <h5><strong><i class="bi bi-wallet2"></i> Total:</strong> ₹<span id="totalAmount">0.00</span></h5>
+      <button class="btn btn-primary mt-2" id="generateInvoiceBtn">
+        <i class="bi bi-file-earmark-text"></i> Generate Invoice
+      </button>
     </div>
   </div>
 
   <!-- ✅ Success Toast -->
   <div id="successToast" class="position-fixed top-0 end-0 bg-success text-white p-3 rounded shadow"
-    style="margin:20px;display:none;z-index:9999;">✅ Billing Successful!</div>
+    style="margin:20px;display:none;z-index:9999;">
+    <i class="bi bi-check-circle"></i> Billing Successful!
+  </div>
 
   <!-- ✅ Alert Modal -->
   <div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow">
         <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title" id="alertModalLabel">Notice</h5>
+          <h5 class="modal-title" id="alertModalLabel">
+            <i class="bi bi-info-circle"></i> Notice
+          </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body fs-5" id="alertModalBody">...</div>
@@ -140,6 +148,8 @@ $labels = [
       </div>
     </div>
   </div>
+
+
 
   <!-- ✅ Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -367,5 +377,10 @@ $labels = [
   });
   </script>
 </body>
-
 </html>
+
+
+
+
+
+

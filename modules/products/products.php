@@ -4,13 +4,17 @@ require_once __DIR__ . '/../../auth/auth_check.php';
 
 $store_id = $_SESSION['store_id'] ?? 0;
 
-// --- Fetch Categories ---
+/* ======================================
+   FETCH CATEGORIES
+====================================== */
 $cat_stmt = $conn->prepare("SELECT category_id, category_name FROM categories WHERE store_id = ?");
 $cat_stmt->bind_param("i", $store_id);
 $cat_stmt->execute();
 $categories = $cat_stmt->get_result();
 
-// --- Handle Add Product ---
+/* ======================================
+   ADD PRODUCT
+====================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
     $name = trim($_POST['name'] ?? '');
     $category_id = (int)($_POST['category_id'] ?? 0);
@@ -24,10 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
         $total_price = round($sell_price + $gst_amount, 2);
         $profit = round($sell_price - $purchase_price, 2);
 
-        // Prevent duplicates
         $check = $conn->prepare("SELECT 1 FROM products WHERE product_name = ? AND store_id = ?");
         $check->bind_param("si", $name, $store_id);
         $check->execute();
+
         if ($check->get_result()->num_rows === 0) {
             $stmt = $conn->prepare("
                 INSERT INTO products 
@@ -40,7 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
     }
 }
 
-// --- Handle Edit Product ---
+/* ======================================
+   EDIT PRODUCT
+====================================== */
 if (isset($_POST['edit_id'])) {
     $edit_id = (int)$_POST['edit_id'];
     $edit_name = trim($_POST['edit_name']);
@@ -62,7 +68,9 @@ if (isset($_POST['edit_id'])) {
     $stmt->execute();
 }
 
-// --- Handle Delete Product ---
+/* ======================================
+   DELETE PRODUCT
+====================================== */
 if (isset($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
     $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
@@ -70,7 +78,9 @@ if (isset($_GET['delete'])) {
     $stmt->execute();
 }
 
-// --- Fetch Products ---
+/* ======================================
+   FETCH PRODUCTS
+====================================== */
 $products_stmt = $conn->prepare("
     SELECT p.*, c.category_name 
     FROM products p
@@ -82,7 +92,9 @@ $products_stmt->bind_param("i", $store_id);
 $products_stmt->execute();
 $products = $products_stmt->get_result();
 
-// --- Low Stock Alert ---
+/* ======================================
+   LOW STOCK ALERT
+====================================== */
 $low_stmt = $conn->prepare("SELECT product_name, stock FROM products WHERE stock < 5 AND store_id = ?");
 $low_stmt->bind_param("i", $store_id);
 $low_stmt->execute();
@@ -100,6 +112,10 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   <link rel="stylesheet" href="/assets/css/common.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
+  body {
+    background-color: #f8f9fb;
+  }
+
   .content {
     margin-left: 230px;
     padding: 80px 30px;
@@ -120,13 +136,8 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     border-radius: 6px;
   }
 
-  .alert ul {
-    margin-bottom: 0;
-  }
-
-  /* 🔴 Full Row Highlight for Low Stock */
   .low-stock-row {
-    background-color: #ffefef !important;
+    background-color: #fff5f5 !important;
   }
 
   .low-stock-row td {
@@ -134,9 +145,13 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     font-weight: 600;
   }
 
-  /* 🔍 Search Box */
   .search-box {
     max-width: 300px;
+  }
+
+  .form-control,
+  .form-select {
+    border-radius: 8px;
   }
   </style>
 </head>
@@ -147,11 +162,12 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
   <div class="content">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h3 class="fw-bold">🛍️ Product Management</h3>
+      <h3 class="fw-bold text-primary"><i class="bi bi-box-seam-fill me-2"></i>Product Management</h3>
       <div class="d-flex gap-2">
-        <input type="text" id="searchInput" class="form-control search-box" placeholder="Search by product name...">
-        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm">
-          <i class="bi bi-plus-circle"></i> Add Product
+        <input type="text" id="searchInput" class="form-control search-box" placeholder="🔍 Search product...">
+        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm"
+          title="Add New Product">
+          <i class="bi bi-plus-circle me-1"></i> Add Product
         </button>
       </div>
     </div>
@@ -159,10 +175,11 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <!-- Low Stock Alert -->
     <?php if (count($low_stock_products) > 0): ?>
     <div class="alert alert-warning shadow-sm">
-      <strong>⚠️ Low Stock Alert:</strong>
-      <ul>
+      <strong><i class="bi bi-exclamation-triangle-fill me-2"></i>Low Stock Alert</strong>
+      <ul class="mt-2 mb-0">
         <?php foreach ($low_stock_products as $prod): ?>
-        <li><?= htmlspecialchars($prod['product_name']) ?> — Only <?= $prod['stock'] ?> left!</li>
+        <li><i class="bi bi-caret-right-fill text-danger"></i>
+          <?= htmlspecialchars($prod['product_name']) ?> — Only <?= $prod['stock'] ?> left!</li>
         <?php endforeach; ?>
       </ul>
     </div>
@@ -171,7 +188,8 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <!-- Add Product Form -->
     <div id="addProductForm" class="collapse mb-4">
       <form method="POST" class="row g-3 shadow-sm p-4 bg-white rounded">
-        <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Product Name" required>
+        <div class="col-md-3">
+          <input type="text" name="name" class="form-control" placeholder="Product Name" required>
         </div>
         <div class="col-md-2">
           <select name="category_id" class="form-select" required>
@@ -181,15 +199,22 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             <?php endwhile; ?>
           </select>
         </div>
-        <div class="col-md-2"><input type="number" name="purchase_price" step="0.01" class="form-control"
-            placeholder="Purchase Price" required></div>
-        <div class="col-md-2"><input type="number" name="sell_price" step="0.01" class="form-control"
-            placeholder="Sell Price" required></div>
-        <div class="col-md-1"><input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)"
-            required></div>
-        <div class="col-md-1"><input type="number" name="stock" min="0" class="form-control" placeholder="Stock"
-            required></div>
-        <div class="col-md-1 d-grid"><button class="btn btn-primary">Add</button></div>
+        <div class="col-md-2">
+          <input type="number" name="purchase_price" step="0.01" class="form-control" placeholder="Purchase Price"
+            required>
+        </div>
+        <div class="col-md-2">
+          <input type="number" name="sell_price" step="0.01" class="form-control" placeholder="Sell Price" required>
+        </div>
+        <div class="col-md-1">
+          <input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)" required>
+        </div>
+        <div class="col-md-1">
+          <input type="number" name="stock" min="0" class="form-control" placeholder="Stock" required>
+        </div>
+        <div class="col-md-1 d-grid">
+          <button class="btn btn-primary"><i class="bi bi-check2-circle"></i> Add</button>
+        </div>
       </form>
     </div>
 
@@ -200,16 +225,16 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         <table class="table align-middle table-hover" id="productTable">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Purchase</th>
-              <th>Sell</th>
-              <th>GST (%)</th>
-              <th>Total</th>
-              <th>Profit</th>
-              <th>Stock</th>
-              <th>Actions</th>
+              <th><i class="bi bi-hash"></i></th>
+              <th><i class="bi bi-tag"></i> Name</th>
+              <th><i class="bi bi-list-ul"></i> Category</th>
+              <th><i class="bi bi-cart"></i> Purchase</th>
+              <th><i class="bi bi-currency-rupee"></i> Sell</th>
+              <th><i class="bi bi-percent"></i> GST</th>
+              <th><i class="bi bi-cash-stack"></i> Total</th>
+              <th><i class="bi bi-graph-up-arrow"></i> Profit</th>
+              <th><i class="bi bi-box2"></i> Stock</th>
+              <th><i class="bi bi-gear"></i> Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -225,17 +250,21 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
               <td>₹<?= number_format($prod['profit'], 2) ?></td>
               <td><?= $prod['stock'] ?></td>
               <td>
-                <button onclick='editProduct(<?= json_encode($prod) ?>)' class="btn btn-sm btn-warning"><i
-                    class="bi bi-pencil-square"></i></button>
-                <button onclick="confirmDelete(<?= $prod['product_id'] ?>)" class="btn btn-sm btn-danger"><i
-                    class="bi bi-trash"></i></button>
+                <button onclick='editProduct(<?= json_encode($prod) ?>)' class="btn btn-sm btn-warning me-1"
+                  title="Edit Product">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+                <button onclick="confirmDelete(<?= $prod['product_id'] ?>)" class="btn btn-sm btn-danger"
+                  title="Delete Product">
+                  <i class="bi bi-trash3-fill"></i>
+                </button>
               </td>
             </tr>
             <?php endwhile; ?>
           </tbody>
         </table>
         <?php else: ?>
-        <p class="text-center text-muted">No products added yet.</p>
+        <p class="text-center text-muted"><i class="bi bi-inbox me-1"></i>No products added yet.</p>
         <?php endif; ?>
       </div>
     </div>
@@ -245,56 +274,68 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog">
       <form method="POST" id="editForm" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Product</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="bi bi-pencil-fill me-2"></i>Edit Product</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <input type="hidden" name="edit_id" id="edit_id">
-          <div class="mb-3"><label class="form-label">Product Name</label><input type="text" name="edit_name"
-              id="edit_name" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">Category</label>
+          <div class="mb-3">
+            <label class="form-label">Product Name</label>
+            <input type="text" name="edit_name" id="edit_name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Category</label>
             <select name="edit_category_id" id="edit_category_id" class="form-select" required>
               <?php $categories->data_seek(0); while ($cat = $categories->fetch_assoc()): ?>
               <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
               <?php endwhile; ?>
             </select>
           </div>
-          <div class="mb-3"><label class="form-label">Purchase Price</label><input type="number" step="0.01"
-              name="edit_purchase_price" id="edit_purchase_price" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">Sell Price</label><input type="number" step="0.01"
-              name="edit_sell_price" id="edit_sell_price" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">GST (%)</label><input type="number" step="0.01" name="edit_gst"
-              id="edit_gst" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">Stock</label><input type="number" name="edit_stock"
-              id="edit_stock" class="form-control" min="0" required></div>
+          <div class="mb-3">
+            <label class="form-label">Purchase Price</label>
+            <input type="number" step="0.01" name="edit_purchase_price" id="edit_purchase_price" class="form-control"
+              required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Sell Price</label>
+            <input type="number" step="0.01" name="edit_sell_price" id="edit_sell_price" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">GST (%)</label>
+            <input type="number" step="0.01" name="edit_gst" id="edit_gst" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Stock</label>
+            <input type="number" name="edit_stock" id="edit_stock" class="form-control" min="0" required>
+          </div>
         </div>
-        <div class="modal-footer"><button type="submit" class="btn btn-primary">Update</button></div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success"><i class="bi bi-check2"></i> Update</button>
+        </div>
       </form>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-  // 🔥 Confirm Delete
   function confirmDelete(id) {
     Swal.fire({
       title: 'Delete this product?',
       text: 'This action cannot be undone.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete it!'
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
     }).then((res) => {
       if (res.isConfirmed) window.location = '?delete=' + id;
     });
   }
 
-  // 🛠 Edit Modal Setup
   let editModal;
   document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
 
-    // 🔍 Search Filter
     const searchInput = document.getElementById('searchInput');
     const tableRows = document.querySelectorAll('#productTable tbody tr');
     searchInput.addEventListener('keyup', function() {
@@ -306,7 +347,6 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     });
   });
 
-  // ✏️ Edit Product Function
   function editProduct(product) {
     document.getElementById('edit_id').value = product.product_id;
     document.getElementById('edit_name').value = product.product_name;

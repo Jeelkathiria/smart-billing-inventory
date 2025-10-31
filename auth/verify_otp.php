@@ -8,11 +8,6 @@ $otp = trim($_POST['otp'] ?? '');
 $sessionOtp = $_SESSION['otp'] ?? '';
 $register_data = $_SESSION['register_data'] ?? null;
 
-// Debug logs (only for localhost)
-error_log("POST OTP: " . $otp);
-error_log("SESSION OTP: " . $sessionOtp);
-error_log("REGISTER DATA: " . print_r($register_data, true));
-
 if (!$register_data) {
     echo json_encode(['status' => 'session_expired']);
     exit;
@@ -21,19 +16,21 @@ if (!$register_data) {
 // -------------------- VERIFY OTP --------------------
 if ((string)$otp === (string)$sessionOtp) {
 
-    $username = $register_data['username'];
-    $email = $register_data['email'];
+    $username = trim($register_data['username']);
+    $email = trim($register_data['email']);
     $password = password_hash($register_data['password'], PASSWORD_DEFAULT);
     $role = $register_data['role'] ?? 'user';
 
-    $store_id = null; // default null (for users)
+    $store_id = null;
     $store_code = null;
 
-    // -------------------- IF ADMIN: CREATE STORE --------------------
+    /* ======================================================
+       1️⃣ ADMIN → Create new store
+    ====================================================== */
     if ($role === 'admin') {
-        $store_name = $register_data['store_name'] ?? '';
-        $store_email = $register_data['store_email'] ?? '';
-        $contact_number = $register_data['contact_number'] ?? '';
+        $store_name = trim($register_data['store_name'] ?? '');
+        $store_email = trim($register_data['store_email'] ?? '');
+        $contact_number = trim($register_data['contact_number'] ?? '');
 
         // Generate unique store code
         $store_code = 'STR' . rand(1000, 9999);
@@ -53,11 +50,38 @@ if ((string)$otp === (string)$sessionOtp) {
             exit;
         }
 
-        // ✅ Get the auto-generated store_id
+        // ✅ Get auto-generated store_id
         $store_id = $conn->insert_id;
     }
 
-    // -------------------- INSERT USER --------------------
+    /* ======================================================
+       2️⃣ MANAGER / CASHIER → Use existing store_code
+    ====================================================== */
+    elseif (in_array($role, ['manager', 'cashier'])) {
+        $entered_code = trim($register_data['store_code'] ?? '');
+
+        if (empty($entered_code)) {
+            echo json_encode(['status' => 'missing_store_code']);
+            exit;
+        }
+
+        $stmtFetch = $conn->prepare("SELECT store_id FROM stores WHERE store_code = ?");
+        $stmtFetch->bind_param('s', $entered_code);
+        $stmtFetch->execute();
+        $res = $stmtFetch->get_result();
+
+        if ($res && $res->num_rows === 1) {
+            $row = $res->fetch_assoc();
+            $store_id = $row['store_id'];
+        } else {
+            echo json_encode(['status' => 'invalid_store_code']);
+            exit;
+        }
+    }
+
+    /* ======================================================
+       3️⃣ INSERT USER
+    ====================================================== */
     $stmtUser = $conn->prepare("
         INSERT INTO users (username, email, password, role, store_id)
         VALUES (?, ?, ?, ?, ?)
@@ -71,8 +95,7 @@ if ((string)$otp === (string)$sessionOtp) {
 
     if ($stmtUser->execute()) {
         // ✅ Cleanup
-        unset($_SESSION['otp']);
-        unset($_SESSION['register_data']);
+        unset($_SESSION['otp'], $_SESSION['register_data'], $_SESSION['otp_expiry']);
 
         echo json_encode([
             'status' => 'success',
@@ -82,13 +105,11 @@ if ((string)$otp === (string)$sessionOtp) {
             'store_id' => $store_id,
             'store_code' => $store_code
         ]);
-        exit;
     } else {
         echo json_encode(['status' => 'db_error', 'error' => $stmtUser->error]);
-        exit;
     }
 
 } else {
     echo json_encode(['status' => 'invalid_otp']);
-    exit;
 }
+?>
