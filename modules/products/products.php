@@ -164,7 +164,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h3 class="fw-bold text-primary"><i class="bi bi-box-seam-fill me-2"></i>Product Management</h3>
       <div class="d-flex gap-2">
-        <input type="text" id="searchInput" class="form-control search-box" placeholder="🔍 Search product...">
+        <input type="text" id="searchInput" class="form-control search-box" placeholder=" Search By Name..">
         <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm"
           title="Add New Product">
           <i class="bi bi-plus-circle me-1"></i> Add Product

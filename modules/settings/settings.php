@@ -350,6 +350,11 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         console.error(`❌ Error submitting ${formId}:`, err);
         showModalMessage(form, 'Network or server error. Please try again.', 'danger');
       }
+
+      if (res.success) {
+    alert('Store updated successfully!');
+    location.reload(); // reloads the page to reflect new store name
+}
     });
   }
 

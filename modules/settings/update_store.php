@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../auth/auth_check.php';
 header('Content-Type: application/json');
 session_start();
 require_once __DIR__ . '/../../config/db.php';
@@ -37,10 +38,13 @@ try {
 
     // Execute and respond
     if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'msg' => 'Store information updated successfully']);
-    } else {
-        echo json_encode(['success' => false, 'msg' => 'Failed to update store information']);
-    }
+    $_SESSION['store_name'] = $store_name; // ✅ must be here
+    echo json_encode(['success' => true, 'msg' => 'Store information updated successfully']);
+} else {
+    echo json_encode(['success' => false, 'msg' => 'Failed to update store information']);
+}
+
+
 
     $stmt->close();
     $conn->close();
@@ -48,4 +52,6 @@ try {
 } catch (Throwable $e) {
     echo json_encode(['success' => false, 'msg' => 'Server error: ' . $e->getMessage()]);
 }
+
+
 ?>

@@ -80,7 +80,6 @@ $count_stmt->bind_param($types, ...$params);
 $count_stmt->execute();
 $total_rows = ($count_stmt->get_result()->fetch_assoc())['total'] ?? 0;
 $count_stmt->close();
-
 $total_pages = ceil($total_rows / $records_per_page);
 
 /* ------------------------------------------
@@ -88,14 +87,15 @@ $total_pages = ceil($total_rows / $records_per_page);
 ------------------------------------------- */
 $sql = "
     SELECT s.sale_id, s.invoice_id, s.total_amount, s.subtotal, s.tax_amount, s.sale_date,
-           COALESCE(c.customer_name, '--') AS customer_name
+           COALESCE(c.customer_name, '--') AS customer_name,
+           COALESCE(u.username, '--') AS billed_by
     FROM sales s
     LEFT JOIN customers c ON s.customer_id = c.customer_id
+    LEFT JOIN users u ON s.created_by = u.user_id
     $where
     ORDER BY s.sale_date DESC
     LIMIT ?, ?
 ";
-
 $params[] = $start;
 $params[] = $records_per_page;
 $types .= "ii";
@@ -105,6 +105,7 @@ $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $salesResult = $stmt->get_result();
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -177,6 +178,7 @@ $salesResult = $stmt->get_result();
   <?php include(__DIR__ . "/../../components/sidebar.php"); ?>
 
   <main class="content">
+    <!-- SUMMARY CARDS -->
     <div class="row g-4 mb-5">
       <div class="col-md-6">
         <div class="summary-card bg-green">
@@ -198,6 +200,7 @@ $salesResult = $stmt->get_result();
       </div>
     </div>
 
+    <!-- SALES HISTORY -->
     <div class="card mb-5">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-receipt me-2"></i>Sales History</span>
@@ -207,7 +210,8 @@ $salesResult = $stmt->get_result();
       </div>
 
       <div class="card-body" style="padding: 3ch 4ch;">
-        <form method="GET" class="d-flex align-items-center gap-3 mb-4">
+        <!-- Filters -->
+        <form method="GET" class="d-flex align-items-center gap-3 mb-4" id="filterForm">
           <input type="text" name="invoice_id" class="form-control" placeholder="Search Invoice ID..."
             value="<?= e($filter_invoice); ?>" style="max-width:30ch;">
           <input type="date" name="filter_date" class="form-control" value="<?= e($filter_date); ?>"
@@ -216,72 +220,96 @@ $salesResult = $stmt->get_result();
           <a href="sales.php" class="btn btn-secondary"><i class="bi bi-x-circle"></i> Reset</a>
         </form>
 
-        <div class="table-responsive">
-          <table class="table table-bordered table-hover align-middle text-center">
-            <thead>
-              <tr>
-                <th>Invoice ID</th>
-                <th>Customer Name</th>
-                <th>Date & Time</th>
-                <th>Subtotal</th>
-                <th>Tax</th>
-                <th>Total</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if($salesResult && $salesResult->num_rows > 0): ?>
-              <?php while($row = $salesResult->fetch_assoc()): ?>
-              <tr>
-                <td><span class="badge bg-secondary"><?= e($row['invoice_id']); ?></span></td>
-                <td><?= e($row['customer_name']); ?></td>
-                <td><?= e(date('d-m-Y H:i:s', strtotime($row['sale_date']))); ?></td>
-                <td>₹<?= e(number_format($row['subtotal'], 2)); ?></td>
-                <td>₹<?= e(number_format($row['tax_amount'], 2)); ?></td>
-                <td><strong>₹<?= e(number_format($row['total_amount'], 2)); ?></strong></td>
-                <td>
-                  <a href="view_invoice.php?sale_id=<?= urlencode($row['sale_id']); ?>"
-                    class="btn btn-outline-primary btn-sm rounded-pill">
-                    <i class="bi bi-eye"></i> View
-                  </a>
-                </td>
-              </tr>
-              <?php endwhile; ?>
-              <?php else: ?>
-              <tr>
-                <td colspan="7" class="text-muted">No sales history available.</td>
-              </tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
+        <!-- Table + Pagination -->
+        <div id="sales-container">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle text-center">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Customer Name</th>
+                  <th>Date & Time</th>
+                  <th>Subtotal</th>
+                  <th>Tax</th>
+                  <th>Total</th>
+                  <th>Billed By</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if($salesResult && $salesResult->num_rows > 0): ?>
+                <?php while($row = $salesResult->fetch_assoc()): ?>
+                <tr>
+                  <td><span class="badge bg-secondary"><?= e($row['invoice_id']); ?></span></td>
+                  <td><?= e($row['customer_name']); ?></td>
+                  <td><?= e(date('d-m-Y H:i:s', strtotime($row['sale_date']))); ?></td>
+                  <td>₹<?= e(number_format($row['subtotal'], 2)); ?></td>
+                  <td>₹<?= e(number_format($row['tax_amount'], 2)); ?></td>
+                  <td><strong>₹<?= e(number_format($row['total_amount'], 2)); ?></strong></td>
+                  <td><?= e($row['billed_by']); ?></td>
+                  <td>
+                    <a href="view_invoice.php?sale_id=<?= urlencode($row['sale_id']); ?>"
+                      class="btn btn-outline-primary btn-sm rounded-pill">
+                      <i class="bi bi-eye"></i> View
+                    </a>
+                  </td>
+                </tr>
+                <?php endwhile; ?>
+                <?php else: ?>
+                <tr>
+                  <td colspan="8" class="text-muted">No sales history available.</td>
+                </tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <?php if ($total_pages > 1): ?>
+          <nav>
+            <ul class="pagination justify-content-center mt-4">
+              <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+              <li class="page-item <?= ($p == $page) ? 'active' : ''; ?>">
+                <a class="page-link"
+                  href="?page=<?= $p ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>">
+                  <?= $p; ?>
+                </a>
+              </li>
+              <?php endfor; ?>
+            </ul>
+          </nav>
+          <?php endif; ?>
         </div>
-
-        <!-- Pagination -->
-        <nav>
-          <ul class="pagination justify-content-center mt-4">
-            <?php if ($page > 1): ?>
-            <li class="page-item"><a class="page-link"
-                href="?page=<?= $page - 1 ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>">Previous</a>
-            </li>
-            <?php endif; ?>
-
-            <?php for ($p = 1; $p <= $total_pages; $p++): ?>
-            <li class="page-item <?= ($p == $page) ? 'active' : ''; ?>">
-              <a class="page-link"
-                href="?page=<?= $p ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>"><?= $p; ?></a>
-            </li>
-            <?php endfor; ?>
-
-            <?php if ($page < $total_pages): ?>
-            <li class="page-item"><a class="page-link"
-                href="?page=<?= $page + 1 ?>&invoice_id=<?= e($filter_invoice); ?>&filter_date=<?= e($filter_date); ?>">Next</a>
-            </li>
-            <?php endif; ?>
-          </ul>
-        </nav>
       </div>
     </div>
   </main>
+
+  <script>
+  // AJAX Pagination (from code 2)
+  document.addEventListener("DOMContentLoaded", function() {
+    const salesContainer = document.getElementById("sales-container");
+
+    salesContainer.addEventListener("click", function(e) {
+      const link = e.target.closest(".page-link");
+      if (link) {
+        e.preventDefault();
+        fetch(link.href)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(html, "text/html");
+            const newContent = newDoc.querySelector("#sales-container").innerHTML;
+            salesContainer.innerHTML = newContent;
+            salesContainer.scrollIntoView({
+              behavior: "smooth",
+              block: "start"
+            });
+          })
+          .catch(err => console.error("Pagination load error:", err));
+      }
+    });
+  });
+  </script>
 </body>
 
 </html>

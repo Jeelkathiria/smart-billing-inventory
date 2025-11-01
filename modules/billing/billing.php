@@ -119,9 +119,16 @@ $labels = [
       <p><strong><i class="bi bi-calculator"></i> Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
       <p><strong><i class="bi bi-receipt-cutoff"></i> Tax:</strong> ₹<span id="taxAmount">0.00</span></p>
       <h5><strong><i class="bi bi-wallet2"></i> Total:</strong> ₹<span id="totalAmount">0.00</span></h5>
-      <button class="btn btn-primary mt-2" id="generateInvoiceBtn">
-        <i class="bi bi-file-earmark-text"></i> Generate Invoice
-      </button>
+
+      <!-- ✅ Buttons -->
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button class="btn btn-secondary" id="saveOnlyBtn">
+          <i class="bi bi-save2"></i> Save Only
+        </button>
+        <button class="btn btn-primary" id="generateInvoiceBtn">
+          <i class="bi bi-file-earmark-text"></i> Generate Invoice
+        </button>
+      </div>
     </div>
   </div>
 
@@ -149,8 +156,6 @@ $labels = [
     </div>
   </div>
 
-
-
   <!-- ✅ Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -163,7 +168,6 @@ $labels = [
     const enabledFields = <?= json_encode(array_keys(array_filter($fields))) ?>;
     const labels = <?= json_encode($labels) ?>;
 
-    // Modal Popup
     function showPopup(message, title = "Notice") {
       const modalEl = document.getElementById('alertModal');
       if (!modalEl) return alert(message);
@@ -173,7 +177,6 @@ $labels = [
       modal.show();
     }
 
-    // Toast
     function showToast(id, duration = 2000) {
       const t = $(id);
       if (!t) return;
@@ -181,7 +184,6 @@ $labels = [
       setTimeout(() => t.style.display = 'none', duration);
     }
 
-    // Date & Time
     const pad = n => n.toString().padStart(2, '0');
     const getDateTime = () => {
       const d = new Date();
@@ -189,7 +191,6 @@ $labels = [
     };
     $('invoice_date').value = getDateTime();
 
-    // Reset Form
     const resetForm = () => {
       cart = [];
       renderTable();
@@ -205,7 +206,7 @@ $labels = [
       });
     };
 
-    // Fetch Products by Category
+    // Fetch Products
     $('categorySelect').addEventListener('change', async () => {
       const catId = $('categorySelect').value;
       const productSelect = $('productSelect');
@@ -238,7 +239,7 @@ $labels = [
       }
     });
 
-    // Product selection → fetch price from backend
+    // Product selection
     $('productSelect').addEventListener('change', async () => {
       const productId = $('productSelect').value;
       const addBtn = $('addProductBtn');
@@ -252,7 +253,6 @@ $labels = [
 
         if (data.status === 'success' && data.product) {
           const p = data.product;
-          // Save full details in productsList
           productsList[productId] = {
             ...productsList[productId],
             sell_price: p.sell_price,
@@ -267,9 +267,9 @@ $labels = [
       }
     });
 
-    // Add Product to Cart
+    // Add Product
     $('addProductBtn').addEventListener('click', () => {
-      const addBtn = $('addProductBtn'); // ✅ Fix: define here too
+      const addBtn = $('addProductBtn');
       const productId = $('productSelect').value;
       const qty = parseInt($('qtyInput').value) || 1;
       if (!productId) return showPopup('Please select a product.');
@@ -279,10 +279,8 @@ $labels = [
 
       const price = parseFloat(p.sell_price) || 0;
       const gstPercent = parseFloat(p.gst_percent) || 0;
-
       const amount = price * qty;
       const gst = (amount * gstPercent) / 100;
-      const total = amount + gst;
 
       cart.push({
         product_id: productId,
@@ -292,7 +290,7 @@ $labels = [
         gst_percent: gstPercent,
         amount,
         gst,
-        total
+        total: amount + gst
       });
 
       renderTable();
@@ -301,8 +299,7 @@ $labels = [
       addBtn.disabled = true;
     });
 
-
-    // Render Cart Table
+    // Render Cart
     function renderTable() {
       const tbody = document.querySelector("#billingTable tbody");
       tbody.innerHTML = '';
@@ -327,10 +324,10 @@ $labels = [
       $('totalAmount').innerText = (sub + gst).toFixed(2);
     }
 
-    // Generate Invoice
-    $('generateInvoiceBtn').addEventListener('click', async () => {
-      if (!cart.length) return showPopup(
-        'Your cart is empty. Please add at least one product before generating invoice.', 'Empty Cart');
+    // ✅ Common Checkout Function
+    async function processCheckout(print = false) {
+      if (!cart.length) return showPopup('Your cart is empty. Please add at least one product.', 'Empty Cart');
+
       for (let k of enabledFields) {
         const el = $(k);
         if (el && !el.value.trim()) {
@@ -348,7 +345,8 @@ $labels = [
           quantity: i.quantity,
           price: i.price,
           gst_percent: i.gst_percent
-        }))
+        })),
+        print: print ? 1 : 0
       };
       Object.keys(labels).forEach(k => {
         const el = $(k);
@@ -367,20 +365,23 @@ $labels = [
         if (r.status === 'success') {
           showToast('successToast');
           resetForm();
-          window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
-        } else showPopup(r.message || 'Checkout failed.', 'Error');
+          if (print && r.sale_id) {
+            window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
+          }
+        } else {
+          showPopup(r.message || 'Checkout failed.', 'Error');
+        }
       } catch (e) {
         console.error(e);
         showPopup('Checkout failed. Please try again.', 'Error');
       }
-    });
+    }
+
+    // ✅ Attach Events
+    $('generateInvoiceBtn').addEventListener('click', () => processCheckout(true));
+    $('saveOnlyBtn').addEventListener('click', () => processCheckout(false));
   });
   </script>
 </body>
+
 </html>
-
-
-
-
-
-

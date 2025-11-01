@@ -42,10 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ======================================================
    2️⃣ PAGINATION SETUP
 ====================================================== */
-$limit = 10;
+$limit = 10; // 10 customers per page
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $limit;
 
+// Count total customers
 $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM customers WHERE store_id=?");
 $countStmt->bind_param("i", $store_id);
 $countStmt->execute();
@@ -54,6 +55,7 @@ $countStmt->close();
 
 $totalPages = ceil($total / $limit);
 
+// Fetch paginated customers
 $stmt = $conn->prepare("SELECT * FROM customers WHERE store_id=? ORDER BY created_at DESC LIMIT ?, ?");
 $stmt->bind_param("iii", $store_id, $offset, $limit);
 $stmt->execute();
@@ -73,120 +75,119 @@ $stmt->close();
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    body {
-      background-color: #f7f9fc;
-    }
+  body {
+    background-color: #f7f9fc;
+  }
 
+  .card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+    overflow: hidden;
+  }
 
-    .card {
-      border: none;
-      border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
-      overflow: hidden;
-    }
+  .card-header {
+    background: linear-gradient(135deg, #007bff, #6610f2);
+    color: white;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    padding: 1rem 1.5rem;
+  }
 
-    .card-header {
-      background: linear-gradient(135deg, #007bff, #6610f2);
-      color: white;
-      font-weight: 600;
-      letter-spacing: 0.4px;
-      padding: 1rem 1.5rem;
-    }
+  .table th {
+    background-color: #f1f3f9;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+  }
 
-    .table th {
-      background-color: #f1f3f9;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.85rem;
-    }
+  .table td {
+    vertical-align: middle;
+  }
 
-    .table td {
-      vertical-align: middle;
-    }
+  .table-hover tbody tr:hover {
+    background-color: #f8f9ff;
+    transition: 0.2s ease;
+  }
 
-    .table-hover tbody tr:hover {
-      background-color: #f8f9ff;
-      transition: 0.2s ease;
-    }
+  .search-wrapper {
+    position: relative;
+    margin: 20px auto;
+    max-width: 700px;
+  }
 
-    .search-wrapper {
-      position: relative;
-      margin: 20px auto;
-      max-width: 700px;
-    }
+  #searchInput {
+    width: 100%;
+    padding: 12px 16px 12px 40px;
+    border-radius: 50px;
+    border: 1px solid #ced4da;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+  }
 
-    #searchInput {
-      width: 100%;
-      padding: 12px 16px 12px 40px;
-      border-radius: 50px;
-      border: 1px solid #ced4da;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-      transition: all 0.3s ease;
-    }
+  #searchInput:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.15);
+  }
 
-    #searchInput:focus {
-      border-color: #007bff;
-      outline: none;
-      box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.15);
-    }
+  .search-icon {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    transform: translateY(-50%);
+    color: #6c757d;
+  }
 
-    .search-icon {
-      position: absolute;
-      top: 50%;
-      left: 15px;
-      transform: translateY(-50%);
-      color: #6c757d;
-    }
+  .pagination {
+    justify-content: center;
+    margin-top: 25px;
+  }
 
-    .pagination {
-      justify-content: center;
-      margin-top: 25px;
-    }
+  .page-link {
+    border-radius: 50px !important;
+    color: #007bff;
+    font-weight: 500;
+  }
 
-    .page-link {
-      border-radius: 50px !important;
-      color: #007bff;
-      font-weight: 500;
-    }
+  .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+  }
 
-    .page-item.active .page-link {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
+  .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
 
-    .modal-content {
-      border-radius: 15px;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    }
+  .modal-header {
+    background: linear-gradient(135deg, #007bff, #6610f2);
+    color: white;
+    border: none;
+  }
 
-    .modal-header {
-      background: linear-gradient(135deg, #007bff, #6610f2);
-      color: white;
-      border: none;
-    }
+  .btn {
+    border-radius: 50px;
+    padding: 6px 14px;
+  }
 
-    .btn {
-      border-radius: 50px;
-      padding: 6px 14px;
-    }
+  .btn-outline-primary:hover {
+    background-color: #007bff;
+    color: #fff;
+  }
 
-    .btn-outline-primary:hover {
-      background-color: #007bff;
-      color: #fff;
-    }
+  .btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: #fff;
+  }
 
-    .btn-outline-danger:hover {
-      background-color: #dc3545;
-      color: #fff;
-    }
-
-    h2.page-title {
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 1.5rem;
-      color: #333;
-      letter-spacing: 0.5px;
-    }
+  h2.page-title {
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #333;
+    letter-spacing: 0.5px;
+  }
   </style>
 </head>
 
@@ -210,7 +211,7 @@ $stmt->close();
         <table class="table table-hover align-middle text-center">
           <thead>
             <tr>
-              <th><i class="bi bi-hash"></i></th>
+              <th>#</th>
               <th><i class="bi bi-person-badge me-1"></i> Name</th>
               <th><i class="bi bi-telephone me-1"></i> Mobile</th>
               <th><i class="bi bi-envelope me-1"></i> Email</th>
@@ -220,52 +221,58 @@ $stmt->close();
           </thead>
           <tbody>
             <?php if ($customers): ?>
-              <?php foreach ($customers as $c): ?>
-                <tr>
-                  <td><?= $c['customer_id'] ?></td>
-                  <td><?= htmlspecialchars($c['customer_name'] ?: '--') ?></td>
-                  <td><?= htmlspecialchars($c['customer_mobile'] ?: '--') ?></td>
-                  <td><?= htmlspecialchars($c['customer_email'] ?: '--') ?></td>
-                  <td><?= htmlspecialchars($c['customer_address'] ?: '--') ?></td>
-                  <td>
-                    <button class="btn btn-sm btn-outline-primary me-1"
-                      onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
-                      <i class="bi bi-pencil-square"></i>
-                    </button>
-                    <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this customer?')">
-                      <input type="hidden" name="action" value="delete">
-                      <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
-                      <button type="submit" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash3-fill"></i>
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
+            <?php
+              $sr_no = $offset + 1;
+              foreach ($customers as $c):
+              ?>
+            <tr>
+              <td><?= $sr_no++ ?></td>
+              <td><?= htmlspecialchars($c['customer_name'] ?: '--') ?></td>
+              <td><?= htmlspecialchars($c['customer_mobile'] ?: '--') ?></td>
+              <td><?= htmlspecialchars($c['customer_email'] ?: '--') ?></td>
+              <td><?= htmlspecialchars($c['customer_address'] ?: '--') ?></td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary me-1"
+                  onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+                <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this customer?')">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash3-fill"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            <?php endforeach; ?>
             <?php else: ?>
-              <tr>
-                <td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle me-2"></i>No customers found.</td>
-              </tr>
+            <tr>
+              <td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle me-2"></i>No customers found.
+              </td>
+            </tr>
             <?php endif; ?>
           </tbody>
         </table>
 
         <?php if ($totalPages > 1): ?>
-          <nav>
-            <ul class="pagination">
-              <?php if ($page > 1): ?>
-                <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>"><i class="bi bi-arrow-left"></i> Prev</a></li>
-              <?php endif; ?>
-              <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <li class="page-item <?= ($i === $page) ? 'active' : '' ?>">
-                  <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
-                </li>
-              <?php endfor; ?>
-              <?php if ($page < $totalPages): ?>
-                <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next <i class="bi bi-arrow-right"></i></a></li>
-              <?php endif; ?>
-            </ul>
-          </nav>
+        <nav>
+          <ul class="pagination">
+            <?php if ($page > 1): ?>
+            <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>"><i class="bi bi-arrow-left"></i>
+                Prev</a></li>
+            <?php endif; ?>
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+            <li class="page-item <?= ($i === $page) ? 'active' : '' ?>">
+              <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+            </li>
+            <?php endfor; ?>
+            <?php if ($page < $totalPages): ?>
+            <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next <i
+                  class="bi bi-arrow-right"></i></a></li>
+            <?php endif; ?>
+          </ul>
+        </nav>
         <?php endif; ?>
       </div>
     </div>
@@ -301,7 +308,8 @@ $stmt->close();
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i>
+              Cancel</button>
             <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save2 me-1"></i> Save Changes</button>
           </div>
         </form>
@@ -311,22 +319,22 @@ $stmt->close();
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    function editCustomer(id, name, mobile, email, address) {
-      document.getElementById('edit_id').value = id;
-      document.getElementById('edit_name').value = name;
-      document.getElementById('edit_mobile').value = mobile;
-      document.getElementById('edit_email').value = email;
-      document.getElementById('edit_address').value = address;
-      new bootstrap.Modal(document.getElementById('editModal')).show();
-    }
+  function editCustomer(id, name, mobile, email, address) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_mobile').value = mobile;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_address').value = address;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+  }
 
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-      const filter = this.value.toLowerCase();
-      document.querySelectorAll('tbody tr').forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(filter) ? '' : 'none';
-      });
+  document.getElementById('searchInput').addEventListener('keyup', function() {
+    const filter = this.value.toLowerCase();
+    document.querySelectorAll('tbody tr').forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(filter) ? '' : 'none';
     });
+  });
   </script>
 </body>
 

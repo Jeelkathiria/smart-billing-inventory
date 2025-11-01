@@ -50,7 +50,7 @@ $customer_address = !empty(trim($data['customer_address'] ?? '')) ? trim($data['
 
 /* Default name if not provided */
 if (empty($customer_name)) {
-    $customer_name = 'Walk-in Customer';
+    $customer_name = '--';
 }
 
 /* ==================================================
@@ -145,7 +145,7 @@ try {
     $customer_id = null;
 
     $hasCustomerData = (
-        ($customer_name && $customer_name !== 'Walk-in Customer') ||
+        ($customer_name && $customer_name !== '--') ||
         !empty($customer_mobile) ||
         !empty($customer_email) ||
         !empty($customer_address)
