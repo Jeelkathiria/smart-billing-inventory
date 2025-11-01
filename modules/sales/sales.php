@@ -2,21 +2,14 @@
 require_once __DIR__ . "/../../config/db.php";
 require_once __DIR__ . "/../../auth/auth_check.php";
 
-/* ------------------------------------------
-   Helper for Safe HTML Output
-------------------------------------------- */
 function e($value) {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
-/* ------------------------------------------
-   SESSION & BASIC SETUP
-------------------------------------------- */
 $user_id  = $_SESSION['user_id'];
 $role     = $_SESSION['role'];
 $store_id = $_SESSION['store_id'];
 
-// Session timeout (30 min)
 if (!isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)) {
     session_unset();
     session_destroy();
@@ -26,9 +19,7 @@ if (!isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)
 
 $today = date('Y-m-d');
 
-/* ------------------------------------------
-   TODAY’S SUMMARY
-------------------------------------------- */
+/* ---------- TODAY’S SUMMARY ---------- */
 $stmt = $conn->prepare("SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
                         FROM sales 
                         WHERE DATE(sale_date) = ? AND store_id = ?");
@@ -39,9 +30,7 @@ $todaySalesCount = $todayRes['sales_count'] ?? 0;
 $todayRevenue    = $todayRes['revenue'] ?? 0;
 $stmt->close();
 
-/* ------------------------------------------
-   FILTERS & PAGINATION
-------------------------------------------- */
+/* ---------- FILTERS & PAGINATION ---------- */
 $records_per_page = 8;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $start = ($page - 1) * $records_per_page;
@@ -71,9 +60,6 @@ if (!empty($filter_date)) {
     $types .= "s";
 }
 
-/* ------------------------------------------
-   COUNT TOTAL RECORDS
-------------------------------------------- */
 $count_sql = "SELECT COUNT(*) AS total FROM sales s $where";
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->bind_param($types, ...$params);
@@ -82,9 +68,6 @@ $total_rows = ($count_stmt->get_result()->fetch_assoc())['total'] ?? 0;
 $count_stmt->close();
 $total_pages = ceil($total_rows / $records_per_page);
 
-/* ------------------------------------------
-   FETCH PAGINATED SALES DATA
-------------------------------------------- */
 $sql = "
     SELECT s.sale_id, s.invoice_id, s.total_amount, s.subtotal, s.tax_amount, s.sale_date,
            COALESCE(c.customer_name, '--') AS customer_name,
@@ -105,7 +88,6 @@ $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $salesResult = $stmt->get_result();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -119,33 +101,48 @@ $salesResult = $stmt->get_result();
   <style>
   body {
     background-color: #f8f9fa;
+    overflow-x: hidden;
+  }
+
+  main.content {
+    padding: 2rem;
+    margin-left: 230px;
+    transition: margin-left 0.3s ease;
+  }
+
+  @media (max-width: 992px) {
+    main.content {
+      margin-left: 0;
+      padding: 1.5rem;
+    }
   }
 
   .card {
-    border-radius: 1.5ch;
-    box-shadow: 0 0.8ch 2ch rgba(0, 0, 0, 0.05);
+    border-radius: 1.2rem;
+    box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.05);
   }
 
   .card-header {
     background: linear-gradient(90deg, #007bff, #0056d2);
     color: #fff;
-    border-radius: 1.5ch 1.5ch 0 0;
+    border-radius: 1.2rem 1.2rem 0 0;
+    font-weight: 600;
   }
 
   .summary-card {
-    border-radius: 1.5ch;
+    border-radius: 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     color: #fff;
-    height: 18vh;
-    box-shadow: 0 1ch 2.5ch rgba(0, 0, 0, 0.1);
-    padding: 3ch 4ch;
+    height: 180px;
+    padding: 2rem;
+    box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.08);
     transition: transform 0.3s ease;
   }
 
   .summary-card:hover {
-    transform: translateY(-0.5ch);
+    transform: translateY(-5px);
   }
 
   .bg-green {
@@ -158,17 +155,79 @@ $salesResult = $stmt->get_result();
 
   .summary-card h4 {
     font-weight: 700;
-    font-size: 3.5ch;
+    font-size: 2rem;
+    margin: 0;
   }
 
   .summary-card h6 {
-    font-size: 2ch;
-    color: rgba(255, 255, 255, 0.85);
+    font-size: 1rem;
+    opacity: 0.9;
+  }
+
+  table {
+    font-size: 0.95rem;
   }
 
   .table thead {
     background-color: #0d6efd;
     color: #fff;
+  }
+
+  .table tbody tr:hover {
+    background-color: #f5f8ff;
+  }
+
+  .btn-outline-primary.btn-sm {
+    font-weight: 500;
+  }
+
+  .pagination .page-link {
+    border-radius: 0.5rem;
+    color: #007bff;
+    font-weight: 500;
+  }
+
+  .pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #fff;
+  }
+
+  @media (max-width: 768px) {
+    .summary-card {
+      height: auto;
+      padding: 1.5rem;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .summary-card i {
+      font-size: 2rem !important;
+      margin-top: 0.5rem;
+    }
+
+    table {
+      font-size: 0.85rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .card-body {
+      padding: 1rem !important;
+    }
+
+    form.d-flex {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .summary-card {
+      padding: 1rem;
+    }
+
+    .summary-card h4 {
+      font-size: 1.5rem;
+    }
   }
   </style>
 </head>
@@ -177,7 +236,7 @@ $salesResult = $stmt->get_result();
   <?php include(__DIR__ . "/../../components/navbar.php"); ?>
   <?php include(__DIR__ . "/../../components/sidebar.php"); ?>
 
-  <main class="content">
+  <main class="content mt-5">
     <!-- SUMMARY CARDS -->
     <div class="row g-4 mb-5">
       <div class="col-md-6">
@@ -209,13 +268,13 @@ $salesResult = $stmt->get_result();
         </a>
       </div>
 
-      <div class="card-body" style="padding: 3ch 4ch;">
+      <div class="card-body p-4">
         <!-- Filters -->
-        <form method="GET" class="d-flex align-items-center gap-3 mb-4" id="filterForm">
+        <form method="GET" class="d-flex align-items-center gap-3 flex-wrap mb-4" id="filterForm">
           <input type="text" name="invoice_id" class="form-control" placeholder="Search Invoice ID..."
-            value="<?= e($filter_invoice); ?>" style="max-width:30ch;">
+            value="<?= e($filter_invoice); ?>" style="max-width:280px;">
           <input type="date" name="filter_date" class="form-control" value="<?= e($filter_date); ?>"
-            style="max-width:22ch;">
+            style="max-width:200px;">
           <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Filter</button>
           <a href="sales.php" class="btn btn-secondary"><i class="bi bi-x-circle"></i> Reset</a>
         </form>
@@ -267,7 +326,7 @@ $salesResult = $stmt->get_result();
           <!-- Pagination -->
           <?php if ($total_pages > 1): ?>
           <nav>
-            <ul class="pagination justify-content-center mt-4">
+            <ul class="pagination justify-content-center mt-4 flex-wrap">
               <?php for ($p = 1; $p <= $total_pages; $p++): ?>
               <li class="page-item <?= ($p == $page) ? 'active' : ''; ?>">
                 <a class="page-link"
@@ -285,10 +344,8 @@ $salesResult = $stmt->get_result();
   </main>
 
   <script>
-  // AJAX Pagination (from code 2)
   document.addEventListener("DOMContentLoaded", function() {
     const salesContainer = document.getElementById("sales-container");
-
     salesContainer.addEventListener("click", function(e) {
       const link = e.target.closest(".page-link");
       if (link) {

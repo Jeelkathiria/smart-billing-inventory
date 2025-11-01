@@ -6,14 +6,13 @@ $user_id  = $_SESSION['user_id'] ?? null;
 $role     = $_SESSION['role'] ?? 'cashier';
 $store_id = $_SESSION['store_id'] ?? 0;
 
-// ========================= FETCH RECENT SALES =========================
+/* ========================= FETCH RECENT SALES ========================= */
 if ($role === 'cashier') {
     $stmt = $conn->prepare("
         SELECT invoice_id, customer_name, sale_date, total_amount
         FROM sales
         WHERE created_by = ? AND store_id = ?
-        ORDER BY sale_date DESC
-        LIMIT 5
+        ORDER BY sale_date DESC LIMIT 5
     ");
     $stmt->bind_param("ii", $user_id, $store_id);
 } else {
@@ -21,15 +20,14 @@ if ($role === 'cashier') {
         SELECT invoice_id, customer_name, sale_date, total_amount
         FROM sales
         WHERE store_id = ?
-        ORDER BY sale_date DESC
-        LIMIT 5
+        ORDER BY sale_date DESC LIMIT 5
     ");
     $stmt->bind_param("i", $store_id);
 }
 $stmt->execute();
 $sales = $stmt->get_result();
 
-// ========================= SUMMARY CARDS =========================
+/* ========================= SUMMARY CARDS ========================= */
 $stmt = $conn->prepare("SELECT SUM(total_amount) AS total_sales FROM sales WHERE store_id = ?");
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
@@ -49,7 +47,6 @@ $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM products WHERE stock < 5 A
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
-
 ?>
 
 <!DOCTYPE html>
@@ -59,13 +56,17 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Store Dashboard</title>
+
+  <!-- Core Libraries -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/common.css">
 
   <style>
+  /* ========================= BASE LAYOUT ========================= */
   body {
     background: #f8f9fa;
+    overflow-x: hidden;
   }
 
   .dashboard-header {
@@ -73,6 +74,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
+    flex-wrap: wrap;
   }
 
   .dashboard-header h3 {
@@ -80,6 +82,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     color: #333;
   }
 
+  /* ========================= NEW BILLING BUTTON ========================= */
   .new-billing-btn {
     background-color: #0d6efd;
     color: #fff;
@@ -87,7 +90,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     font-weight: 500;
     border-radius: 8px;
     padding: 10px 18px;
-    transition: 0.2s;
+    transition: 0.2s ease;
   }
 
   .new-billing-btn:hover {
@@ -95,6 +98,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     transform: translateY(-2px);
   }
 
+  /* ========================= CARD STYLING ========================= */
   .card {
     border: none;
     border-radius: 14px;
@@ -114,15 +118,47 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     cursor: pointer;
   }
 
-  .alert-warning {
-    font-weight: 500;
-  }
-
+  /* ========================= TABLE STYLING ========================= */
   .table td,
   .table th {
     vertical-align: middle;
+    font-size: 0.95rem;
   }
 
+  /* ========================= RESPONSIVE LAYOUT (Laptop Optimized) ========================= */
+  @media (max-width: 1440px) {
+    .content {
+      padding: 1.5rem;
+    }
+
+    .card h3 {
+      font-size: 1.6rem;
+    }
+  }
+
+  @media (max-width: 1366px) {
+    .dashboard-header h3 {
+      font-size: 1.25rem;
+    }
+
+    .new-billing-btn {
+      padding: 8px 16px;
+      font-size: 0.9rem;
+    }
+
+    .card h3 {
+      font-size: 1.4rem;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .content {
+      margin-left: 12vw !important;
+      padding: 1.2rem;
+    }
+  }
+
+  /* ========================= SMALL SCREEN HANDLING ========================= */
   @media (max-width: 768px) {
     .content {
       margin-left: 0;
@@ -133,16 +169,14 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
 </head>
 
 <body>
-
   <!-- Navbar -->
   <?php include '../components/navbar.php'; ?>
 
   <!-- Sidebar -->
   <?php include '../components/sidebar.php'; ?>
 
-  <!-- MAIN CONTENT -->
+  <!-- ========================= MAIN CONTENT ========================= -->
   <div class="content">
-
     <!-- Dashboard Header -->
     <div class="dashboard-header">
       <h3>Welcome, <?= htmlspecialchars($_SESSION['username']) ?></h3>
@@ -176,7 +210,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
       <div class="col-md-3 col-sm-6">
         <a href="/modules/products/products.php" class="text-decoration-none">
           <div
-            class="card text-dark <?= $low_stock_count > 0 ? 'bg-warning' : 'bg-light' ?> shadow-sm card-hover text-center p-3">
+            class="card <?= $low_stock_count > 0 ? 'bg-warning text-dark' : 'bg-light text-dark' ?> shadow-sm card-hover text-center p-3">
             <i class="bi bi-exclamation-circle fs-2 mb-2"></i>
             <h6>Low Stock Alerts</h6>
             <h3><?= $low_stock_count ?></h3>
@@ -195,7 +229,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
       </div>
     </div>
 
-    <!-- Low Stock Warning -->
+    <!-- Low Stock Alert -->
     <?php if ($low_stock_count > 0): ?>
     <div class="alert alert-warning mt-4">
       <i class="bi bi-exclamation-triangle-fill me-2"></i>
@@ -248,7 +282,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- ========================= SCRIPTS ========================= -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -277,6 +311,14 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
             y: {
               beginAtZero: true
             }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              labels: {
+                color: '#333'
+              }
+            }
           }
         }
       });
@@ -285,7 +327,6 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
     }
   });
   </script>
-
 </body>
 
 </html>

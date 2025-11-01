@@ -117,73 +117,79 @@ $stmt->close();
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="/assets/css/common.css">
   <style>
+  h2 {
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2rem;
+    font-size: 2rem;
+  }
+
+  .card-custom {
+    border: none;
+    border-radius: 0.8rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    padding: 1.5rem;
+    transition: all 0.2s ease;
+  }
+
+  .card-custom:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .summary-icon {
+    font-size: 1.8rem;
+    margin-right: 1rem;
+  }
+
+  .chart-section {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+
+  .chart-card {
+    padding: 1.5rem;
+    border-radius: 0.8rem;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .btn-outline-primary {
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.8rem;
+  }
+
+  @media(max-width:768px) {
+    .chart-section {
+      grid-template-columns: 1fr;
+    }
 
     h2 {
-      font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 2rem;
-      font-size: 2rem;
+      font-size: 1.5rem;
     }
 
     .card-custom {
-      border: none;
-      border-radius: 0.8rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      background: linear-gradient(135deg, #ffffff, #f8fafc);
-      padding: 1.5rem;
-      transition: all 0.2s ease;
+      padding: 1rem;
     }
+  }
 
-    .card-custom:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-    }
-
-    .summary-icon {
-      font-size: 1.8rem;
-      margin-right: 1rem;
-    }
-
-    .chart-section {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 2rem;
-      margin-top: 2rem;
-    }
-
-    .chart-card {
-      padding: 1.5rem;
-      border-radius: 0.8rem;
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .btn-outline-primary {
-      border-radius: 0.5rem;
-      font-size: 0.85rem;
-      padding: 0.3rem 0.8rem;
-    }
-
-    @media(max-width:768px) {
-      .chart-section {
-        grid-template-columns: 1fr;
-      }
-
-      h2 {
-        font-size: 1.5rem;
-      }
-
-      .card-custom {
-        padding: 1rem;
-      }
-    }
+  /* Ensure content stays behind navbar/sidebar */
+  .content {
+    z-index: 0;
+    position: relative;
+    background-color: transparent;
+  }
   </style>
 </head>
 
@@ -191,7 +197,7 @@ $stmt->close();
   <?php include '../../components/navbar.php'; ?>
   <?php include '../../components/sidebar.php'; ?>
 
-  <div class="content">
+  <div class="content container">
     <div class="row g-3">
       <?php
       $cards = [
@@ -247,73 +253,87 @@ $stmt->close();
   </div>
 
   <script>
-    let reportChart, topChart;
+  let reportChart, topChart;
 
-    async function loadGraph(view = 'monthly') {
-      try {
-        const res = await fetch('./get_sales_chart_data.php?view=' + view);
-        const data = await res.json();
+  async function loadGraph(view = 'monthly') {
+    try {
+      const res = await fetch('./get_sales_chart_data.php?view=' + view);
+      const data = await res.json();
 
-        const ctx = document.getElementById('reportChart').getContext('2d');
-        if (reportChart) reportChart.destroy();
+      const ctx = document.getElementById('reportChart').getContext('2d');
+      if (reportChart) reportChart.destroy();
 
-        reportChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: data.dates,
-            datasets: [
-              {
-                label: 'Sales',
-                data: data.sales || [],
-                borderColor: '#007bff',
-                backgroundColor: 'rgba(0,123,255,0.1)',
-                fill: true,
-                tension: 0.3
-              },
-              {
-                label: 'Profit',
-                data: data.profit || [],
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40,167,69,0.1)',
-                fill: true,
-                tension: 0.3
-              }
-            ]
+      reportChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.dates,
+          datasets: [{
+              label: 'Sales',
+              data: data.sales || [],
+              borderColor: '#007bff',
+              backgroundColor: 'rgba(0,123,255,0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Profit',
+              data: data.profit || [],
+              borderColor: '#28a745',
+              backgroundColor: 'rgba(40,167,69,0.1)',
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top'
+            }
           },
-          options: {
-            responsive: true,
-            plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true } }
+          scales: {
+            y: {
+              beginAtZero: true
+            }
           }
-        });
-      } catch (err) {
-        console.error('Error loading chart:', err);
-      }
+        }
+      });
+    } catch (err) {
+      console.error('Error loading chart:', err);
     }
+  }
 
-    // Top Products Pie Chart
-    const productNames = <?= json_encode(array_column($top_products, 'product_name')) ?>;
-    const productQuantities = <?= json_encode(array_column($top_products, 'total_sold')) ?>;
+  const productNames = <?= json_encode(array_column($top_products, 'product_name')) ?>;
+  const productQuantities = <?= json_encode(array_column($top_products, 'total_sold')) ?>;
 
-    const pieCtx = document.getElementById('topProductsChart').getContext('2d');
-    topChart = new Chart(pieCtx, {
-      type: 'doughnut',
-      data: {
-        labels: productNames,
-        datasets: [{
-          data: productQuantities,
-          backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#20c997'],
-          borderWidth: 1
-        }]
-      },
-      options: {
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 12 } } }
+  const pieCtx = document.getElementById('topProductsChart').getContext('2d');
+  topChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: productNames,
+      datasets: [{
+        data: productQuantities,
+        backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#20c997'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            font: {
+              size: 12
+            }
+          }
         }
       }
-    });
+    }
+  });
 
-    loadGraph('last7'); // default load
+  loadGraph('last7');
   </script>
 </body>
+
 </html>

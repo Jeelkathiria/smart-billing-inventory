@@ -42,11 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ======================================================
    2️⃣ PAGINATION SETUP
 ====================================================== */
-$limit = 10; // 10 customers per page
+$limit = 10;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $limit;
 
-// Count total customers
 $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM customers WHERE store_id=?");
 $countStmt->bind_param("i", $store_id);
 $countStmt->execute();
@@ -55,7 +54,6 @@ $countStmt->close();
 
 $totalPages = ceil($total / $limit);
 
-// Fetch paginated customers
 $stmt = $conn->prepare("SELECT * FROM customers WHERE store_id=? ORDER BY created_at DESC LIMIT ?, ?");
 $stmt->bind_param("iii", $store_id, $offset, $limit);
 $stmt->execute();
@@ -76,13 +74,37 @@ $stmt->close();
 
   <style>
   body {
-    background-color: #f7f9fc;
+    background: linear-gradient(to bottom right, #f9f9fb, #f1f3f6);
+    color: #212529;
+    font-family: "Inter", "Segoe UI", sans-serif;
+  }
+
+  .navbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  .content {
+    padding: 30px;
+    margin-left: 230px;
+    transition: margin-left 0.3s ease;
+  }
+
+  .sidebar.collapsed~.content {
+    margin-left: 70px;
+  }
+
+  @media (max-width: 991px) {
+    .content {
+      margin-left: 0 !important;
+      padding: 20px;
+    }
   }
 
   .card {
     border: none;
     border-radius: 16px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
     overflow: hidden;
   }
 
@@ -195,7 +217,7 @@ $stmt->close();
   <?php include '../../components/navbar.php'; ?>
   <?php include '../../components/sidebar.php'; ?>
 
-  <div class="content container">
+  <div class="content mt-5">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-people-fill me-2"></i> Customer Records</span>

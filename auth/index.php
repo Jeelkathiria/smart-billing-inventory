@@ -21,12 +21,12 @@ function sendOTP($email, $otp)
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = 587;
 
-        $mail->setFrom('testing992017@gmail.com', 'SmartBiz Verification');
+        $mail->setFrom('testing992017@gmail.com', 'BillMitra Verification');
         $mail->addAddress($email);
         $mail->isHTML(true);
-        $mail->Subject = "SmartBiz OTP Verification";
+        $mail->Subject = "BillMitra OTP Verification";
         $mail->Body = "
-            <h3>Your SmartBiz OTP is <b>$otp</b></h3>
+            <h3>Your BillMitra OTP is <b>$otp</b></h3>
             <p>Valid for 3 minutes. Please do not share it.</p>
         ";
         $mail->send();
@@ -134,96 +134,360 @@ if (isset($_POST['check_username'])) {
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <title>SmartBiz – Smart Billing & Inventory</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>BillMitra – Billing & Inventory Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-  body {
-    background: #f8f9fa;
-    scroll-behavior: smooth;
+  :root {
+    --accent: #007bff;
+    --muted: #6c757d;
+    --card: #ffffff;
+    --bg: #f7f9fc;
+    --glass: rgba(255, 255, 255, 0.7);
+    --radius: 12px;
   }
 
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background: linear-gradient(180deg, var(--bg), #ffffff 40%);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color: #1f2937;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* NAV */
+  .navbar {
+    background: transparent;
+    padding: 0.75rem 0;
+    transition: all .25s ease;
+  }
+
+  .navbar.scrolled {
+    background: #fff;
+    box-shadow: 0 6px 24px rgba(18, 38, 63, 0.06);
+  }
+
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none
+  }
+
+  .brand-logo svg {
+    height: 36px;
+    width: 36px
+  }
+
+  /* HERO */
+  .hero {
+    padding: 110px 0 40px;
+  }
+
+  .hero-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.85));
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(18, 38, 63, 0.06);
+    padding: 28px;
+  }
+
+  .hero-title {
+    font-size: 2.1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .hero-sub {
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .cta-btn {
+    border-radius: 10px;
+    padding: .65rem 1.0rem;
+    font-weight: 600;
+  }
+
+  /* Features */
+  .features {
+    padding: 40px 0 70px;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(18, 38, 63, 0.04);
+    transition: transform .28s ease, box-shadow .28s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 18px 45px rgba(18, 38, 63, 0.06);
+  }
+
+  /* Dashboard mock */
+  .mock {
+    width: 100%;
+    height: 320px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #ffffff, #f3f6fb);
+    border: 1px solid rgba(15, 23, 42, 0.04);
+    box-shadow: 0 10px 30px rgba(18, 38, 63, 0.04);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .mock .panel {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.04);
+  }
+
+  .mock .left {
+    left: 16px;
+    top: 18px;
+    width: 45%;
+    height: 75%;
+  }
+
+  .mock .right {
+    right: 16px;
+    top: 18px;
+    width: 40%;
+    height: 75%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mock .bar {
+    height: 10px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent), #4aa3ff);
+    width: 60%;
+    margin: 6px 0;
+  }
+
+  .mock .row {
+    height: 42px;
+    background: rgba(10, 20, 40, 0.02);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Auth modal (custom) */
   .auth-section {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(10, 20, 40, 0.45);
     z-index: 9998;
     justify-content: center;
     align-items: center;
+    padding: 18px;
   }
 
   .auth-box {
-    background: #fff;
-    padding: 30px;
-    border-radius: 12px;
-    max-width: 420px;
     width: 100%;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    max-width: 520px;
+    border-radius: 12px;
+    background: var(--glass);
+    backdrop-filter: blur(6px);
+    padding: 22px;
+    box-shadow: 0 18px 60px rgba(2, 6, 23, 0.08);
   }
 
-  small.text-danger {
-    display: block;
-    margin-top: 3px;
+  .auth-logo {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: 10px;
+  }
+
+  .auth-logo svg {
+    height: 36px;
+    width: 36px
+  }
+
+  /* Small screens */
+  @media (max-width:991px) {
+    .mock {
+      height: 240px
+    }
+
+    .hero-title {
+      font-size: 1.6rem;
+    }
+  }
+
+  /* Small UI niceties */
+  .help-text {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  footer {
+    padding: 28px 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .pill {
+    background: #f1f5ff;
+    color: var(--accent);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-weight: 600;
     font-size: 13px;
   }
 
-  #otpModal {
-    z-index: 10000 !important;
+  /* simple fade in */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .6s cubic-bezier(.2, .8, .2, 1);
   }
 
-  #successModal {
-    z-index: 10550 !important;
-  }
-
-  /* Toast positioning */
-  .toast-container {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    z-index: 20000;
-  }
-
-    #forgotLink:hover {
-    color: #82a8e1ff !important;
-    text-decoration: none;
+  .fade-up.visible {
+    opacity: 1;
+    transform: none;
   }
   </style>
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
-    <div class="container">
-      <a class="navbar-brand fw-bold text-primary" href="#">SmartBiz</a>
-      <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span
-          class="navbar-toggler-icon"></span></button>
-      <div class="collapse navbar-collapse" id="nav">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><button class="btn btn-primary ms-2" onclick="openAuth()">Login / Register</button></li>
-        </ul>
+  <!-- NAVBAR -->
+  <nav class="navbar fixed-top">
+    <div class="container d-flex align-items-center justify-content-between">
+      <a href="#" class="brand-logo">
+        <!-- Simple SVG logo placeholder: replace with your SVG file if you have one -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+          <rect x="4" y="8" width="40" height="32" rx="6" fill="#E9F2FF" />
+          <path d="M12 30v-8h8v8H12zM28 30v-12h8v12h-8z" fill="#007bff" />
+        </svg>
+        BillMitra
+      </a>
+
+      <div>
+        <button class="btn btn-outline-primary btn-sm me-2" onclick="scrollToFeatures()">Explore Features</button>
+        <button class="btn btn-primary btn-sm cta-btn" onclick="openAuth('login')">Login / Register</button>
       </div>
     </div>
   </nav>
 
-  <section class="hero text-center text-white"
-    style="background:linear-gradient(135deg,#6f42c1,#6610f2);padding:120px 0;">
+  <!-- HERO -->
+  <section class="hero">
     <div class="container">
-      <h1>Smart Billing & Inventory Management</h1>
-      <p class="lead mt-3">Automate your store operations efficiently — for free.</p>
-      <button class="btn btn-light btn-lg mt-4" onclick="openAuth()">Get Started</button>
+      <div class="row align-items-center g-4">
+        <div>
+          <div class="hero-card fade-up" data-uid="1">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="pill">Billing & Inventory</div>
+                <h2 class="hero-title mt-3">Simplify your billing and inventory management</h2>
+                <p class="hero-sub">Fast invoices, real-time stock, and clear profit reports — designed for small and
+                  medium stores in India.</p>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary cta-btn" onclick="openAuth('register')">Get Started</button>
+                  <a class="btn btn-outline-secondary cta-btn" href="#features">See Features</a>
+                </div>
+              </div>
+              <div class="text-end help-text d-none d-lg-block" style="min-width:120px;">
+                <div style="font-weight:700; font-size:18px;">Trusted by stores</div>
+                <div style="margin-top:8px;">Easy setup • Multi-role access • Secure</div>
+              </div>
+            </div>
+            <div style="margin-top:18px;" class="help-text">Sign up quickly and verify via email OTP. No credit card
+              required to try.</div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- Authentication Modal -->
+  <!-- FEATURES -->
+  <section id="features" class="features">
+    <div class="container">
+      <h3 class="mb-4 text-center">What BillMitra offers</h3>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="feature-card p-4 text-center fade-up" data-uid="3">
+            <i class="bi bi-receipt" style="font-size:28px;color:var(--accent)"></i>
+            <h5 class="mt-3">Smart Billing</h5>
+            <p class="help-text">Live invoice creation, barcode scanning, tax & discount calculations, and printable
+              invoices.</p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="feature-card p-4 text-center fade-up" data-uid="4">
+            <i class="bi bi-box-seam" style="font-size:28px;color:var(--accent)"></i>
+            <h5 class="mt-3">Inventory Management</h5>
+            <p class="help-text">Category-based stock, auto deduction on sale and low-stock alerts.</p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="feature-card p-4 text-center fade-up" data-uid="5">
+            <i class="bi bi-graph-up" style="font-size:28px;color:var(--accent)"></i>
+            <h5 class="mt-3">Profit & Reports</h5>
+            <p class="help-text">Daily/monthly/yearly summaries, tax breakdowns, and profit analysis charts.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center">
+      <div>&copy; <?= date('Y') ?> BillMitra. All rights reserved.</div>
+      <div class="mt-2 mt-md-0 help-text">Built for Indian stores — simple, secure, and fast.</div>
+    </div>
+  </footer>
+
+  <!-- AUTH SECTION (modal-style) -->
   <section class="auth-section" id="auth">
     <div class="auth-box">
-      <button class="btn-close float-end mb-2" onclick="closeAuth()"></button>
-      <ul class="nav nav-tabs mb-4 justify-content-center">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab"
-            data-bs-target="#loginTab">Login</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab"
-            data-bs-target="#registerTab">Register</button></li>
+      <div class="auth-logo">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+          <rect x="4" y="8" width="40" height="32" rx="6" fill="#E9F2FF" />
+          <path d="M12 30v-8h8v8H12zM28 30v-12h8v12h-8z" fill="#007bff" />
+        </svg>
+        <div>
+          <div style="font-weight:700">BillMitra</div>
+          <div class="help-text">Billing & Inventory</div>
+        </div>
+      </div>
+
+      <button type="button" class="btn-close float-end" aria-label="Close" onclick="closeAuth()"></button>
+
+      <ul class="nav nav-tabs mt-2 mb-3" role="tablist">
+        <li class="nav-item">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#loginTab" type="button">Login</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#registerTab" type="button">Register</button>
+        </li>
       </ul>
 
       <div class="tab-content">
@@ -232,58 +496,64 @@ if (isset($_POST['check_username'])) {
           <?php if(isset($_GET['login_error'])): ?>
           <div class="alert alert-danger"><?= htmlspecialchars($_GET['login_error']) ?></div>
           <?php endif; ?>
-          <form method="POST">
-            <input type="text" name="username" class="form-control mb-3" placeholder="Username" required>
-            <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
-            <div class="text-center mt-2">
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-            <a href="#" id="forgotLink" class="text-primary" 
-              style="font-size:14px; text-decoration:none; color:#0d6efd;">
-              Forgot Password?
-            </a>
-          </div>
-          </div>
-
+          <form method="POST" style="margin-top:6px;">
+            <div class="mb-2">
+              <label class="form-label small">Username</label>
+              <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Password</label>
+              <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="help-text small">Not registered? Switch to Register tab.</div>
+              <a href="#" id="forgotLink" class="help-text" style="text-decoration:none"
+                onclick="openForgot(event)">Forgot?</a>
+            </div>
             <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
           </form>
         </div>
 
         <!-- REGISTER -->
         <div class="tab-pane fade" id="registerTab">
-          <form method="POST" id="registerForm">
+          <form method="POST" id="registerForm" style="margin-top:6px;">
             <input type="hidden" name="register_ajax" value="1">
-
-            <div class="mb-3">
-              <label class="fw-semibold">Select Role</label>
+            <div class="mb-2">
+              <label class="form-label small">Role</label>
               <select name="role" id="roleSelect" class="form-select" required>
-                <option value="" disabled selected>Choose Role</option>
+                <option value="" disabled selected>Choose role</option>
                 <option value="admin">Admin (Create Store)</option>
                 <option value="manager">Manager</option>
                 <option value="cashier">Cashier</option>
               </select>
-              <small id="roleError" class="text-danger"></small>
             </div>
 
-            <div id="adminFields">
-              <input type="text" name="store_name" class="form-control mb-2" placeholder="Store Name">
-              <input type="email" name="store_email" class="form-control mb-2" placeholder="Store Email">
-              <input type="text" name="contact_number" class="form-control mb-2" placeholder="Contact Number">
+            <div id="adminFields" style="display:none;">
+              <div class="mb-2"><input type="text" name="store_name" class="form-control" placeholder="Store Name">
+              </div>
+              <div class="mb-2"><input type="email" name="store_email" class="form-control" placeholder="Store Email">
+              </div>
+              <div class="mb-2"><input type="text" name="contact_number" class="form-control"
+                  placeholder="Contact Number"></div>
             </div>
 
             <div id="employeeFields" style="display:none;">
-              <input type="text" name="store_code" class="form-control mb-2" placeholder="Store Code">
+              <div class="mb-2"><input type="text" name="store_code" class="form-control" placeholder="Store Code">
+              </div>
             </div>
 
-            <input type="text" name="username" id="usernameInput" class="form-control mb-2" placeholder="Username"
-              required>
-            <small id="usernameMsg" class="text-danger"></small>
-
-            <input type="email" name="email" id="emailInput" class="form-control mb-2" placeholder="Personal Email"
-              required>
-            <small id="emailMsg" class="text-danger"></small>
-
-            <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
-            <small id="passwordError" class="text-danger"></small>
+            <div class="mb-2"><input type="text" name="username" id="usernameInput" class="form-control"
+                placeholder="Username" required>
+              <small id="usernameMsg" class="text-danger"></small>
+            </div>
+            <div class="mb-2"><input type="email" name="email" id="emailInput" class="form-control" placeholder="Email"
+                required>
+              <small id="emailMsg" class="text-danger"></small>
+            </div>
+            <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
+                required>
+              <small id="passwordError" class="text-danger"></small>
+            </div>
 
             <button type="submit" id="registerBtn" class="btn btn-success w-100">Register</button>
           </form>
@@ -293,25 +563,25 @@ if (isset($_POST['check_username'])) {
   </section>
 
   <!-- OTP Modal -->
-  <div class="modal fade" id="otpModal" tabindex="-1">
+  <div class="modal fade" id="otpModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content p-4 text-center">
-        <h5 class="fw-bold mb-3">Verify Your Email</h5>
-        <p>Enter the 6-digit OTP sent to your email.</p>
+        <h5 class="fw-bold mb-2">Verify your email</h5>
+        <p class="help-text">Enter the 6-digit OTP sent to your email.</p>
         <input type="text" id="otpInput" maxlength="6" class="form-control text-center mb-3" placeholder="Enter OTP">
         <div id="otpMessage" class="text-danger mb-2"></div>
-        <button id="verifyOtpBtn" class="btn btn-primary w-100 mb-2">Verify OTP</button>
-        <small id="timerText">Resend in 40s</small><br>
+        <button id="verifyOtpBtn" class="btn btn-primary w-100 mb-2">Verify</button>
+        <small id="timerText" class="help-text">Resend in 40s</small><br>
         <button id="resendBtn" class="btn btn-link p-0 mt-2" disabled>Resend OTP</button>
       </div>
     </div>
   </div>
 
-  <!-- ✅ Success Modal -->
-  <div class="modal fade" id="successModal" tabindex="-1">
+  <!-- Success Modal -->
+  <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content p-4 text-center">
-        <h5 class="fw-bold mb-3 text-success">✅ Registration Successful!</h5>
+        <h5 class="fw-bold mb-2 text-success">Registration Successful</h5>
         <div id="userDetails" class="mb-3 text-start"></div>
         <button class="btn btn-success w-100" id="okSuccessBtn" data-bs-dismiss="modal">OK</button>
       </div>
@@ -319,45 +589,72 @@ if (isset($_POST['check_username'])) {
   </div>
 
   <!-- Forgot Password Modal -->
-<div class="modal fade" id="forgotModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content p-4 text-center">
-      <h5 class="fw-bold mb-3">Reset Your Password</h5>
-      <input type="email" id="forgotEmail" class="form-control mb-2" placeholder="Enter your registered email">
-      <div id="forgotMessage" class="text-danger mb-2"></div>
-      <button id="sendResetOtpBtn" class="btn btn-primary w-100 mb-2">Send OTP</button>
+  <div class="modal fade" id="forgotModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content p-4 text-center">
+        <h5 class="fw-bold mb-2">Reset your password</h5>
+        <input type="email" id="forgotEmail" class="form-control mb-2" placeholder="Your registered email">
+        <div id="forgotMessage" class="text-danger mb-2"></div>
+        <button id="sendResetOtpBtn" class="btn btn-primary w-100 mb-2">Send OTP</button>
 
-      <div id="resetSection" style="display:none;">
-        <input type="text" id="resetOtpInput" maxlength="6" class="form-control text-center mb-2" placeholder="Enter OTP">
-        <input type="password" id="newPassword" class="form-control mb-2" placeholder="New Password">
-        <button id="resetPasswordBtn" class="btn btn-success w-100">Reset Password</button>
+        <div id="resetSection" style="display:none;">
+          <input type="text" id="resetOtpInput" maxlength="6" class="form-control text-center mb-2"
+            placeholder="Enter OTP">
+          <input type="password" id="newPassword" class="form-control mb-2" placeholder="New password">
+          <button id="resetPasswordBtn" class="btn btn-success w-100">Reset Password</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-
-  <!-- Toast for Store Exists -->
-  <div class="toast-container">
-    <div id="storeToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+  <!-- Toast for store exists -->
+  <div style="position:fixed; top:1rem; right:1rem; z-index:22000;">
+    <div id="storeToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive"
+      aria-atomic="true" style="display:none;">
       <div class="d-flex">
         <div class="toast-body">Store already exists!</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="$('#storeToast').hide()"></button>
       </div>
     </div>
   </div>
 
+  <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script>
-  function openAuth() {
+  // simple scroll-into features
+  function scrollToFeatures() {
+    document.getElementById('features').scrollIntoView({
+      behavior: 'smooth'
+    });
+  }
+
+  // show/hide auth
+  function openAuth(tab) {
     $('#auth').css('display', 'flex');
+    if (tab === 'register') {
+      const tabEl = document.querySelector('[data-bs-target="#registerTab"]');
+      new bootstrap.Tab(tabEl).show();
+    } else {
+      const tabEl = document.querySelector('[data-bs-target="#loginTab"]');
+      new bootstrap.Tab(tabEl).show();
+    }
+    // animate visible
+    setTimeout(runFadeUps, 40);
   }
 
   function closeAuth() {
     $('#auth').hide();
   }
 
+  function openForgot(e) {
+    if (e) e.preventDefault();
+    closeAuth();
+    const fm = new bootstrap.Modal(document.getElementById('forgotModal'));
+    fm.show();
+  }
+
+  // role select toggle
   $('#roleSelect').on('change', function() {
     if (this.value === 'admin') {
       $('#adminFields').show();
@@ -378,7 +675,7 @@ if (isset($_POST['check_username'])) {
     }, res => {
       const data = JSON.parse(res);
       if (data.exists) {
-        $('#usernameMsg').text('Username already exists ❌');
+        $('#usernameMsg').text('Username already exists');
         $('#registerBtn').prop('disabled', true);
       } else {
         $('#usernameMsg').text('');
@@ -387,56 +684,10 @@ if (isset($_POST['check_username'])) {
     });
   });
 
-  // Verify OTP
-  $('#verifyOtpBtn').click(() => {
-    const otp = $('#otpInput').val().trim();
-    if (!otp) return $('#otpMessage').text('Please enter OTP');
-
-    $('#otpMessage').text('Verifying...');
-
-    $.post('verify_otp.php', {
-        otp
-      })
-      .done(res => {
-        let data;
-        try {
-          data = typeof res === 'object' ? res : JSON.parse(res);
-        } catch {
-          $('#otpMessage').text('❌ Server error');
-          return;
-        }
-
-        if (data.status === 'success') {
-          $('#otpMessage').removeClass('text-danger').addClass('text-success').text('✅ OTP Verified!');
-          setTimeout(() => {
-            const otpModal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
-            otpModal.hide();
-            $('#userDetails').html(`
-              <p><b>Username:</b> ${data.username}</p>
-              <p><b>Email:</b> ${data.email}</p>
-              <p><b>Role:</b> ${data.role}</p>
-              ${data.store_code ? `<p><b>Store Code:</b> ${data.store_code}</p>` : ''}
-            `);
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-            successModal.show();
-          }, 1000);
-        } else if (data.status === 'invalid_otp') {
-          $('#otpMessage').text('❌ OTP is not valid');
-        } else if (data.status === 'session_expired') {
-          $('#otpMessage').text('⚠️ Session expired, please register again.');
-        } else {
-          $('#otpMessage').text('❌ Something went wrong');
-        }
-      })
-      .fail(() => $('#otpMessage').text('❌ Network error'));
-  });
-
-  // Register Submit
+  // Register Submit (AJAX to existing index.php)
   $('#registerForm').on('submit', function(e) {
     e.preventDefault();
-
     $('small.text-danger').text('');
-
     $.ajax({
       url: 'index.php',
       method: 'POST',
@@ -444,7 +695,6 @@ if (isset($_POST['check_username'])) {
       success: function(response) {
         try {
           const res = JSON.parse(response);
-
           if (res.status === 'otp_sent') {
             const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
             otpModal.show();
@@ -454,7 +704,7 @@ if (isset($_POST['check_username'])) {
             resendBtn.prop('disabled', true);
             const countdown = setInterval(() => {
               timer--;
-              timerText.text(`Resend in ${timer}s`);
+              timerText.text('Resend in ' + timer + 's');
               if (timer <= 0) {
                 clearInterval(countdown);
                 resendBtn.prop('disabled', false);
@@ -462,16 +712,14 @@ if (isset($_POST['check_username'])) {
               }
             }, 1000);
           } else if (res.status === 'username_exists') {
-            $('#usernameMsg').text('Username already exists ❌');
+            $('#usernameMsg').text('Username already exists');
           } else if (res.status === 'email_exists') {
-            $('#emailMsg').text('Email already exists ❌');
+            $('#emailMsg').text('Email already exists');
           } else if (res.status === 'store_exists') {
-            const toast = new bootstrap.Toast(document.getElementById('storeToast'));
-            toast.show();
+            $('#storeToast').show();
           } else {
             alert('Something went wrong: ' + res.status);
           }
-
         } catch {
           console.error('Invalid JSON:', response);
         }
@@ -482,77 +730,130 @@ if (isset($_POST['check_username'])) {
     });
   });
 
-  // Redirect to login on success OK
+  // Verify OTP (calls your verify_otp.php)
+  $('#verifyOtpBtn').click(() => {
+    const otp = $('#otpInput').val().trim();
+    if (!otp) return $('#otpMessage').text('Please enter OTP');
+
+    $('#otpMessage').text('Verifying...');
+    $.post('verify_otp.php', {
+        otp
+      })
+      .done(res => {
+        let data;
+        try {
+          data = typeof res === 'object' ? res : JSON.parse(res);
+        } catch {
+          $('#otpMessage').text('Server error');
+          return;
+        }
+        if (data.status === 'success') {
+          $('#otpMessage').removeClass('text-danger').addClass('text-success').text('OTP Verified');
+          setTimeout(() => {
+            const otpModal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
+            if (otpModal) otpModal.hide();
+            $('#userDetails').html(
+              `<p><b>Username:</b> ${data.username}</p><p><b>Email:</b> ${data.email}</p>`);
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            successModal.show();
+          }, 700);
+        } else if (data.status === 'invalid_otp') {
+          $('#otpMessage').text('Invalid OTP');
+        } else if (data.status === 'session_expired') {
+          $('#otpMessage').text('Session expired, register again');
+        } else {
+          $('#otpMessage').text('Something went wrong');
+        }
+      })
+      .fail(() => $('#otpMessage').text('Network error'));
+  });
+
+  // Forgot password flow
+  $('#sendResetOtpBtn').click(function() {
+    const email = $('#forgotEmail').val().trim();
+    if (!email) return $('#forgotMessage').text('Enter your email');
+    $('#forgotMessage').text('Sending OTP...');
+    $.post('forgot_password.php', {
+      action: 'send_otp',
+      email
+    }, res => {
+      try {
+        const data = JSON.parse(res);
+        if (data.status === 'otp_sent') {
+          $('#forgotMessage').text('OTP sent to your email');
+          $('#resetSection').slideDown();
+        } else if (data.status === 'email_not_found') {
+          $('#forgotMessage').text('Email not registered');
+        } else {
+          $('#forgotMessage').text('Error sending OTP');
+        }
+      } catch {
+        $('#forgotMessage').text('Server error');
+      }
+    });
+  });
+
+  $('#resetPasswordBtn').click(function() {
+    const otp = $('#resetOtpInput').val().trim();
+    const newPassword = $('#newPassword').val().trim();
+    if (!otp || !newPassword) return $('#forgotMessage').text('Please fill all fields');
+    $('#forgotMessage').text('Verifying...');
+    $.post('forgot_password.php', {
+      action: 'verify_otp',
+      otp,
+      newPassword
+    }, res => {
+      try {
+        const data = JSON.parse(res);
+        if (data.status === 'success') {
+          $('#forgotMessage').removeClass('text-danger').addClass('text-success').text(
+            'Password reset successfully');
+          setTimeout(() => {
+            const m = bootstrap.Modal.getInstance(document.getElementById('forgotModal'));
+            if (m) m.hide();
+          }, 900);
+        } else if (data.status === 'invalid_otp') {
+          $('#forgotMessage').text('Invalid OTP');
+        } else if (data.status === 'expired') {
+          $('#forgotMessage').text('OTP expired');
+        } else {
+          $('#forgotMessage').text('Something went wrong');
+        }
+      } catch {
+        $('#forgotMessage').text('Server error');
+      }
+    });
+  });
+
+  // small UI: animate elements on scroll / appear
+  function runFadeUps() {
+    document.querySelectorAll('.fade-up').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), 80 * (i + 1));
+    });
+  }
+  // run on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    runFadeUps();
+    // navbar background on scroll
+    window.addEventListener('scroll', function() {
+      document.querySelector('.navbar').classList.toggle('scrolled', window.scrollY > 10);
+    });
+  });
+
+  // allow resend click (calls server resend - this requires endpoint if needed)
+  $('#resendBtn').click(function() {
+    // If you have an endpoint to resend stored OTP in session, call it here.
+    // Currently, we just show text and disable button to avoid spam.
+    $(this).prop('disabled', true).text('Resent');
+    setTimeout(() => $(this).prop('disabled', false).text('Resend OTP'), 4000);
+  });
+
+  // after success OK, show login tab and clear fields
   $('#okSuccessBtn').click(function() {
-    $('#auth').show();
-    const authTabs = new bootstrap.Tab(document.querySelector('[data-bs-target="#loginTab"]'));
-    authTabs.show();
-     // Clear registration fields
-      document.querySelectorAll('#registerForm input').forEach(input => input.value = '');
+    openAuth('login');
+    document.querySelectorAll('#registerForm input').forEach(i => i.value = '');
+    $('#otpInput').val('');
   });
-
-  // Open forgot password modal
-$('#forgotLink').click(function(e) {
-  e.preventDefault();
-  const modal = new bootstrap.Modal(document.getElementById('forgotModal'));
-  modal.show();
-  $('#forgotMessage').text('');
-  $('#resetSection').hide();
-  $('#forgotEmail').val('');
-});
-
-// Send reset OTP
-$('#sendResetOtpBtn').click(function() {
-  const email = $('#forgotEmail').val().trim();
-  if (!email) return $('#forgotMessage').text('Enter your email');
-
-  $('#forgotMessage').text('Sending OTP...');
-  $.post('forgot_password.php', { action: 'send_otp', email }, res => {
-    try {
-      const data = JSON.parse(res);
-      if (data.status === 'otp_sent') {
-        $('#forgotMessage').text('OTP sent to your email ✔');
-        $('#resetSection').slideDown();
-      } else if (data.status === 'email_not_found') {
-        $('#forgotMessage').text('Email not registered ❌');
-      } else {
-        $('#forgotMessage').text('Error sending OTP');
-      }
-    } catch {
-      $('#forgotMessage').text('Server error');
-    }
-  });
-});
-
-// Reset password
-$('#resetPasswordBtn').click(function() {
-  const otp = $('#resetOtpInput').val().trim();
-  const newPassword = $('#newPassword').val().trim();
-  if (!otp || !newPassword) return $('#forgotMessage').text('Please fill all fields');
-
-  $('#forgotMessage').text('Verifying...');
-  $.post('forgot_password.php', { action: 'verify_otp', otp, newPassword }, res => {
-    try {
-      const data = JSON.parse(res);
-      if (data.status === 'success') {
-        $('#forgotMessage').removeClass('text-danger').addClass('text-success').text('Password reset successfully ✔');
-        setTimeout(() => {
-          const modal = bootstrap.Modal.getInstance(document.getElementById('forgotModal'));
-          modal.hide();
-        }, 1200);
-      } else if (data.status === 'invalid_otp') {
-        $('#forgotMessage').text('Invalid OTP ❌');
-      } else if (data.status === 'expired') {
-        $('#forgotMessage').text('OTP expired ⏰');
-      } else {
-        $('#forgotMessage').text('Something went wrong');
-      }
-    } catch {
-      $('#forgotMessage').text('Server error');
-    }
-  });
-});
-
   </script>
 </body>
 
