@@ -46,8 +46,7 @@ $labels = [
   /* ---------------- Global Layout ---------------- */
   body {
     background: #f8f9fa;
-    color: #212529;
-    font-family: "Inter", "Segoe UI", sans-serif;
+    overflow-x: hidden;
   }
 
   .content {
@@ -269,14 +268,20 @@ $labels = [
       <h5><strong>Total:</strong> ₹<span id="totalAmount">0.00</span></h5>
 
       <div class="d-flex justify-content-end gap-2 mt-3">
-        <button class="btn btn-secondary" id="saveOnlyBtn">
+        <button class="btn btn-secondary" id="saveOnlyBtn" data-bs-toggle="tooltip" data-bs-trigger="hover"
+          data-bs-placement="top" title="Invoice will NOT be printed. It will only be saved in the database.">
           <i class="bi bi-save2"></i> Save Only
         </button>
-        <button class="btn btn-primary" id="generateInvoiceBtn">
+
+        <button class="btn btn-primary" id="generateInvoiceBtn" data-bs-toggle="tooltip" data-bs-trigger="hover"
+          data-bs-placement="top" title="Invoice will be saved AND a printable PDF/receipt will be generated.">
           <i class="bi bi-file-earmark-text"></i> Generate Invoice
         </button>
+
       </div>
+
     </div>
+  </div>
   </div>
 
   <!-- Success Toast -->
@@ -526,6 +531,13 @@ $labels = [
     // ✅ Attach Events
     $('generateInvoiceBtn').addEventListener('click', () => processCheckout(true));
     $('saveOnlyBtn').addEventListener('click', () => processCheckout(false));
+  });
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
   });
   </script>
 </body>

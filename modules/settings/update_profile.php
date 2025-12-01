@@ -36,8 +36,12 @@ $stmt = $conn->prepare("UPDATE users
                         WHERE user_id = ? AND store_id = ?");
 $stmt->bind_param("ssii", $username, $email, $user_id, $store_id);
 
-
 if ($stmt->execute()) {
+
+    // INSTANT UPDATE SESSION
+    $_SESSION['username'] = $username;
+    $_SESSION['email']    = $email;
+
     echo json_encode(['success' => true, 'msg' => 'Profile updated successfully']);
 } else {
     echo json_encode(['success' => false, 'msg' => 'Database update failed: ' . $conn->error]);

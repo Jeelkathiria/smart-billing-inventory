@@ -74,9 +74,8 @@ $stmt->close();
 
   <style>
   body {
-    background: linear-gradient(to bottom right, #f9f9fb, #f1f3f6);
-    color: #212529;
-    font-family: "Inter", "Segoe UI", sans-serif;
+    background: #f8f9fa;
+    overflow-x: hidden;
   }
 
   .navbar {
@@ -226,7 +225,7 @@ $stmt->close();
 
       <div class="search-wrapper">
         <i class="bi bi-search search-icon"></i>
-        <input type="text" id="searchInput" placeholder="🔍 Search by Name, Mobile, or Email" class="form-control">
+        <input type="text" id="searchInput" placeholder="Search by Name, Mobile, or Email" class="form-control">
       </div>
 
       <div class="card-body table-responsive">

@@ -350,11 +350,6 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         console.error(`❌ Error submitting ${formId}:`, err);
         showModalMessage(form, 'Network or server error. Please try again.', 'danger');
       }
-
-      if (res.success) {
-    alert('Store updated successfully!');
-    location.reload(); // reloads the page to reflect new store name
-}
     });
   }
 
@@ -381,7 +376,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       fd.append('current_password', document.querySelector('[name="current_password"]').value);
 
       try {
-        const res = await fetch('update_password.php', {
+        const res = await fetch('/modules/settings/update_password.php', {
           method: 'POST',
           body: fd
         });
