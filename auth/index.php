@@ -493,9 +493,6 @@ if (isset($_POST['check_username'])) {
       <div class="tab-content">
         <!-- LOGIN -->
         <div class="tab-pane fade show active" id="loginTab">
-          <?php if(isset($_GET['login_error'])): ?>
-          <div class="alert alert-danger"><?= htmlspecialchars($_GET['login_error']) ?></div>
-          <?php endif; ?>
           <form method="POST" style="margin-top:6px;">
             <div class="mb-2">
               <label class="form-label small">Username</label>
@@ -617,6 +614,36 @@ if (isset($_POST['check_username'])) {
       </div>
     </div>
   </div>
+
+  <!-- Toast Area for Login Error -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 3000;">
+  <div id="loginErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="loginErrorMsg">
+        <!-- message comes from PHP -->
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<?php if (isset($_GET['login_error'])): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Show toast
+    document.getElementById('loginErrorMsg').textContent = "<?= htmlspecialchars($_GET['login_error']) ?>";
+    const toast = new bootstrap.Toast(document.getElementById('loginErrorToast'));
+    toast.show();
+
+    // Remove the login_error parameter from URL so toast doesn't repeat
+    const url = new URL(window.location);
+    url.searchParams.delete('login_error');
+    window.history.replaceState({}, document.title, url);
+});
+</script>
+<?php endif; ?>
+
+
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -47,6 +47,23 @@ $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM products WHERE stock < 5 A
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
+
+//Todays invoice count by respective cashier
+$today = date('Y-m-d');
+$cashier_id = $_SESSION['user_id']; // logged-in cashier
+
+$stmt = $conn->prepare("SELECT COUNT(*) AS sales_count 
+                        FROM sales 
+                        WHERE DATE(sale_date) = ? 
+                          AND store_id = ? 
+                          AND created_by = ?");
+$stmt->bind_param("sii", $today, $store_id, $cashier_id);
+$stmt->execute();
+$todayRes = $stmt->get_result()->fetch_assoc();
+$todaySalesCount = $todayRes['sales_count'] ?? 0;
+$stmt->close();
+
+
 ?>
 
 <!DOCTYPE html>
@@ -218,6 +235,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
         </a>
       </div>
 
+      <?php if (in_array($_SESSION['role'], ['admin', 'manager'])): ?>
       <div class="col-md-3 col-sm-6">
         <a href="/modules/sales/sales.php" class="text-decoration-none">
           <div class="card text-white bg-dark shadow-sm text-center p-3 card-hover">
@@ -227,15 +245,45 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
           </div>
         </a>
       </div>
+      <?php endif; ?>
+
+
+<?php if ($_SESSION['role'] === 'cashier'): ?>
+    <!-- Cashier: Invoices Today -->
+    <div class="col-md-3 col-sm-6">
+        <a href="/modules/sales/sales.php" class="text-decoration-none">
+            <div class="card text-white bg-dark shadow-sm text-center p-3 card-hover">
+                <i class="bi bi-receipt-cutoff fs-2 mb-2"></i>
+                <h6>Invoices Today</h6>
+                <h3><?= $todaySalesCount; ?></h3>
+            </div>
+        </a>
+    </div>
+<?php endif; ?>
+
+
     </div>
 
     <!-- Low Stock Alert -->
     <?php if ($low_stock_count > 0): ?>
+
+    <?php if (in_array($_SESSION['role'], ['admin', 'manager'])): ?>
+    <!-- Admin/Manager Message -->
     <div class="alert alert-warning mt-4">
       <i class="bi bi-exclamation-triangle-fill me-2"></i>
       <?= $low_stock_count ?> product(s) have low stock. Please restock soon.
     </div>
+
+    <?php elseif ($_SESSION['role'] === 'cashier'): ?>
+    <!-- Cashier Message -->
+    <div class="alert alert-warning mt-4">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      <?= $low_stock_count ?> product(s) have low stock. Please tell admin or manager to restock.
+    </div>
     <?php endif; ?>
+
+    <?php endif; ?>
+
 
     <!-- Recent Billings -->
     <div class="card shadow-sm mt-5">
@@ -269,6 +317,7 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
       </div>
     </div>
 
+    <?php if ($_SESSION['role'] !== 'cashier'): ?>
     <!-- Sales Chart -->
     <div class="card shadow-sm my-4">
       <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -280,53 +329,54 @@ $low_stock_count = $stmt->get_result()->fetch_assoc()['total'];
         </div>
       </div>
     </div>
-  </div>
+    <?php endif; ?>
 
-  <!-- ========================= SCRIPTS ========================= -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const res = await fetch("/modules/reports/get_sales_chart_data.php");
-      const data = await res.json();
+    <!-- ========================= SCRIPTS ========================= -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-      const ctx = document.getElementById("salesChart").getContext("2d");
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: data.dates,
-          datasets: [{
-            label: "Sales (₹)",
-            data: data.sales,
-            borderColor: "#0d6efd",
-            backgroundColor: "rgba(13,110,253,0.1)",
-            tension: 0.3,
-            fill: true
-          }]
-        },
-        options: {
-          scales: {
-            y: {
-              beginAtZero: true
-            }
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch("/modules/reports/get_sales_chart_data.php");
+        const data = await res.json();
+
+        const ctx = document.getElementById("salesChart").getContext("2d");
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.dates,
+            datasets: [{
+              label: "Sales (₹)",
+              data: data.sales,
+              borderColor: "#0d6efd",
+              backgroundColor: "rgba(13,110,253,0.1)",
+              tension: 0.3,
+              fill: true
+            }]
           },
-          plugins: {
-            legend: {
-              display: true,
-              labels: {
-                color: '#333'
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  color: '#333'
+                }
               }
             }
           }
-        }
-      });
-    } catch (err) {
-      console.error("Chart Fetch Error:", err);
-    }
-  });
-  </script>
+        });
+      } catch (err) {
+        console.error("Chart Fetch Error:", err);
+      }
+    });
+    </script>
 </body>
 
 </html>

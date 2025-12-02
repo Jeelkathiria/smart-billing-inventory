@@ -20,15 +20,29 @@ if (!isset($_SESSION['login_time']) || (time() - $_SESSION['login_time'] > 1800)
 $today = date('Y-m-d');
 
 /* ---------- TODAY’S SUMMARY ---------- */
-$stmt = $conn->prepare("SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
-                        FROM sales 
-                        WHERE DATE(sale_date) = ? AND store_id = ?");
-$stmt->bind_param("si", $today, $store_id);
+$today = date('Y-m-d');
+
+if ($_SESSION['role'] === 'cashier') {
+    // Cashier: only their own sales
+    $cashier_id = $_SESSION['user_id'];
+    $stmt = $conn->prepare("SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
+                            FROM sales 
+                            WHERE DATE(sale_date) = ? AND store_id = ? AND created_by = ?");
+    $stmt->bind_param("sii", $today, $store_id, $cashier_id);
+} else {
+    // Admin/Manager: all store sales
+    $stmt = $conn->prepare("SELECT COUNT(*) AS sales_count, SUM(total_amount) AS revenue 
+                            FROM sales 
+                            WHERE DATE(sale_date) = ? AND store_id = ?");
+    $stmt->bind_param("si", $today, $store_id);
+}
+
 $stmt->execute();
 $todayRes = $stmt->get_result()->fetch_assoc();
 $todaySalesCount = $todayRes['sales_count'] ?? 0;
 $todayRevenue    = $todayRes['revenue'] ?? 0;
 $stmt->close();
+
 
 /* ---------- FILTERS & PAGINATION ---------- */
 $records_per_page = 8;
@@ -238,16 +252,29 @@ $salesResult = $stmt->get_result();
 
   <main class="content mt-5">
     <!-- SUMMARY CARDS -->
+    <!-- SUMMARY CARDS -->
     <div class="row g-4 mb-5">
+
+      <!-- Revenue Today -->
       <div class="col-md-6">
         <div class="summary-card bg-green">
           <div>
-            <h6><i class="bi bi-cash-coin me-2"></i>Revenue Today</h6>
+            <h6>
+              <i class="bi bi-cash-coin me-2"></i>
+              <?php
+        echo ($_SESSION['role'] === 'cashier') 
+            ? "Total Billing Amount Today" 
+            : "Revenue Today";
+    ?>
+            </h6>
+
             <h4>₹<?= e(number_format($todayRevenue, 2)); ?></h4>
           </div>
           <i class="bi bi-bar-chart-line fs-1 opacity-75"></i>
         </div>
       </div>
+
+      <!-- Invoices Today -->
       <div class="col-md-6">
         <div class="summary-card bg-blue">
           <div>
@@ -257,7 +284,9 @@ $salesResult = $stmt->get_result();
           <i class="bi bi-journal-text fs-1 opacity-75"></i>
         </div>
       </div>
+
     </div>
+
 
     <!-- SALES HISTORY -->
     <div class="card mb-5">

@@ -261,6 +261,8 @@ $labels = [
       </table>
     </div>
 
+
+
     <!-- Totals -->
     <div class="totals-section text-end">
       <p><strong>Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
@@ -539,6 +541,8 @@ $labels = [
       return new bootstrap.Tooltip(tooltipTriggerEl)
     })
   });
+
+
   </script>
 </body>
 

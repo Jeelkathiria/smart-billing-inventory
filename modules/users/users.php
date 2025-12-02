@@ -31,9 +31,11 @@ $stmt = $conn->prepare("
         email,
         role,
         CASE 
-            WHEN last_activity >= (NOW() - INTERVAL 5 MINUTE) THEN 'online'
-            ELSE 'offline'
+        WHEN last_activity >= (NOW() - INTERVAL 5 SECOND) THEN 'online'
+        ELSE 'offline'
         END AS status
+
+
     FROM users
     WHERE store_id = ? AND role = 'cashier'
     ORDER BY username
@@ -176,7 +178,10 @@ $cashiers = $result->fetch_all(MYSQLI_ASSOC);
 
       <div class="page-header">
         <h2><i class="bi bi-person-lines-fill text-primary me-2"></i>Cashier Overview</h2>
+        <?php date_default_timezone_set('Asia/Kolkata'); ?>
         <span class="text-muted small">Last Updated: <?= date("M d, Y • H:i") ?></span>
+
+
       </div>
 
       <div class="card">
@@ -223,3 +228,25 @@ $cashiers = $result->fetch_all(MYSQLI_ASSOC);
 </body>
 
 </html>
+
+<script>
+function updateLastUpdated() {
+    const now = new Date();
+    
+    // Format: M d, Y • H:i:s
+    const formatted = now.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    }).replace(',', ' •');
+
+    document.getElementById("lastUpdated").textContent = "Last Updated: " + formatted;
+}
+
+// Update every 5 seconds
+setInterval(updateLastUpdated, 5000);
+</script>
