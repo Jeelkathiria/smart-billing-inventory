@@ -15,6 +15,8 @@ $categories = $cat_stmt->get_result();
 /* ======================================
    ADD PRODUCT
 ====================================== */
+$barcode = trim($_POST['barcode'] ?? '');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
     $name = trim($_POST['name'] ?? '');
     $category_id = (int)($_POST['category_id'] ?? 0);
@@ -34,15 +36,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
 
         if ($check->get_result()->num_rows === 0) {
             $stmt = $conn->prepare("
-                INSERT INTO products 
-                (product_name, category_id, purchase_price, sell_price, gst_percent, total_price, profit, stock, store_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->bind_param("siddiddii", $name, $category_id, $purchase_price, $sell_price, $gst_percent, $total_price, $profit, $stock, $store_id);
+            INSERT INTO products 
+            (product_name, category_id, purchase_price, sell_price, gst_percent, total_price, profit, stock, store_id, barcode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->bind_param("siddiddiss", $name, $category_id, $purchase_price, $sell_price, $gst_percent, $total_price, $profit, $stock, $store_id, $barcode);
+
             $stmt->execute();
         }
     }
 }
+
+/* ======================================
+   Barode Update Prodcuct
+====================================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['edit_id'])) {
+    $barcode = trim($_POST['barcode'] ?? '');
+    $name = trim($_POST['name'] ?? '');
+    $category_id = (int)($_POST['category_id'] ?? 0);
+    $purchase_price = (float)($_POST['purchase_price'] ?? 0);
+    $sell_price = (float)($_POST['sell_price'] ?? 0);
+    $gst_percent = (float)($_POST['gst'] ?? 0);
+    $stock = (int)($_POST['stock'] ?? 0);
+
+    if ($barcode && $name && $category_id && $sell_price >= 0 && $purchase_price >= 0 && $gst_percent >= 0 && $stock >= 0) {
+        $gst_amount = round($sell_price * $gst_percent / 100, 2);
+        $total_price = round($sell_price + $gst_amount, 2);
+        $profit = round($sell_price - $purchase_price, 2);
+
+        // Check if product with barcode already exists
+        $check = $conn->prepare("SELECT * FROM products WHERE barcode = ? AND store_id = ?");
+        $check->bind_param("si", $barcode, $store_id);
+        $check->execute();
+        $existing = $check->get_result()->fetch_assoc();
+
+        if ($existing) {
+            // Update existing product
+            $stmt = $conn->prepare("
+                UPDATE products 
+                SET product_name=?, category_id=?, purchase_price=?, sell_price=?, gst_percent=?, total_price=?, profit=?, stock=?
+                WHERE barcode=? AND store_id=?
+            ");
+            $stmt->bind_param(
+                "sididdiisi",
+                $name, $category_id, $purchase_price, $sell_price, $gst_percent, $total_price, $profit, $stock, $barcode, $store_id
+            );
+            $stmt->execute();
+        } else {
+            // Insert new product
+            $stmt = $conn->prepare("
+                INSERT INTO products 
+                (barcode, product_name, category_id, purchase_price, sell_price, gst_percent, total_price, profit, stock, store_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param(
+                "ssiddiddii",
+                $barcode, $name, $category_id, $purchase_price, $sell_price, $gst_percent, $total_price, $profit, $stock, $store_id
+            );
+            $stmt->execute();
+        }
+    }
+}
+
 
 /* ======================================
    EDIT PRODUCT
@@ -182,9 +237,6 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       <h3 class="fw-bold text-primary"><i class="bi bi-box-seam-fill me-2"></i>Product Management</h3>
       <div class="d-flex gap-2 flex-wrap">
         <input type="text" id="searchInput" class="form-control search-box" placeholder="Search by Name..">
-        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm">
-          <i class="bi bi-plus-circle me-1"></i> Add Product
-        </button>
       </div>
     </div>
 
@@ -201,30 +253,71 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     </div>
     <?php endif; ?>
 
+    <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addProductForm">
+      <i class="bi bi-plus-circle me-1"></i> Add Product
+    </button>
+
     <div id="addProductForm" class="collapse mb-4">
-      <form method="POST" class="row g-3 shadow-sm p-4 bg-white rounded">
-        <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Product Name" required>
+      <form id="productForm" class="row g-3 shadow-sm p-4 bg-white rounded"
+      method="POST" action="products.php" novalidate>
+
+        <!-- Barcode Input -->
+        <div class="col-md-3">
+          <input type="text" name="barcode" id="barcode_input" class="form-control" placeholder="Scan / Enter Barcode"
+            autofocus>
+          <small id="barcodeMsg" class="text-danger"></small>
         </div>
+
+        <!-- Product Name -->
+        <div class="col-md-3">
+          <input type="text" name="name" id="product_name" class="form-control" placeholder="Product Name">
+          <small id="nameMsg" class="text-danger"></small>
+        </div>
+
+        <!-- Category -->
         <div class="col-md-2">
-          <select name="category_id" class="form-select" required>
+          <select name="category_id" id="category_id" class="form-select">
             <option value="">Select Category</option>
             <?php $categories->data_seek(0); while ($cat = $categories->fetch_assoc()): ?>
             <option value="<?= $cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
             <?php endwhile; ?>
           </select>
+          <small id="categoryMsg" class="text-danger"></small>
         </div>
-        <div class="col-md-2"><input type="number" name="purchase_price" step="0.01" class="form-control"
-            placeholder="Purchase Price" required></div>
-        <div class="col-md-2"><input type="number" name="sell_price" step="0.01" class="form-control"
-            placeholder="Sell Price" required></div>
-        <div class="col-md-1"><input type="number" name="gst" step="0.01" class="form-control" placeholder="GST (%)"
-            required></div>
-        <div class="col-md-1"><input type="number" name="stock" min="0" class="form-control" placeholder="Stock"
-            required></div>
-        <div class="col-md-1 d-grid"><button class="btn btn-primary"><i class="bi bi-check2-circle"></i> Add</button>
+
+        <!-- Purchase Price -->
+        <div class="col-md-2">
+          <input type="number" name="purchase_price" id="purchase_price" step="0.01" class="form-control"
+            placeholder="Purchase Price">
+          <small id="purchaseMsg" class="text-danger"></small>
+        </div>
+
+        <!-- Sell Price -->
+        <div class="col-md-2">
+          <input type="number" name="sell_price" id="sell_price" step="0.01" class="form-control"
+            placeholder="Sell Price">
+          <small id="sellMsg" class="text-danger"></small>
+        </div>
+
+        <!-- GST -->
+        <div class="col-md-1">
+          <input type="number" name="gst" id="gst_percent" step="0.01" class="form-control" placeholder="GST (%)">
+          <small id="gstMsg" class="text-danger"></small>
+        </div>
+
+        <!-- Stock -->
+        <div class="col-md-1">
+          <input type="number" name="stock" id="stock" class="form-control" placeholder="Stock">
+          <small id="stockMsg" class="text-danger"></small>
+        </div>
+
+        <!-- Add Button -->
+        <div class="col-md-1 d-grid">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle"></i> Add</button>
         </div>
       </form>
     </div>
+
 
     <div class="card shadow-sm">
       <div class="card-body table-responsive">
@@ -309,7 +402,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
+ <script>
   const confirmDelete = (id) => {
     Swal.fire({
       title: 'Delete this product?',
@@ -323,10 +416,67 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     });
   };
 
+  // Form validation
+  const form = document.getElementById('productForm');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault(); // prevent default submit
+
+    let isValid = true;
+
+    // Helper function to check numeric > 0
+    function checkNumeric(id, msgId) {
+      const value = parseFloat(document.getElementById(id).value);
+      if (isNaN(value) || value <= 0) {
+        document.getElementById(msgId).textContent = "Value must be greater than 0";
+        return false;
+      } else {
+        document.getElementById(msgId).textContent = "";
+        return true;
+      }
+    }
+
+    // Validate each field
+    const barcode = document.getElementById('barcode_input').value.trim();
+    if (!barcode) {
+      document.getElementById('barcodeMsg').textContent = "Barcode is required";
+      isValid = false;
+    } else document.getElementById('barcodeMsg').textContent = "";
+
+    const name = document.getElementById('product_name').value.trim();
+    if (!name) {
+      document.getElementById('nameMsg').textContent = "Product Name is required";
+      isValid = false;
+    } else document.getElementById('nameMsg').textContent = "";
+
+    const category = document.getElementById('category_id').value;
+    if (!category) {
+      document.getElementById('categoryMsg').textContent = "Select a category";
+      isValid = false;
+    } else document.getElementById('categoryMsg').textContent = "";
+
+    const purchaseOk = checkNumeric('purchase_price', 'purchaseMsg');
+    const sellOk = checkNumeric('sell_price', 'sellMsg');
+    const gstOk = checkNumeric('gst_percent', 'gstMsg');
+    const stockOk = checkNumeric('stock', 'stockMsg');
+
+    isValid = isValid && purchaseOk && sellOk && gstOk && stockOk;
+
+    if (isValid) {
+      console.log("Form valid, ready to submit.");
+      form.submit(); // Uncomment to submit normally
+    } else {
+      console.log("Form validation failed.");
+    }
+  });
+
   let editModal;
+
   document.addEventListener('DOMContentLoaded', () => {
+    // Initialize edit modal
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
 
+    // Search functionality
     const searchInput = document.getElementById('searchInput');
     const tableRows = document.querySelectorAll('#productTable tbody tr');
     searchInput.addEventListener('keyup', function() {
@@ -336,8 +486,43 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         row.style.display = name.includes(query) ? '' : 'none';
       });
     });
+
+    // Barcode prefill
+    const barcodeInput = document.getElementById('barcode_input');
+
+    barcodeInput.addEventListener('input', function() {
+      let barcode = this.value.trim();
+      if (!barcode) return;
+
+      fetch('check_barcode.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'barcode=' + encodeURIComponent(barcode)
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.exists) {
+            document.getElementById('product_name').value = data.product_name;
+            document.getElementById('category_id').value = data.category_id;
+            document.getElementById('purchase_price').value = data.purchase_price;
+            document.getElementById('sell_price').value = data.sell_price;
+            document.getElementById('gst_percent').value = data.gst_percent;
+            document.getElementById('stock').value = data.stock;
+            document.getElementById('barcodeMsg').textContent = "Product exists, editing!";
+          } else {
+            document.getElementById('product_name').value = '';
+            document.getElementById('category_id').value = '';
+            document.getElementById('purchase_price').value = '';
+            document.getElementById('sell_price').value = '';
+            document.getElementById('gst_percent').value = '';
+            document.getElementById('stock').value = '';
+            document.getElementById('barcodeMsg').textContent = '';
+          }
+        });
+    });
   });
 
+  // Edit product modal
   function editProduct(product) {
     document.getElementById('edit_id').value = product.product_id;
     document.getElementById('edit_name').value = product.product_name;
@@ -348,7 +533,9 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     document.getElementById('edit_stock').value = product.stock;
     editModal.show();
   }
-  </script>
+</script>
+
+
 </body>
 
 </html>
