@@ -43,7 +43,6 @@ $labels = [
   <link rel="stylesheet" href="/assets/css/common.css">
 
   <style>
-  /* ---------------- Global Layout ---------------- */
   body {
     background: #f8f9fa;
     overflow-x: hidden;
@@ -55,7 +54,6 @@ $labels = [
     transition: margin-left 0.3s ease;
   }
 
-  /* When sidebar collapsed */
   .sidebar.collapsed~.content {
     margin-left: 70px;
   }
@@ -74,7 +72,6 @@ $labels = [
     gap: 10px;
   }
 
-  /* ---------------- Form Styling ---------------- */
   label {
     font-weight: 500;
     margin-bottom: 4px;
@@ -89,7 +86,6 @@ $labels = [
     font-size: 0.95rem;
   }
 
-  /* ---------------- Table ---------------- */
   table.table {
     background: #fff;
     border-radius: 10px;
@@ -107,7 +103,6 @@ $labels = [
     vertical-align: middle;
   }
 
-  /* ---------------- Totals Section ---------------- */
   .totals-section {
     background: #fff;
     border-radius: 10px;
@@ -125,14 +120,12 @@ $labels = [
     color: #0d6efd;
   }
 
-  /* ---------------- Buttons ---------------- */
   .btn {
     border-radius: 8px;
     font-weight: 500;
     letter-spacing: 0.3px;
   }
 
-  /* ---------------- Toast ---------------- */
   #successToast {
     animation: fadeInOut 2s ease-in-out;
   }
@@ -155,7 +148,6 @@ $labels = [
     }
   }
 
-  /* ---------------- Input Error ---------------- */
   .input-error {
     border-color: #dc3545 !important;
     animation: shake 0.3s;
@@ -210,6 +202,24 @@ $labels = [
       </div>
     </div>
 
+    <!-- Barcode -->
+    <div class="card mt-4 shadow-sm border-0 position-relative">
+      <!-- Info Icon at Top-Right -->
+      <i class="bi bi-info-circle text-primary position-absolute top-0 end-0 m-3" data-bs-toggle="tooltip"
+        data-bs-placement="left" title="Scan the barcode using a scanner to auto-add the product to the cart. 
+If entering manually, type the barcode and press Enter to add it."></i>
+
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="barcodeInput"><i class="bi bi-upc-scan"></i> Barcode</label>
+            <input type="text" id="barcodeInput" class="form-control" placeholder="Scan or enter barcode manually">
+          </div>
+        </div>
+      </div>
+    </div>
+
+
     <!-- Category / Product -->
     <div class="card mt-4 shadow-sm border-0">
       <div class="card-body">
@@ -261,8 +271,6 @@ $labels = [
       </table>
     </div>
 
-
-
     <!-- Totals -->
     <div class="totals-section text-end">
       <p><strong>Subtotal:</strong> ₹<span id="subTotal">0.00</span></p>
@@ -281,9 +289,7 @@ $labels = [
         </button>
 
       </div>
-
     </div>
-  </div>
   </div>
 
   <!-- Success Toast -->
@@ -297,7 +303,7 @@ $labels = [
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow">
         <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title"><i class="bi bi-info-circle"></i> Notice</h5>
+          <h5 class="modal-title" id="alertModalLabel"><i class="bi bi-info-circle"></i> Notice</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body fs-5" id="alertModalBody">...</div>
@@ -309,10 +315,8 @@ $labels = [
   </div>
 
 
-  <!-- ✅ Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- ================= JS ================= -->
   <script>
   document.addEventListener('DOMContentLoaded', () => {
     const $ = id => document.getElementById(id);
@@ -321,28 +325,25 @@ $labels = [
     const enabledFields = <?= json_encode(array_keys(array_filter($fields))) ?>;
     const labels = <?= json_encode($labels) ?>;
 
-    function showPopup(message, title = "Notice") {
-      const modalEl = document.getElementById('alertModal');
-      if (!modalEl) return alert(message);
-      modalEl.querySelector('#alertModalLabel').textContent = title;
-      modalEl.querySelector('#alertModalBody').textContent = message;
-      const modal = new bootstrap.Modal(modalEl);
-      modal.show();
-    }
-
-    function showToast(id, duration = 2000) {
-      const t = $(id);
-      if (!t) return;
-      t.style.display = 'block';
-      setTimeout(() => t.style.display = 'none', duration);
-    }
-
     const pad = n => n.toString().padStart(2, '0');
     const getDateTime = () => {
       const d = new Date();
       return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
     $('invoice_date').value = getDateTime();
+
+    const showPopup = (message, title = "Notice") => {
+      const modalEl = $('#alertModal');
+      modalEl.querySelector('#alertModalLabel').textContent = title;
+      modalEl.querySelector('#alertModalBody').textContent = message;
+      new bootstrap.Modal(modalEl).show();
+    }
+
+    const showToast = (id, duration = 2000) => {
+      const t = $(id);
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', duration);
+    }
 
     const resetForm = () => {
       cart = [];
@@ -359,7 +360,7 @@ $labels = [
       });
     };
 
-    // Fetch Products
+    // ---------------- Fetch Products by Category ----------------
     $('categorySelect').addEventListener('change', async () => {
       const catId = $('categorySelect').value;
       const productSelect = $('productSelect');
@@ -392,95 +393,326 @@ $labels = [
       }
     });
 
-    // Product selection
+    // ---------------- Product selection from dropdown ----------------
     $('productSelect').addEventListener('change', async () => {
-      const productId = $('productSelect').value;
-      const addBtn = $('addProductBtn');
-      addBtn.disabled = true;
-
-      if (!productId) return;
-
+      const pid = $('productSelect').value;
+      $('addProductBtn').disabled = !pid;
+      if (!pid) return;
       try {
-        const res = await fetch(`../sales/fetch_price.php?product_id=${productId}`);
+        const res = await fetch(`../sales/fetch_price.php?product_id=${pid}`);
         const data = await res.json();
-
         if (data.status === 'success' && data.product) {
-          const p = data.product;
-          productsList[productId] = {
-            ...productsList[productId],
-            sell_price: p.sell_price,
-            gst_percent: p.gst_percent,
-            profit: p.profit,
-            stock: p.stock
+          productsList[pid] = {
+            ...productsList[pid],
+            ...data.product
           };
-          addBtn.disabled = false;
         }
       } catch (err) {
         console.error(err);
       }
     });
 
-    // Add Product
-    $('addProductBtn').addEventListener('click', () => {
-      const addBtn = $('addProductBtn');
-      const productId = $('productSelect').value;
-      const qty = parseInt($('qtyInput').value) || 1;
-      if (!productId) return showPopup('Please select a product.');
+    // ---------------- Barcode Handling ----------------
+    $('barcodeInput').addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = e.target.value.trim();
+        if (!code) return;
 
-      const p = productsList[productId];
-      if (!p) return showPopup('Product data not found.');
+        try {
+          // 1️⃣ Fetch product by barcode
+          const res = await fetch(`fetch_product_by_barcode.php?barcode=${encodeURIComponent(code)}`);
+          const data = await res.json();
+          if (data.status !== 'success' || !data.product)
+            return showPopup('Product not found for this barcode', 'Error');
 
+          const p = data.product;
+
+          // 2️⃣ Update category dropdown
+          $('categorySelect').value = p.category_id;
+
+          // 3️⃣ Fetch full products for category
+          const productSelect = $('productSelect');
+          productSelect.disabled = true;
+          productSelect.innerHTML = '<option>Loading...</option>';
+
+          const res2 = await fetch(`../sales/fetch_products.php?category_id=${p.category_id}`);
+          const products = await res2.json();
+          productSelect.innerHTML = '<option value="">Select Product</option>';
+          productsList = {};
+          if (Array.isArray(products) && products.length) {
+            products.forEach(pr => {
+              productsList[pr.product_id] = pr;
+              const stock = parseInt(pr.stock) || 0;
+              productSelect.innerHTML +=
+                `<option value="${pr.product_id}" ${stock===0?'disabled':''}>${pr.product_name}${stock===0?' (Out of Stock)':''}</option>`;
+            });
+          }
+          productSelect.disabled = false;
+
+          // 4️⃣ Select product
+          productSelect.value = p.product_id;
+
+          // 5️⃣ Fetch full price & gst for this product (important!)
+          const res3 = await fetch(`../sales/fetch_price.php?product_id=${p.product_id}`);
+          const priceData = await res3.json();
+          if (priceData.status === 'success' && priceData.product) {
+            productsList[p.product_id] = {
+              ...productsList[p.product_id],
+              ...priceData.product
+            };
+          }
+
+          // 6️⃣ Add to cart directly
+          addProductToCart(productsList[p.product_id], 1);
+
+          $('barcodeInput').value = ''; // clear barcode input
+        } catch (err) {
+          console.error(err);
+          showPopup('Error fetching product', 'Error');
+        }
+      }
+    });
+
+    // ---------------- Global Barcode Scan Handling ----------------
+    let barcodeBuffer = '';
+    let barcodeTimer;
+
+    document.addEventListener('keydown', async (e) => {
+      // Only allow alphanumeric and Enter
+      if (e.key.length === 1) {
+        barcodeBuffer += e.key;
+        clearTimeout(barcodeTimer);
+        // Reset buffer if no key pressed within 50ms
+        barcodeTimer = setTimeout(() => barcodeBuffer = '', 50);
+      } else if (e.key === 'Enter') {
+        if (!barcodeBuffer) return;
+        const code = barcodeBuffer;
+        barcodeBuffer = '';
+        e.preventDefault();
+
+        try {
+          // Fetch product by barcode
+          const res = await fetch(`fetch_product_by_barcode.php?barcode=${encodeURIComponent(code)}`);
+          const data = await res.json();
+          if (data.status !== 'success' || !data.product)
+            return showPopup('Product not found for this barcode', 'Error');
+
+          const p = data.product;
+
+          // Update category dropdown
+          $('categorySelect').value = p.category_id;
+
+          // Fetch full products for category
+          const productSelect = $('productSelect');
+          productSelect.disabled = true;
+          productSelect.innerHTML = '<option>Loading...</option>';
+
+          const res2 = await fetch(`../sales/fetch_products.php?category_id=${p.category_id}`);
+          const products = await res2.json();
+          productSelect.innerHTML = '<option value="">Select Product</option>';
+          productsList = {};
+          if (Array.isArray(products) && products.length) {
+            products.forEach(pr => {
+              productsList[pr.product_id] = pr;
+              const stock = parseInt(pr.stock) || 0;
+              productSelect.innerHTML +=
+                `<option value="${pr.product_id}" ${stock===0?'disabled':''}>${pr.product_name}${stock===0?' (Out of Stock)':''}</option>`;
+            });
+          }
+          productSelect.disabled = false;
+
+          // Select product
+          productSelect.value = p.product_id;
+
+          // Fetch full price & GST
+          const res3 = await fetch(`../sales/fetch_price.php?product_id=${p.product_id}`);
+          const priceData = await res3.json();
+          if (priceData.status === 'success' && priceData.product) {
+            productsList[p.product_id] = {
+              ...productsList[p.product_id],
+              ...priceData.product
+            };
+          }
+
+          // Add to cart automatically
+          addProductToCart(productsList[p.product_id], 1);
+
+        } catch (err) {
+          console.error(err);
+          showPopup('Error fetching product', 'Error');
+        }
+      }
+    });
+
+
+
+    async function handleBarcode(code) {
+      try {
+        const res = await fetch(`fetch_product_by_barcode.php?barcode=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (data.status !== 'success' || !data.product)
+          return showPopup('Product not found for this barcode', 'Error');
+
+        const p = data.product;
+
+        // Update category dropdown
+        $('categorySelect').value = p.category_id;
+
+        // Fetch products for that category
+        const productSelect = $('productSelect');
+        productSelect.disabled = true;
+        productSelect.innerHTML = '<option>Loading...</option>';
+
+        const res2 = await fetch(`../sales/fetch_products.php?category_id=${p.category_id}`);
+        const products = await res2.json();
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        productsList = {};
+        if (Array.isArray(products) && products.length) {
+          products.forEach(pr => {
+            productsList[pr.product_id] = pr;
+            const stock = parseInt(pr.stock) || 0;
+            productSelect.innerHTML +=
+              `<option value="${pr.product_id}" ${stock===0?'disabled':''}>${pr.product_name}${stock===0?' (Out of Stock)':''}</option>`;
+          });
+        }
+        productSelect.disabled = false;
+
+        // Select product
+        productSelect.value = p.product_id;
+
+        // Auto-add for scanner
+        if (e && e.isTrusted) {
+          addProductToCart(productsList[p.product_id], 1);
+          $('barcodeInput').value = '';
+        } else {
+          $('addProductBtn').disabled = false; // Manual barcode, enable Add button
+        }
+
+      } catch (err) {
+        console.error(err);
+        showPopup('Error fetching product', 'Error');
+      }
+    }
+
+    // ---------------- Add Product to Cart ----------------
+    const addProductToCart = (p, qty) => {
+      const existing = cart.find(item => item.product_id == p.product_id);
       const price = parseFloat(p.sell_price) || 0;
       const gstPercent = parseFloat(p.gst_percent) || 0;
       const amount = price * qty;
       const gst = (amount * gstPercent) / 100;
 
-      cart.push({
-        product_id: productId,
-        product_name: p.product_name,
-        quantity: qty,
-        price,
-        gst_percent: gstPercent,
-        amount,
-        gst,
-        total: amount + gst
-      });
-
+      if (existing) {
+        existing.quantity += qty;
+        existing.amount = existing.price * existing.quantity;
+        existing.gst = (existing.amount * gstPercent) / 100;
+        existing.total = existing.amount + existing.gst;
+      } else {
+        cart.push({
+          product_id: p.product_id,
+          product_name: p.product_name,
+          quantity: qty,
+          price,
+          gst_percent: gstPercent,
+          amount,
+          gst,
+          total: amount + gst
+        });
+      }
       renderTable();
-      $('productSelect').value = '';
+    }
+
+    $('addProductBtn').addEventListener('click', () => {
+      const pid = $('productSelect').value;
+      const qty = parseInt($('qtyInput').value) || 1;
+      if (!pid) return showPopup('Please select a product.');
+      const p = productsList[pid];
+      if (!p) return showPopup('Product data not found.');
+      addProductToCart(p, qty);
       $('qtyInput').value = 1;
-      addBtn.disabled = true;
+      $('productSelect').value = '';
+      $('addProductBtn').disabled = true;
     });
 
-    // Render Cart
+    // ---------------- Render Cart Table ----------------
     function renderTable() {
       const tbody = document.querySelector("#billingTable tbody");
       tbody.innerHTML = '';
       let sub = 0,
         gst = 0;
+
       cart.forEach((item, i) => {
         sub += item.amount;
         gst += item.gst;
+
         const tr = document.createElement('tr');
-        tr.innerHTML =
-          `<td>${i+1}</td><td>${item.product_name}</td><td>${item.quantity}</td><td>₹${item.amount.toFixed(2)}</td><td><button class="btn btn-danger btn-sm" data-index="${i}">Remove</button></td>`;
+        tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${item.product_name}</td>
+        <td>
+          <div class="input-group input-group-sm">
+            <button class="btn btn-outline-secondary btn-decrease" data-index="${i}">-</button>
+            <input type="number" class="form-control form-control-sm text-center" min="1" value="${item.quantity}" data-index="${i}">
+            <button class="btn btn-outline-secondary btn-increase" data-index="${i}">+</button>
+          </div>
+        </td>
+        <td>₹${item.amount.toFixed(2)}</td>
+        <td><button class="btn btn-danger btn-sm" data-index="${i}">Remove</button></td>
+      `;
         tbody.appendChild(tr);
       });
-      tbody.querySelectorAll('button[data-index]').forEach(b => {
+
+      // Buttons & input events
+      tbody.querySelectorAll('button.btn-danger').forEach(b => {
         b.addEventListener('click', () => {
           cart.splice(parseInt(b.dataset.index), 1);
           renderTable();
         });
       });
+      tbody.querySelectorAll('button.btn-increase').forEach(b => {
+        b.addEventListener('click', () => {
+          const idx = parseInt(b.dataset.index);
+          cart[idx].quantity++;
+          cart[idx].amount = cart[idx].price * cart[idx].quantity;
+          cart[idx].gst = (cart[idx].amount * cart[idx].gst_percent) / 100;
+          cart[idx].total = cart[idx].amount + cart[idx].gst;
+          renderTable();
+        });
+      });
+      tbody.querySelectorAll('button.btn-decrease').forEach(b => {
+        b.addEventListener('click', () => {
+          const idx = parseInt(b.dataset.index);
+          if (cart[idx].quantity > 1) {
+            cart[idx].quantity--;
+            cart[idx].amount = cart[idx].price * cart[idx].quantity;
+            cart[idx].gst = (cart[idx].amount * cart[idx].gst_percent) / 100;
+            cart[idx].total = cart[idx].amount + cart[idx].gst;
+            renderTable();
+          }
+        });
+      });
+      tbody.querySelectorAll('input[type=number]').forEach(input => {
+        input.addEventListener('change', () => {
+          const idx = parseInt(input.dataset.index);
+          let val = parseInt(input.value);
+          if (val < 1) val = 1;
+          cart[idx].quantity = val;
+          cart[idx].amount = cart[idx].price * val;
+          cart[idx].gst = (cart[idx].amount * cart[idx].gst_percent) / 100;
+          cart[idx].total = cart[idx].amount + cart[idx].gst;
+          renderTable();
+        });
+      });
+
       $('subTotal').innerText = sub.toFixed(2);
       $('taxAmount').innerText = gst.toFixed(2);
       $('totalAmount').innerText = (sub + gst).toFixed(2);
     }
 
-    // ✅ Common Checkout Function
+    // ---------------- Checkout ----------------
     async function processCheckout(print = false) {
       if (!cart.length) return showPopup('Your cart is empty. Please add at least one product.', 'Empty Cart');
-
       for (let k of enabledFields) {
         const el = $(k);
         if (el && !el.value.trim()) {
@@ -501,6 +733,7 @@ $labels = [
         })),
         print: print ? 1 : 0
       };
+
       Object.keys(labels).forEach(k => {
         const el = $(k);
         data[k] = el && el.value.trim() ? el.value.trim() : null;
@@ -518,32 +751,25 @@ $labels = [
         if (r.status === 'success') {
           showToast('successToast');
           resetForm();
-          if (print && r.sale_id) {
-            window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
-          }
-        } else {
-          showPopup(r.message || 'Checkout failed.', 'Error');
-        }
+          if (print && r.sale_id) window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
+        } else showPopup(r.message || 'Checkout failed.', 'Error');
       } catch (e) {
         console.error(e);
         showPopup('Checkout failed. Please try again.', 'Error');
       }
     }
 
-    // ✅ Attach Events
+    // Attach checkout buttons
     $('generateInvoiceBtn').addEventListener('click', () => processCheckout(true));
     $('saveOnlyBtn').addEventListener('click', () => processCheckout(false));
+
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
   });
-
-  document.addEventListener("DOMContentLoaded", function() {
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-  });
-
-
   </script>
+
+
 </body>
 
 </html>
