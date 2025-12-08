@@ -17,7 +17,7 @@ function sendOTP($email, $otp)
         $mail->Host = 'smtp.gmail.com';
         $mail->SMTPAuth = true;
         $mail->Username = 'testing992017@gmail.com';
-        $mail->Password = 'ewtg cscr mycx cabc';
+        $mail->Password = 'oryx mnhr zjnw fjwj';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = 587;
 
@@ -35,6 +35,7 @@ function sendOTP($email, $otp)
         return false;
     }
 }
+
 
 /* ---------------------- LOGIN ---------------------- */
 if (isset($_POST['login'])) {
@@ -71,9 +72,15 @@ if (isset($_POST['login'])) {
 
 /* ---------------------- REGISTER AJAX ---------------------- */
 if (isset($_POST['register_ajax'])) {
-    $email = trim($_POST['email']);
     $role = $_POST['role'];
     $username = trim($_POST['username']);
+
+    // Determine email for OTP based on role
+    if ($role === 'admin') {
+        $email = trim($_POST['store_email']); // Admin OTP goes to store_email
+    } else {
+        $email = trim($_POST['email']);       // Manager/Cashier OTP goes to their email
+    }
 
     // duplicate checks
     $checkUser = $conn->prepare("SELECT username FROM users WHERE username = ?");
@@ -94,6 +101,20 @@ if (isset($_POST['register_ajax'])) {
         exit;
     }
 
+    if (!empty($_POST['personal_contact_number'])) {
+        $contact = trim($_POST['personal_contact_number']);
+        $check2 = $conn->prepare("SELECT personal_contact_number FROM users WHERE personal_contact_number = ?");
+        $check2->bind_param("s", $contact);
+        $check2->execute();
+        $check2->store_result();
+
+        if ($check2->num_rows > 0) {
+            echo json_encode(['status' => 'contact_exists']);
+            exit;
+        }
+    }
+
+    // Store Email
     if ($role === 'admin') {
         $store_email = trim($_POST['store_email']);
         $check2 = $conn->prepare("SELECT store_email FROM stores WHERE store_email = ?");
@@ -106,11 +127,26 @@ if (isset($_POST['register_ajax'])) {
         }
     }
 
+    // Personal Contact Number
+    if ($role === 'admin') {
+        $personal_contact_number = trim($_POST['personal_contact_number']);
+        $check3 = $conn->prepare("SELECT personal_contact_number FROM users WHERE personal_contact_number = ?");
+        $check3->bind_param("s", $personal_contact_number);
+        $check3->execute();
+        $check3->store_result();
+        if ($check3->num_rows > 0) {
+            echo json_encode(['status' => 'contact_exists']);
+            exit;
+        }
+    }
+
+    // Generate OTP and store in session
     $otp = rand(100000, 999999);
     $_SESSION['register_data'] = $_POST;
     $_SESSION['otp'] = $otp;
     $_SESSION['otp_expiry'] = time() + 180;
 
+    // Send OTP to correct email
     if (sendOTP($email, $otp)) {
         echo json_encode(['status' => 'otp_sent']);
     } else {
@@ -118,6 +154,7 @@ if (isset($_POST['register_ajax'])) {
     }
     exit;
 }
+
 
 /* ---------------------- LIVE USERNAME CHECK ---------------------- */
 if (isset($_POST['check_username'])) {
@@ -129,6 +166,8 @@ if (isset($_POST['check_username'])) {
     echo json_encode(['exists' => $stmt->num_rows > 0]);
     exit;
 }
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -371,6 +410,8 @@ if (isset($_POST['check_username'])) {
     opacity: 1;
     transform: none;
   }
+
+
   </style>
 </head>
 
@@ -528,24 +569,31 @@ if (isset($_POST['check_username'])) {
             <div id="adminFields" style="display:none;">
               <div class="mb-2"><input type="text" name="store_name" class="form-control" placeholder="Store Name">
               </div>
-              <div class="mb-2"><input type="email" name="store_email" class="form-control" placeholder="Store Email">
+              <div class="mb-2"><input type="email" name="store_email" class="form-control" placeholder="Email">
               </div>
-              <div class="mb-2"><input type="text" name="contact_number" class="form-control"
-                  placeholder="Contact Number"></div>
+              <div class="mb-2">
+                <input type="text" name="personal_contact_number" id="pcnInput" class="form-control"
+                  placeholder="Contact Number">
+                <small id="pcnMsg" class="text-danger"></small>
+              </div>
+
             </div>
 
             <div id="employeeFields" style="display:none;">
-              <div class="mb-2"><input type="text" name="store_code" class="form-control" placeholder="Store Code">
+              <div class="mb-2">
+                <input type="text" name="store_code" id="store_code" class="form-control" placeholder="Store Code">
+              </div>
+
+              <div class="mb-2">
+                <input type="email" name="email" id="emailInput" class="form-control" placeholder="Email">
+                <small id="emailMsg" class="text-danger"></small>
               </div>
             </div>
 
-            <div class="mb-2"><input type="text" name="username" id="usernameInput" class="form-control"
-                placeholder="Username" required>
-              <small id="usernameMsg" class="text-danger"></small>
-            </div>
-            <div class="mb-2"><input type="email" name="email" id="emailInput" class="form-control" placeholder="Email"
+            <div class="mb-2">
+              <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
                 required>
-              <small id="emailMsg" class="text-danger"></small>
+              <small id="usernameMsg" class="text-danger"></small>
             </div>
             <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
                 required>
@@ -609,27 +657,48 @@ if (isset($_POST['check_username'])) {
     <div id="storeToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive"
       aria-atomic="true" style="display:none;">
       <div class="d-flex">
-        <div class="toast-body">Store already exists!</div>
+        <div class="toast-body">Store already exists! with this email</div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="$('#storeToast').hide()"></button>
       </div>
     </div>
   </div>
 
-  <!-- Toast Area for Login Error -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 3000;">
-  <div id="loginErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert">
-    <div class="d-flex">
-      <div class="toast-body" id="loginErrorMsg">
-        <!-- message comes from PHP -->
+  <div style="position:fixed; top:1rem; right:1rem; z-index:22000;">
+    <div id="pcnToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive"
+      aria-atomic="true" style="display:none;">
+      <div class="d-flex">
+        <div class="toast-body">Contact number already exists!</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="$('#pcnToast').hide()"></button>
       </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>
   </div>
-</div>
 
-<?php if (isset($_GET['login_error'])): ?>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+  <div style="position:fixed; top:1rem; right:1rem; z-index:22000;">
+    <div id="invalidStoreCodeToast" class="toast align-items-center text-bg-danger border-0" role="alert"
+      aria-live="assertive" aria-atomic="true" style="display:none;">
+      <div class="d-flex">
+        <div class="toast-body">Invalid Store Code!</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto"
+          onclick="$('#invalidStoreCodeToast').hide()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Area for Login Error -->
+  <div class="position-fixed top-0 end-0 p-3" style="z-index: 3000;">
+    <div id="loginErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body" id="loginErrorMsg">
+          <!-- message comes from PHP -->
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+
+  <?php if (isset($_GET['login_error'])): ?>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
     // Show toast
     document.getElementById('loginErrorMsg').textContent = "<?= htmlspecialchars($_GET['login_error']) ?>";
     const toast = new bootstrap.Toast(document.getElementById('loginErrorToast'));
@@ -639,9 +708,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const url = new URL(window.location);
     url.searchParams.delete('login_error');
     window.history.replaceState({}, document.title, url);
-});
-</script>
-<?php endif; ?>
+  });
+  </script>
+  <?php endif; ?>
 
 
 
@@ -712,50 +781,94 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // Register Submit (AJAX to existing index.php)
+  // Register Submit (AJAX to existing index.php)
   $('#registerForm').on('submit', function(e) {
     e.preventDefault();
     $('small.text-danger').text('');
-    $.ajax({
-      url: 'index.php',
-      method: 'POST',
-      data: $(this).serialize(),
-      success: function(response) {
-        try {
-          const res = JSON.parse(response);
-          if (res.status === 'otp_sent') {
-            const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
-            otpModal.show();
-            let timer = 40;
-            const resendBtn = $('#resendBtn');
-            const timerText = $('#timerText');
-            resendBtn.prop('disabled', true);
-            const countdown = setInterval(() => {
-              timer--;
-              timerText.text('Resend in ' + timer + 's');
-              if (timer <= 0) {
-                clearInterval(countdown);
-                resendBtn.prop('disabled', false);
-                timerText.text('');
-              }
-            }, 1000);
-          } else if (res.status === 'username_exists') {
-            $('#usernameMsg').text('Username already exists');
-          } else if (res.status === 'email_exists') {
-            $('#emailMsg').text('Email already exists');
-          } else if (res.status === 'store_exists') {
-            $('#storeToast').show();
-          } else {
-            alert('Something went wrong: ' + res.status);
+
+    const role = $('#roleSelect').val();
+    const storeCode = $('#store_code').val().trim();
+
+    // Function to submit the form via AJAX
+    function submitRegistration() {
+      $.ajax({
+        url: 'index.php',
+        method: 'POST',
+        data: $('#registerForm').serialize(),
+        success: function(response) {
+          try {
+            const res = JSON.parse(response);
+            if (res.status === 'otp_sent') {
+              const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+              otpModal.show();
+              let timer = 40;
+              const resendBtn = $('#resendBtn');
+              const timerText = $('#timerText');
+              resendBtn.prop('disabled', true);
+              const countdown = setInterval(() => {
+                timer--;
+                timerText.text('Resend in ' + timer + 's');
+                if (timer <= 0) {
+                  clearInterval(countdown);
+                  resendBtn.prop('disabled', false);
+                  timerText.text('');
+                }
+              }, 1000);
+            } else if (res.status === 'username_exists') {
+              $('#usernameMsg').text('Username already exists');
+            } else if (res.status === 'email_exists') {
+              $('#emailMsg').text('Email already exists');
+            } else if (res.status === 'store_exists') {
+              showToast('storeToast');
+            } else if (res.status === 'contact_exists') {
+              showToast('pcnToast');
+            } else {
+              alert('Something went wrong: ' + res.status);
+            }
+          } catch {
+            console.error('Invalid JSON from index.php:', response);
           }
-        } catch {
-          console.error('Invalid JSON:', response);
+        },
+        error: function() {
+          alert('Server error. Please try again.');
         }
-      },
-      error: function() {
-        alert('Server error. Please try again.');
-      }
-    });
+      });
+    }
+
+    // If Manager/Cashier, validate store code first
+    if ((role === 'manager' || role === 'cashier') && storeCode !== '') {
+      $.ajax({
+        url: 'check_store_code.php', // same folder as index.php
+        type: 'POST',
+        data: {
+          store_code: storeCode
+        },
+        success: function(response) {
+          try {
+            // If PHP returns proper JSON, parse it
+            const res = typeof response === 'object' ? response : JSON.parse(response);
+            if (res.status === 'invalid') {
+              showToast('invalidStoreCodeToast'); // toast for invalid store code
+              $('#store_code').focus();
+              return false; // Stop registration
+            } else {
+              // Valid store code → submit registration
+              submitRegistration();
+            }
+          } catch (err) {
+            console.error('Invalid JSON from check_store_code.php:', response, err);
+          }
+        },
+        error: function() {
+          alert('Server error while checking store code.');
+        }
+      });
+    } else {
+      // Admin or no store code entered → proceed directly
+      submitRegistration();
+    }
   });
+
 
   // Verify OTP (calls your verify_otp.php)
   $('#verifyOtpBtn').click(() => {
@@ -780,7 +893,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const otpModal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
             if (otpModal) otpModal.hide();
             $('#userDetails').html(
-              `<p><b>Username:</b> ${data.username}</p><p><b>Email:</b> ${data.email}</p>`);
+              `<p><b>Username:</b> ${data.username}</p><p><b>Email:</b> ${data.role == 'admin' ? data.store_email : data.email}</p>
+`);
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             successModal.show();
           }, 700);
@@ -881,6 +995,17 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('#registerForm input').forEach(i => i.value = '');
     $('#otpInput').val('');
   });
+
+
+  // Show toast for 3 seconds
+  function showToast(id) {
+    const toast = $('#' + id);
+    toast.fadeIn(200);
+
+    setTimeout(() => {
+      toast.fadeOut(300);
+    }, 3000); // 3 seconds
+  }
   </script>
 </body>
 

@@ -105,6 +105,8 @@ if ((string)$otp === (string)$sessionOtp) {
             'store_id' => $store_id,
             'store_code' => $store_code
         ]);
+        
+
     } else {
         echo json_encode(['status' => 'db_error', 'error' => $stmtUser->error]);
     }
