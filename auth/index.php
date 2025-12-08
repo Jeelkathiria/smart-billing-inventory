@@ -167,6 +167,81 @@ if (isset($_POST['check_username'])) {
     exit;
 }
 
+/* ---------------------- EMAIL CHECK (AJAX) ---------------------- */
+if (isset($_POST['check_email'])) {
+    $email = trim($_POST['email']);
+    $response = ['exists' => false];
+
+    // check users table
+    $stmt = $conn->prepare("SELECT email FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $response['exists'] = true;
+        echo json_encode($response);
+        exit;
+    }
+
+    // check stores table
+    $stmt2 = $conn->prepare("SELECT store_email FROM stores WHERE store_email = ?");
+    $stmt2->bind_param("s", $email);
+    $stmt2->execute();
+    $stmt2->store_result();
+    if ($stmt2->num_rows > 0) {
+        $response['exists'] = true;
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
+/* ---------------------- CONTACT CHECK (AJAX) ---------------------- */
+if (isset($_POST['check_contact'])) {
+    $contact = trim($_POST['contact']);
+    $response = ['exists' => false];
+
+    // check users.personal_contact_number
+    $stmt = $conn->prepare("SELECT personal_contact_number FROM users WHERE personal_contact_number = ?");
+    $stmt->bind_param("s", $contact);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $response['exists'] = true;
+        echo json_encode($response);
+        exit;
+    }
+
+    // check stores.contact_number (if your stores table uses contact_number)
+    $stmt2 = $conn->prepare("SELECT contact_number FROM stores WHERE contact_number = ?");
+    $stmt2->bind_param("s", $contact);
+    $stmt2->execute();
+    $stmt2->store_result();
+    if ($stmt2->num_rows > 0) {
+        $response['exists'] = true;
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
+/* ---------------------- USER EMAIL CHECK (AJAX) - users table only ---------------------- */
+if (isset($_POST['check_user_email'])) {
+    $email = trim($_POST['email']);
+    $response = ['exists' => false];
+
+    $stmt = $conn->prepare("SELECT email FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $response['exists'] = true;
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
 
 ?>
 <!DOCTYPE html>
@@ -411,11 +486,49 @@ if (isset($_POST['check_username'])) {
     transform: none;
   }
 
+  /* Modal/backdrop stacking
+     - Keep auth overlay lower than modals
+     - Ensure backdrop sits below modals so modal content remains clickable */
+  .auth-section {
+    z-index: 24000;
+  }
 
+  /* keep auth overlay under modals */
+  /* Backdrop should be below modals but above page content */
+  .modal-backdrop.show {
+    z-index: 24500 !important;
+  }
+
+  /* Important modals must be above the backdrop */
+  #otpModal.modal,
+  #forgotModal.modal,
+  #successModal.modal {
+    z-index: 25000 !important;
+  }
+
+  /* Global loader used during registration / OTP wait */
+  #globalLoader {
+    display: none;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
+    z-index: 31000;
+  }
   </style>
 </head>
 
 <body>
+  <!-- Global loader (hidden by default) -->
+  <div id="globalLoader"
+    style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; background:rgba(255,255,255,0.85); z-index:35000;">
+    <div class="text-center">
+      <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+      <div class="mt-2">Processing... please wait</div>
+    </div>
+  </div>
+
   <!-- NAVBAR -->
   <nav class="navbar fixed-top">
     <div class="container d-flex align-items-center justify-content-between">
@@ -569,12 +682,23 @@ if (isset($_POST['check_username'])) {
             <div id="adminFields" style="display:none;">
               <div class="mb-2"><input type="text" name="store_name" class="form-control" placeholder="Store Name">
               </div>
-              <div class="mb-2"><input type="email" name="store_email" class="form-control" placeholder="Email">
+              <div class="mb-2">
+                <input type="email" name="store_email" id="storeEmailInput" class="form-control" placeholder="Email">
+                <small id="storeEmailMsg" class="text-danger"></small>
               </div>
               <div class="mb-2">
                 <input type="text" name="personal_contact_number" id="pcnInput" class="form-control"
                   placeholder="Contact Number">
                 <small id="pcnMsg" class="text-danger"></small>
+              </div>
+              <div class="mb-2">
+                <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
+                  required>
+                <small id="usernameMsg" class="text-danger"></small>
+              </div>
+              <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
+                  required>
+                <small id="passwordError" class="text-danger"></small>
               </div>
 
             </div>
@@ -582,22 +706,22 @@ if (isset($_POST['check_username'])) {
             <div id="employeeFields" style="display:none;">
               <div class="mb-2">
                 <input type="text" name="store_code" id="store_code" class="form-control" placeholder="Store Code">
+                <small id="storeCodeMsg" class="text-danger"></small>
               </div>
 
               <div class="mb-2">
                 <input type="email" name="email" id="emailInput" class="form-control" placeholder="Email">
                 <small id="emailMsg" class="text-danger"></small>
               </div>
-            </div>
-
-            <div class="mb-2">
-              <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
-                required>
-              <small id="usernameMsg" class="text-danger"></small>
-            </div>
-            <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
-                required>
-              <small id="passwordError" class="text-danger"></small>
+              <div class="mb-2">
+                <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
+                  required>
+                <small id="usernameMsg" class="text-danger"></small>
+              </div>
+              <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
+                  required>
+                <small id="passwordError" class="text-danger"></small>
+              </div>
             </div>
 
             <button type="submit" id="registerBtn" class="btn btn-success w-100">Register</button>
@@ -746,11 +870,41 @@ if (isset($_POST['check_username'])) {
   function openForgot(e) {
     if (e) e.preventDefault();
     closeAuth();
+    // remove any stray backdrops before opening the forgot modal
+    cleanupModalBackdrops();
     const fm = new bootstrap.Modal(document.getElementById('forgotModal'));
     fm.show();
   }
 
-  // role select toggle
+  // helper: disable register button if any inline errors are present or required fields empty
+  function checkErrorsAndToggleButton() {
+    let disable = false;
+    // if any inline error text exists, disable
+    $('small.text-danger').each(function() {
+      if ($(this).text().trim() !== '') disable = true;
+    });
+    // basic required checks: role and username must be present
+    if ($('#roleSelect').length && ($('#roleSelect').val() === null || $('#roleSelect').val() === '')) disable = true;
+    if ($('#usernameInput').length && $('#usernameInput').val().trim() === '') disable = true;
+    $('#registerBtn').prop('disabled', disable);
+    return !disable;
+  }
+
+  // helper: show/hide loader with flex display
+  function showLoader() {
+    $('#globalLoader').css('display', 'flex');
+  }
+
+  function hideLoader() {
+    $('#globalLoader').hide();
+  }
+
+  // ensure initial state
+  $(function() {
+    checkErrorsAndToggleButton();
+  });
+
+  // role select toggle (keep clearing of inline messages)
   $('#roleSelect').on('change', function() {
     if (this.value === 'admin') {
       $('#adminFields').show();
@@ -759,12 +913,19 @@ if (isset($_POST['check_username'])) {
       $('#adminFields').hide();
       $('#employeeFields').show();
     }
+    // clear inline messages when role toggles
+    $('#storeEmailMsg, #pcnMsg, #emailMsg, #usernameMsg, #storeCodeMsg').text('');
+    checkErrorsAndToggleButton();
   });
 
   // username live check
   $('#usernameInput').on('input', function() {
     const username = $(this).val();
-    if (username.length < 3) return $('#usernameMsg').text('');
+    if (username.length < 3) {
+      $('#usernameMsg').text('');
+      checkErrorsAndToggleButton();
+      return;
+    }
     $.post('index.php', {
       check_username: 1,
       username
@@ -772,18 +933,121 @@ if (isset($_POST['check_username'])) {
       const data = JSON.parse(res);
       if (data.exists) {
         $('#usernameMsg').text('Username already exists');
-        $('#registerBtn').prop('disabled', true);
       } else {
         $('#usernameMsg').text('');
-        $('#registerBtn').prop('disabled', false);
+      }
+      checkErrorsAndToggleButton();
+    });
+  });
+
+  // admin store email live check (checks users.email and stores.store_email)
+  $('#storeEmailInput').on('input', function() {
+    const email = $(this).val().trim();
+    $('#storeEmailMsg').text('');
+    if (email.length < 5) {
+      checkErrorsAndToggleButton();
+      return;
+    }
+    $.post('index.php', {
+      check_email: 1,
+      email
+    }, function(res) {
+      try {
+        const data = typeof res === 'object' ? res : JSON.parse(res);
+        if (data.exists) {
+          $('#storeEmailMsg').text('Email already registered');
+        } else {
+          $('#storeEmailMsg').text('');
+        }
+        checkErrorsAndToggleButton();
+      } catch (e) {
+        console.error('Invalid JSON from check_email:', res);
+      }
+    });
+  });
+
+  // admin personal contact live check (users.personal_contact_number OR stores.contact_number)
+  $('#pcnInput').on('input', function() {
+    const contact = $(this).val().trim();
+    $('#pcnMsg').text('');
+    if (contact.length < 3) {
+      checkErrorsAndToggleButton();
+      return;
+    }
+    $.post('index.php', {
+      check_contact: 1,
+      contact
+    }, function(res) {
+      try {
+        const data = typeof res === 'object' ? res : JSON.parse(res);
+        if (data.exists) {
+          $('#pcnMsg').text('Contact number already exists');
+        } else {
+          $('#pcnMsg').text('');
+        }
+        checkErrorsAndToggleButton();
+      } catch (e) {
+        console.error('Invalid JSON from check_contact:', res);
+      }
+    });
+  });
+
+  // employee email live check (users table only)
+  $('#emailInput').on('input', function() {
+    const email = $(this).val().trim();
+    $('#emailMsg').text('');
+    if (email.length < 5) {
+      checkErrorsAndToggleButton();
+      return;
+    }
+    $.post('index.php', {
+      check_user_email: 1,
+      email
+    }, function(res) {
+      try {
+        const data = typeof res === 'object' ? res : JSON.parse(res);
+        if (data.exists) {
+          $('#emailMsg').text('Email already registered');
+        } else {
+          $('#emailMsg').text('');
+        }
+        checkErrorsAndToggleButton();
+      } catch (e) {
+        console.error('Invalid JSON from check_user_email:', res);
+      }
+    });
+  });
+
+  // store code live check (calls existing check_store_code.php)
+  $('#store_code').on('input', function() {
+    const code = $(this).val().trim();
+    $('#storeCodeMsg').text('');
+    if (code.length < 2) {
+      checkErrorsAndToggleButton();
+      return;
+    }
+    $.post('check_store_code.php', {
+      store_code: code
+    }, function(response) {
+      try {
+        const res = typeof response === 'object' ? response : JSON.parse(response);
+        if (res.status === 'invalid') {
+          $('#storeCodeMsg').text('Invalid Store Code');
+        } else {
+          $('#storeCodeMsg').text('');
+        }
+        checkErrorsAndToggleButton();
+      } catch (e) {
+        console.error('Invalid JSON from check_store_code.php:', response);
       }
     });
   });
 
   // Register Submit (AJAX to existing index.php)
-  // Register Submit (AJAX to existing index.php)
   $('#registerForm').on('submit', function(e) {
     e.preventDefault();
+    // prevent submit when register button is disabled
+    if ($('#registerBtn').prop('disabled')) return;
     $('small.text-danger').text('');
 
     const role = $('#roleSelect').val();
@@ -791,16 +1055,24 @@ if (isset($_POST['check_username'])) {
 
     // Function to submit the form via AJAX
     function submitRegistration() {
+      // show global loader (use flex so spinner centers correctly)
+      showLoader();
       $.ajax({
         url: 'index.php',
         method: 'POST',
         data: $('#registerForm').serialize(),
         success: function(response) {
+          // hide loader on response
+          hideLoader();
           try {
             const res = JSON.parse(response);
             if (res.status === 'otp_sent') {
+              // ensure loader hidden and remove stray backdrops before showing OTP modal
+              hideLoader();
+              cleanupModalBackdrops();
               const otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
               otpModal.show();
+
               let timer = 40;
               const resendBtn = $('#resendBtn');
               const timerText = $('#timerText');
@@ -817,19 +1089,26 @@ if (isset($_POST['check_username'])) {
             } else if (res.status === 'username_exists') {
               $('#usernameMsg').text('Username already exists');
             } else if (res.status === 'email_exists') {
-              $('#emailMsg').text('Email already exists');
+              // for employee role this will map to #emailMsg
+              if (role === 'admin') $('#storeEmailMsg').text('Email already exists');
+              else $('#emailMsg').text('Email already exists');
             } else if (res.status === 'store_exists') {
-              showToast('storeToast');
+              // store email already exists
+              $('#storeEmailMsg').text('Store email already registered');
             } else if (res.status === 'contact_exists') {
-              showToast('pcnToast');
+              // personal contact already exists
+              $('#pcnMsg').text('Contact number already exists');
             } else {
               alert('Something went wrong: ' + res.status);
             }
+            // update disabled state after server-side messages
+            checkErrorsAndToggleButton();
           } catch {
             console.error('Invalid JSON from index.php:', response);
           }
         },
         error: function() {
+          hideLoader();
           alert('Server error. Please try again.');
         }
       });
@@ -848,8 +1127,9 @@ if (isset($_POST['check_username'])) {
             // If PHP returns proper JSON, parse it
             const res = typeof response === 'object' ? response : JSON.parse(response);
             if (res.status === 'invalid') {
-              showToast('invalidStoreCodeToast'); // toast for invalid store code
+              $('#storeCodeMsg').text('Invalid Store Code'); // inline message
               $('#store_code').focus();
+              checkErrorsAndToggleButton();
               return false; // Stop registration
             } else {
               // Valid store code → submit registration
@@ -876,25 +1156,37 @@ if (isset($_POST['check_username'])) {
     if (!otp) return $('#otpMessage').text('Please enter OTP');
 
     $('#otpMessage').text('Verifying...');
+    // show loader during verify
+    showLoader();
     $.post('verify_otp.php', {
         otp
       })
       .done(res => {
+        hideLoader();
         let data;
         try {
           data = typeof res === 'object' ? res : JSON.parse(res);
         } catch {
           $('#otpMessage').text('Server error');
+          hideLoader();
           return;
         }
         if (data.status === 'success') {
           $('#otpMessage').removeClass('text-danger').addClass('text-success').text('OTP Verified');
           setTimeout(() => {
-            const otpModal = bootstrap.Modal.getInstance(document.getElementById('otpModal'));
-            if (otpModal) otpModal.hide();
+            // hide OTP modal
+            const otpModalEl = document.getElementById('otpModal');
+            const otpModal = bootstrap.Modal.getOrCreateInstance(otpModalEl);
+            otpModal.hide();
+            // hide the auth overlay if you used it
+            $('#auth').hide();
+            // let the hidden.bs.modal listener run cleanup; call once more defensively
+            setTimeout(cleanupModalBackdrops, 20);
+            // ensure no stray backdrop before showing success modal
+            cleanupModalBackdrops();
             $('#userDetails').html(
-              `<p><b>Username:</b> ${data.username}</p><p><b>Email:</b> ${data.role == 'admin' ? data.store_email : data.email}</p>
-`);
+              `<p><b>Username:</b> ${data.username}</p><p><b>Email:</b> ${data.role === 'admin' ? (data.store_email || data.email) : data.email}</p>`
+            );
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             successModal.show();
           }, 700);
@@ -906,7 +1198,10 @@ if (isset($_POST['check_username'])) {
           $('#otpMessage').text('Something went wrong');
         }
       })
-      .fail(() => $('#otpMessage').text('Network error'));
+      .fail(() => {
+        hideLoader();
+        $('#otpMessage').text('Network error');
+      });
   });
 
   // Forgot password flow
@@ -996,16 +1291,25 @@ if (isset($_POST['check_username'])) {
     $('#otpInput').val('');
   });
 
-
-  // Show toast for 3 seconds
-  function showToast(id) {
-    const toast = $('#' + id);
-    toast.fadeIn(200);
-
-    setTimeout(() => {
-      toast.fadeOut(300);
-    }, 3000); // 3 seconds
+  // Helper: remove stray backdrops and restore body only when no modal is open
+  function cleanupModalBackdrops() {
+    // if any modal is still shown, don't remove the backdrop
+    if (document.querySelectorAll('.modal.show').length > 0) return;
+    // remove backdrops and restore body classes/padding
+    $('.modal-backdrop').remove();
+    $('body').removeClass('modal-open').css('padding-right', '');
   }
+
+  // Run cleanup on page load in case a stray backdrop already exists
+  $(function() {
+    cleanupModalBackdrops();
+  });
+
+  // Listen for any bootstrap modal hidden event and cleanup after a short delay
+  document.addEventListener('hidden.bs.modal', function() {
+    // small timeout for bootstrap internal cleanup race conditions
+    setTimeout(cleanupModalBackdrops, 10);
+  });
   </script>
 </body>
 

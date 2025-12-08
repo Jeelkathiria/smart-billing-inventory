@@ -57,8 +57,22 @@ $role = $_SESSION['role'];
   transition: transform 0.3s ease;
 }
 
-.sidebar.collapsed .sidebar-header button {
-  transform: rotate(180deg);
+/* show/hide brand name beside toggle */
+.sidebar-header .brand-name {
+  font-weight: 700;
+  color: #0b2545;
+  margin-left: 8px;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.sidebar.collapsed .sidebar-header .brand-name {
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+}
+
+.sidebar.collapsed .nav-links a span,
+.sidebar.collapsed .sidebar-footer a span {
+  display: none;
 }
 
 /* ---------------- Links ---------------- */
@@ -82,12 +96,6 @@ $role = $_SESSION['role'];
   min-width: 22px;
   text-align: center;
   transition: all 0.25s ease;
-}
-
-/* Hide Text When Collapsed */
-.sidebar.collapsed .nav-links a span,
-.sidebar.collapsed .sidebar-footer a span {
-  display: none;
 }
 
 /* Active Link (Blue Border Left) */
@@ -127,13 +135,49 @@ $role = $_SESSION['role'];
 .sidebar.collapsed .sidebar-footer a i {
   font-size: 1.3rem;
 }
+
+/* Overlay (fade background) */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2,6,23,0.18), rgba(2,6,23,0.34));
+  backdrop-filter: blur(4px);
+  z-index: 1040;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+.sidebar-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ensure chevron rotates smoothly */
+.sidebar-header button i {
+  transition: transform .22s cubic-bezier(.2,.9,.2,1);
+  display: inline-block;
+}
+
+/* Rotate when collapsed (desktop) */
+.sidebar.collapsed .sidebar-header button i {
+  transform: rotate(180deg);
+}
+
+/* Reset rotation when sidebar is open (mobile / overlay) or hover-expanded */
+.sidebar.open .sidebar-header button i,
+.sidebar.hover-expand .sidebar-header button i {
+  transform: rotate(0deg);
+}
 </style>
 
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
   <div>
     <div class="sidebar-header">
-      <button id="toggleSidebar"><i class="bi bi-chevron-left"></i></button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button id="toggleSidebar" aria-label="Toggle sidebar"><i class="bi bi-chevron-left"></i></button>
+        <span class="brand-name">BillMitra</span>
+      </div>
     </div>
 
     <div class="nav-links">
@@ -174,10 +218,14 @@ $role = $_SESSION['role'];
   </div>
 </div>
 
+<!-- overlay for fade background -->
+<div id="sidebarOverlay" class="sidebar-overlay" tabindex="-1" aria-hidden="true"></div>
+
 <!-- Sidebar Toggle Script -->
 <script>
 const sidebar = document.getElementById('sidebar');
 const toggleButton = document.getElementById('toggleSidebar');
+const overlay = document.getElementById('sidebarOverlay');
 
 /* ---------- Load Sidebar State ---------- */
 document.addEventListener('DOMContentLoaded', function() {
@@ -187,7 +235,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* ---------- Toggle Sidebar ---------- */
 toggleButton.addEventListener('click', function() {
+  // Mobile: open as overlay
+  if (window.innerWidth < 992) {
+    const isOpen = sidebar.classList.toggle('open');
+    overlay.classList.toggle('show', isOpen);
+    // do not persist mobile open state as "collapsed"
+    return;
+  }
+
+  // Desktop: collapse / expand and persist
   sidebar.classList.toggle('collapsed');
   localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+});
+
+/* ---------- Overlay click / ESC to close ---------- */
+overlay.addEventListener('click', function() {
+  sidebar.classList.remove('open');
+  overlay.classList.remove('show');
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (sidebar.classList.contains('open')) {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    }
+  }
+});
+
+/* Keep layout responsive on resize */
+window.addEventListener('resize', function() {
+  if (window.innerWidth >= 992) {
+    overlay.classList.remove('show');
+    sidebar.classList.remove('open');
+  }
 });
 </script>

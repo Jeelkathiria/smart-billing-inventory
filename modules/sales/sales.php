@@ -375,6 +375,8 @@ $salesResult = $stmt->get_result();
   <script>
   document.addEventListener("DOMContentLoaded", function() {
     const salesContainer = document.getElementById("sales-container");
+
+    // existing pagination handler (keeps working with returned fragments)
     salesContainer.addEventListener("click", function(e) {
       const link = e.target.closest(".page-link");
       if (link) {
@@ -386,13 +388,66 @@ $salesResult = $stmt->get_result();
             const newDoc = parser.parseFromString(html, "text/html");
             const newContent = newDoc.querySelector("#sales-container").innerHTML;
             salesContainer.innerHTML = newContent;
-            salesContainer.scrollIntoView({
-              behavior: "smooth",
-              block: "start"
-            });
+            salesContainer.scrollIntoView({ behavior: "smooth", block: "start" });
           })
           .catch(err => console.error("Pagination load error:", err));
       }
+    });
+
+    // Debounce helper
+    function debounce(fn, wait) {
+      let t;
+      return function(...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), wait);
+      };
+    }
+
+    // Perform AJAX search and replace sales container
+    async function performSearch(params = {}) {
+      try {
+        // build query: always page=1 for live search
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', '1');
+        if (params.invoice !== undefined) url.searchParams.set('invoice_id', params.invoice);
+        if (params.date !== undefined) url.searchParams.set('filter_date', params.date);
+        // fetch the full page and extract sales-container
+        const res = await fetch(url.toString(), { credentials: 'same-origin' });
+        const html = await res.text();
+        const parser = new DOMParser();
+        const newDoc = parser.parseFromString(html, "text/html");
+        const newContentEl = newDoc.querySelector("#sales-container");
+        if (newContentEl) {
+          salesContainer.innerHTML = newContentEl.innerHTML;
+          salesContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      } catch (err) {
+        console.error('Live search error:', err);
+      }
+    }
+
+    // Inputs
+    const invoiceInput = document.querySelector('input[name="invoice_id"]');
+    const dateInput = document.querySelector('input[name="filter_date"]');
+
+    // Debounced handler for invoice typing
+    const debouncedInvoice = debounce(() => {
+      performSearch({ invoice: invoiceInput.value.trim(), date: dateInput.value });
+    }, 350);
+
+    invoiceInput.addEventListener('input', debouncedInvoice);
+
+    // Trigger search when date changes
+    dateInput.addEventListener('change', () => {
+      performSearch({ invoice: invoiceInput.value.trim(), date: dateInput.value });
+    });
+
+    // Prevent form submit from reloading when user presses Enter; rely on live search
+    const filterForm = document.getElementById('filterForm');
+    filterForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      // ensure immediate search on explicit submit
+      performSearch({ invoice: invoiceInput.value.trim(), date: dateInput.value });
     });
   });
   </script>

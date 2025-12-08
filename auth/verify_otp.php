@@ -16,21 +16,26 @@ if (!$register_data) {
 // -------------------- VERIFY OTP --------------------
 if ((string)$otp === (string)$sessionOtp) {
 
-    $username = trim($register_data['username']);
-    $email = trim($register_data['email']);
-    $password = password_hash($register_data['password'], PASSWORD_DEFAULT);
+    $username = trim($register_data['username'] ?? '');
+    // For admin the email is store_email, for others it's email
     $role = $register_data['role'] ?? 'user';
+    if ($role === 'admin') {
+        $email = trim($register_data['store_email'] ?? '');
+    } else {
+        $email = trim($register_data['email'] ?? '');
+    }
+
+    $password = password_hash($register_data['password'] ?? '', PASSWORD_DEFAULT);
 
     $store_id = null;
     $store_code = null;
 
-    /* ======================================================
-       1️⃣ ADMIN → Create new store
-    ====================================================== */
     if ($role === 'admin') {
         $store_name = trim($register_data['store_name'] ?? '');
-        $store_email = trim($register_data['store_email'] ?? '');
-        $contact_number = trim($register_data['contact_number'] ?? '');
+        // prefer store_email, fallback to email if present
+        $store_email = trim($register_data['store_email'] ?? $register_data['email'] ?? '');
+        // registration form uses personal_contact_number for admin contact
+        $contact_number = trim($register_data['personal_contact_number'] ?? $register_data['contact_number'] ?? '');
 
         // Generate unique store code
         $store_code = 'STR' . rand(1000, 9999);
@@ -83,15 +88,21 @@ if ((string)$otp === (string)$sessionOtp) {
        3️⃣ INSERT USER
     ====================================================== */
     $stmtUser = $conn->prepare("
-        INSERT INTO users (username, email, password, role, store_id)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (username, email, password, role, store_id, personal_contact_number)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
     if (!$stmtUser) {
         echo json_encode(['status' => 'sql_error', 'error' => $conn->error]);
         exit;
     }
 
-    $stmtUser->bind_param('ssssi', $username, $email, $password, $role, $store_id);
+    // personal_contact_number may be present in register_data
+    $personal_contact = trim($register_data['personal_contact_number'] ?? '');
+
+    // ensure store_id param is an integer when present (null allowed)
+    $store_id_param = $store_id !== null ? (int)$store_id : null;
+    // correct types: username,email,password,role (string), store_id (int), personal_contact (string)
+    $stmtUser->bind_param('ssssis', $username, $email, $password, $role, $store_id_param, $personal_contact);
 
     if ($stmtUser->execute()) {
         // ✅ Cleanup
@@ -101,11 +112,13 @@ if ((string)$otp === (string)$sessionOtp) {
             'status' => 'success',
             'username' => $username,
             'email' => $email,
+            // include store_email explicitly so frontend can read it for admin
+            'store_email' => $store_email ?? $email,
             'role' => $role,
             'store_id' => $store_id,
             'store_code' => $store_code
         ]);
-        
+
 
     } else {
         echo json_encode(['status' => 'db_error', 'error' => $stmtUser->error]);
