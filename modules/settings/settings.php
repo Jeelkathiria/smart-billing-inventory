@@ -128,25 +128,26 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 
           <div class="card-body">
             <p>
-              <strong>Store Name:</strong> <?= htmlspecialchars($store['store_name']) ?>
+              <strong>Store Name:</strong> <span data-store-name><?= htmlspecialchars($store['store_name'] ?? '') ?></span>
             </p>
 
             <p><strong>Store Code:</strong>
-              <span id="storeCode"><?= htmlspecialchars($store['store_code']) ?></span>
+              <span id="storeCode"><?= htmlspecialchars($store['store_code'] ?? '') ?></span>
               <i id="copyIcon" class="bi bi-clipboard ms-2 text-primary" style="cursor: pointer;" title="Copy"
                 onclick="copyStoreCode()"></i>
             </p>
 
-
-            <p><strong>Email:</strong> <?= htmlspecialchars($store['store_email']) ?></p>
-            <p><strong>Contact:</strong> <?= htmlspecialchars($store['contact_number']) ?></p>
+            <p><strong>Email:</strong> <span data-store-email><?= htmlspecialchars($store['store_email'] ?? '') ?></span></p>
+            <p><strong>Contact:</strong> <span data-contact-number><?= htmlspecialchars($store['contact_number'] ?? '') ?></span></p>
 
             <p>
               <strong>GSTIN:</strong>
-              <?php if (!empty($store['gstin'])): ?>
-              <?= htmlspecialchars($store['gstin']) ?>
+              <span data-gstin><?php if (!empty($store['gstin'])): ?>
+              <?= htmlspecialchars($store['gstin'] ?? '') ?>
               <?php else: ?>
               <span class="text-muted">-- Not entered --</span>
+              <?php endif; ?></span>
+              <?php if (empty($store['gstin'])): ?>
               <i class="bi bi-info-circle-fill text-warning ms-2" data-bs-toggle="tooltip"
                 title="Enter GSTIN to appear on the bill"></i>
               <?php endif; ?>
@@ -159,20 +160,20 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-receipt-cutoff"></i> Billing Fields</span>
             <i class="bi bi-info-circle text-primary" data-bs-toggle="tooltip" data-bs-placement="left"
-              title="Don’t forget to save otherwise changes won’t be applied." style="cursor: help;"></i>
+              title="Don't forget to save otherwise changes won't be applied." style="cursor: help;"></i>
           </div>
 
           <div class="card-body">
             <form id="billingFieldsForm">
               <?php
-      $fields = [
-        'customer_name' => 'Customer Name',
-        'customer_mobile' => 'Customer Mobile',
-        'customer_email' => 'Customer Email',
-        'customer_address' => 'Customer Address'
-      ];
-      foreach ($fields as $key => $label):
-      ?>
+              $fields = [
+                'customer_name' => 'Customer Name',
+                'customer_mobile' => 'Customer Mobile',
+                'customer_email' => 'Customer Email',
+                'customer_address' => 'Customer Address'
+              ];
+              foreach ($fields as $key => $label):
+              ?>
               <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" name="fields[<?= $key ?>]"
                   <?= !empty($billing_fields[$key]) ? 'checked' : '' ?>>
@@ -262,23 +263,27 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label class="form-label">Store Name</label>
+              <label class="form-label">Store Name <span class="text-danger">*</span></label>
               <input type="text" class="form-control" name="store_name"
-                value="<?= htmlspecialchars($store['store_name']) ?>">
+                value="<?= htmlspecialchars($store['store_name'] ?? '') ?>">
             </div>
             <div class="mb-3">
-              <label class="form-label">Store Email</label>
+              <label class="form-label">Store Email <span class="text-muted">(Read-only)</span></label>
               <input type="email" class="form-control" name="store_email"
-                value="<?= htmlspecialchars($store['store_email']) ?>">
+                value="<?= htmlspecialchars($store['store_email'] ?? '') ?>" readonly>
+              <small class="text-muted">Contact admin to change email</small>
             </div>
             <div class="mb-3">
-              <label class="form-label">Contact Number</label>
-              <input type="text" class="form-control" name="contact_number"
-                value="<?= htmlspecialchars($store['contact_number']) ?>">
+              <label class="form-label">Contact Number <span class="text-muted">(Read-only)</span></label>
+              <input type="text" class="form-control" name="contact_number" 
+                value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>" readonly>
+              <small class="text-muted">Contact admin to change contact number</small>
             </div>
             <div class="mb-3">
-              <label class="form-label">GSTIN</label>
-              <input type="text" class="form-control" name="gstin" value="<?= htmlspecialchars($store['gstin']) ?>">
+              <label class="form-label">GSTIN <span class="text-muted">(Optional)</span></label>
+              <input type="text" class="form-control" name="gstin" 
+                value="<?= htmlspecialchars($store['gstin'] ?? '') ?>" 
+                placeholder="15 character GSTIN">
             </div>
             <button type="submit" class="btn btn-primary w-100">Save Changes</button>
           </div>
@@ -299,7 +304,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     if (!msgBox) {
       msgBox = document.createElement('div');
       msgBox.className = 'modal-msg mt-3';
-      form.appendChild(msgBox); // ✅ append directly below Save button
+      form.appendChild(msgBox);
     }
 
     msgBox.innerHTML = `
@@ -308,12 +313,126 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     setTimeout(() => (msgBox.innerHTML = ''), 4000);
   }
 
-  async function handleForm(formId, url, reload = false) {
+  // ✅ JS Validation for Store Form
+  function validateStoreForm(form) {
+    const storeName = form.querySelector('[name="store_name"]').value.trim();
+    const gstin = form.querySelector('[name="gstin"]').value.trim();
+
+    if (!storeName) {
+      showModalMessage(form, 'Store name is required', 'danger');
+      form.querySelector('[name="store_name"]').focus();
+      return false;
+    }
+
+    if (gstin && gstin.length !== 15) {
+      showModalMessage(form, 'GSTIN must be exactly 15 characters', 'danger');
+      form.querySelector('[name="gstin"]').focus();
+      return false;
+    }
+
+    if (gstin && !/^[0-9A-Z]{15}$/.test(gstin)) {
+      showModalMessage(form, 'GSTIN must contain only letters (A-Z) and numbers (0-9)', 'danger');
+      form.querySelector('[name="gstin"]').focus();
+      return false;
+    }
+
+    return true;
+  }
+
+  // ✅ JS Validation for Profile Form
+  function validateProfileForm(form) {
+    const username = form.querySelector('[name="username"]').value.trim();
+    const email = form.querySelector('[name="email"]').value.trim();
+
+    if (!username) {
+      showModalMessage(form, 'Full name is required', 'danger');
+      form.querySelector('[name="username"]').focus();
+      return false;
+    }
+
+    if (!email) {
+      showModalMessage(form, 'Email is required', 'danger');
+      form.querySelector('[name="email"]').focus();
+      return false;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showModalMessage(form, 'Invalid email format', 'danger');
+      form.querySelector('[name="email"]').focus();
+      return false;
+    }
+
+    return true;
+  }
+
+  // ✅ Update store display after successful update
+  async function updateStoreDisplay() {
+    try {
+      const res = await fetch('/modules/settings/get_store_data.php');
+      const data = await res.json();
+      
+      if (data.success) {
+        // Update store name
+        const storeNameEl = document.querySelector('[data-store-name]');
+        if (storeNameEl) storeNameEl.textContent = data.store_name;
+
+        // Update email
+        const emailEl = document.querySelector('[data-store-email]');
+        if (emailEl) emailEl.textContent = data.store_email;
+
+        // Update contact
+        const contactEl = document.querySelector('[data-contact-number]');
+        if (contactEl) contactEl.textContent = data.contact_number;
+
+        // Update GSTIN
+        const gstinEl = document.querySelector('[data-gstin]');
+        if (gstinEl) {
+          if (data.gstin) {
+            gstinEl.innerHTML = data.gstin;
+          } else {
+            gstinEl.innerHTML = '<span class="text-muted">-- Not entered --</span>';
+          }
+        }
+
+        // Also update modal form values
+        document.querySelector('[name="store_name"]').value = data.store_name;
+        document.querySelector('[name="gstin"]').value = data.gstin || '';
+      }
+    } catch (err) {
+      console.error('Error updating store display:', err);
+    }
+  }
+
+  // ✅ Update profile display after successful update
+  async function updateProfileDisplay() {
+    try {
+      const res = await fetch('/modules/settings/get_profile_data.php');
+      const data = await res.json();
+      
+      if (data.success) {
+        const userNameEl = document.querySelector('[data-user-name]');
+        if (userNameEl) userNameEl.textContent = data.username;
+        
+        // Also update modal form value
+        document.querySelector('[name="username"]').value = data.username;
+      }
+    } catch (err) {
+      console.error('Error updating profile display:', err);
+    }
+  }
+
+  async function handleForm(formId, url, updateCallback = null, validator = null) {
     const form = document.getElementById(formId);
     if (!form) return;
 
     form.addEventListener('submit', async e => {
       e.preventDefault();
+
+      // Run custom validator if provided
+      if (validator && !validator(form)) {
+        return;
+      }
+
       const fd = new FormData(form);
 
       try {
@@ -323,13 +442,12 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           headers: {
             'X-Requested-With': 'XMLHttpRequest'
           },
-          credentials: 'include' // ✅ Keep PHP session alive
+          credentials: 'include'
         });
 
         const text = await res.text();
         console.log(`🔍 Raw response from ${url}:`, text);
 
-        // Check if session expired (HTML returned instead of JSON)
         if (text.trim().startsWith('<')) {
           showModalMessage(form, 'Session expired. Please log in again.', 'danger');
           return;
@@ -339,11 +457,15 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         const type = (data.success || data.status === 'success') ? 'success' : 'danger';
         showModalMessage(form, data.msg || data.message || 'Something went wrong.', type);
 
-        // On success → hide modal + optional reload
+        // On success → hide modal + call update callback (NO reload)
         if (type === 'success') {
           const modalEl = bootstrap.Modal.getInstance(form.closest('.modal'));
           if (modalEl) setTimeout(() => modalEl.hide(), 800);
-          if (reload) setTimeout(() => location.reload(), 1000);
+          
+          // Call callback to update display
+          if (updateCallback) {
+            setTimeout(updateCallback, 600);
+          }
         }
 
       } catch (err) {
@@ -354,10 +476,10 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
   }
 
   /* ============================================================
-     ✅ ATTACH ALL FORMS
+     ✅ ATTACH ALL FORMS WITH VALIDATORS & CALLBACKS
   ============================================================ */
-  handleForm('profileForm', 'update_profile.php', true);
-  handleForm('storeForm', 'update_store.php', true);
+  handleForm('profileForm', 'update_profile.php', updateProfileDisplay, validateProfileForm);
+  handleForm('storeForm', 'update_store.php', updateStoreDisplay, validateStoreForm);
   handleForm('billingFieldsForm', 'update_billing_fields.php');
 
   /* ============================================================
@@ -371,9 +493,16 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 
   if (verifyBtn && updateBtn && passwordForm) {
     verifyBtn.addEventListener('click', async () => {
+      const currentPassword = document.querySelector('[name="current_password"]').value.trim();
+
+      if (!currentPassword) {
+        showModalMessage(passwordForm, 'Current password is required', 'danger');
+        return;
+      }
+
       const fd = new FormData();
       fd.append('stage', 'verify');
-      fd.append('current_password', document.querySelector('[name="current_password"]').value);
+      fd.append('current_password', currentPassword);
 
       try {
         const res = await fetch('/modules/settings/update_password.php', {
@@ -394,13 +523,36 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     });
 
     updateBtn.addEventListener('click', async () => {
+      const newPassword = document.querySelector('[name="new_password"]').value.trim();
+      const confirmPassword = document.querySelector('[name="confirm_password"]').value.trim();
+
+      if (!newPassword) {
+        showModalMessage(passwordForm, 'New password is required', 'danger');
+        return;
+      }
+
+      if (!confirmPassword) {
+        showModalMessage(passwordForm, 'Confirm password is required', 'danger');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showModalMessage(passwordForm, 'Passwords do not match', 'danger');
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        showModalMessage(passwordForm, 'Password must be at least 6 characters', 'danger');
+        return;
+      }
+
       const fd = new FormData();
       fd.append('stage', 'update');
-      fd.append('new_password', document.querySelector('[name="new_password"]').value);
-      fd.append('confirm_password', document.querySelector('[name="confirm_password"]').value);
+      fd.append('new_password', newPassword);
+      fd.append('confirm_password', confirmPassword);
 
       try {
-        const res = await fetch('update_password.php', {
+        const res = await fetch('/modules/settings/update_password.php', {
           method: 'POST',
           body: fd
         });
@@ -411,6 +563,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         if (data.success) {
           const modalEl = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
           if (modalEl) setTimeout(() => modalEl.hide(), 800);
+          // Password changed - reload to be safe
           setTimeout(() => location.reload(), 1000);
         }
       } catch {
@@ -427,17 +580,15 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     });
   });
 
-  /// Copy Store Code to clipboard with tick feedback
+  // Copy Store Code to clipboard with tick feedback
   function copyStoreCode() {
     const code = document.getElementById('storeCode').textContent.trim();
     const icon = document.getElementById('copyIcon');
 
     navigator.clipboard.writeText(code).then(() => {
-      // Change icon to tick
       icon.classList.remove('bi-clipboard', 'text-primary');
       icon.classList.add('bi-check-circle-fill', 'text-success');
 
-      // Show toast
       const toast = document.createElement('div');
       toast.textContent = 'Store code copied!';
       toast.style.position = 'fixed';
@@ -452,21 +603,15 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       toast.style.zIndex = '9999';
       document.body.appendChild(toast);
 
-      setTimeout(() => toast.remove(), 1500); // Remove toast
+      setTimeout(() => toast.remove(), 1500);
       setTimeout(() => {
         icon.classList.remove('bi-check-circle-fill', 'text-success');
         icon.classList.add('bi-clipboard', 'text-primary');
       }, 1000);
     }).catch(() => {
-      alert('Failed to copy store code.');
+      showModalMessage(document.body, 'Failed to copy store code.', 'danger');
     });
   }
-  document.addEventListener('DOMContentLoaded', function() {
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-  });
   </script>
 
 </body>

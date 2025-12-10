@@ -1,57 +1,79 @@
 <?php
-require_once __DIR__ . '/../../auth/auth_check.php';
-header('Content-Type: application/json');
-session_start();
+header('Content-Type: application/json; charset=utf-8');
+error_reporting(E_ERROR | E_PARSE);
+ini_set('display_errors', 0);
+
 require_once __DIR__ . '/../../config/db.php';
+session_start();
 
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-try {
-    // Ensure session is valid
-    if (!isset($_SESSION['store_id'])) {
-        echo json_encode(['success' => false, 'msg' => 'Unauthorized: session missing']);
-        exit;
-    }
-
-    $store_id = $_SESSION['store_id'];
-
-    // Collect form inputs
-    $store_name     = trim($_POST['store_name'] ?? '');
-    $store_email    = trim($_POST['store_email'] ?? '');
-    $contact_number = trim($_POST['contact_number'] ?? '');
-    $gstin          = trim($_POST['gstin'] ?? '');
-
-    // Validate
-    if (empty($store_name) || empty($store_email) || empty($contact_number)) {
-        echo json_encode(['success' => false, 'msg' => 'Please fill all required fields']);
-        exit;
-    }
-
-    // Prepare SQL update
-    $stmt = $conn->prepare("
-        UPDATE stores 
-        SET store_name = ?, store_email = ?, contact_number = ?, gstin = ?
-        WHERE store_id = ?
-    ");
-    $stmt->bind_param("ssssi", $store_name, $store_email, $contact_number, $gstin, $store_id);
-
-    // Execute and respond
-    if ($stmt->execute()) {
-    $_SESSION['store_name'] = $store_name; // ✅ must be here
-    echo json_encode(['success' => true, 'msg' => 'Store information updated successfully']);
-} else {
-    echo json_encode(['success' => false, 'msg' => 'Failed to update store information']);
+// Auth check
+if (!isset($_SESSION['user_id'], $_SESSION['store_id'])) {
+    http_response_code(401);
+    echo json_encode(['status' => 'error', 'message' => 'Access Denied']);
+    exit;
 }
 
+$user_id = $_SESSION['user_id'];
+$store_id = $_SESSION['store_id'];
 
+// Validate admin role
+$stmt = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+$stmt->close();
 
+if (!$user || $user['role'] !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => 'Only admins can update store settings']);
+    exit;
+}
+
+// Get POST data
+$store_name = trim($_POST['store_name'] ?? '');
+$gstin = trim($_POST['gstin'] ?? '');
+
+// ============ VALIDATION: Only store_name is mandatory ============
+if (empty($store_name)) {
+    echo json_encode(['status' => 'error', 'message' => 'Store name is required']);
+    exit;
+}
+
+// GSTIN validation (optional field, but if provided must be 15 chars, alphanumeric)
+if (!empty($gstin)) {
+    if (strlen($gstin) !== 15) {
+        echo json_encode(['status' => 'error', 'message' => 'GSTIN must be exactly 15 characters']);
+        exit;
+    }
+
+    if (!preg_match('/^[0-9A-Z]{15}$/', $gstin)) {
+        echo json_encode(['status' => 'error', 'message' => 'GSTIN must contain only letters (A-Z) and numbers (0-9)']);
+        exit;
+    }
+
+    // Check if GSTIN already exists (different store)
+    $check = $conn->prepare("SELECT store_id FROM stores WHERE gstin = ? AND store_id != ?");
+    $check->bind_param("si", $gstin, $store_id);
+    $check->execute();
+    if ($check->get_result()->num_rows > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'This GSTIN is already registered']);
+        exit;
+    }
+    $check->close();
+}
+
+// ============ UPDATE: stores table (only store_name and gstin) ============
+$stmt = $conn->prepare("UPDATE stores SET store_name = ?, gstin = ? WHERE store_id = ?");
+$stmt->bind_param("ssi", $store_name, $gstin, $store_id);
+
+if (!$stmt->execute()) {
+    echo json_encode(['status' => 'error', 'message' => 'Failed to update store settings']);
     $stmt->close();
-    $conn->close();
-
-} catch (Throwable $e) {
-    echo json_encode(['success' => false, 'msg' => 'Server error: ' . $e->getMessage()]);
+    exit;
 }
+$stmt->close();
 
-
+echo json_encode(['status' => 'success', 'message' => 'Store settings updated successfully']);
+$conn->close();
 ?>

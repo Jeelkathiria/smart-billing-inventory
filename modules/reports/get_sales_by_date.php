@@ -61,3 +61,7 @@ echo json_encode([
     "items" => $items
 ]);
 
+$stmt2->close();
+$conn->close();
+?>
+

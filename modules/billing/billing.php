@@ -334,9 +334,23 @@ If entering manually, type the barcode and press Enter to add it."></i>
 
     const showPopup = (message, title = "Notice") => {
       const modalEl = $('#alertModal');
-      modalEl.querySelector('#alertModalLabel').textContent = title;
-      modalEl.querySelector('#alertModalBody').textContent = message;
-      new bootstrap.Modal(modalEl).show();
+      if (!modalEl) {
+        console.error('Alert modal not found');
+        alert(message);
+        return;
+      }
+      const titleEl = modalEl.querySelector('#alertModalLabel');
+      const bodyEl = modalEl.querySelector('#alertModalBody');
+      
+      if (titleEl) titleEl.textContent = title;
+      if (bodyEl) bodyEl.textContent = message;
+      
+      try {
+        new bootstrap.Modal(modalEl).show();
+      } catch (e) {
+        console.error('Modal error:', e);
+        alert(message);
+      }
     }
 
     const showToast = (id, duration = 2000) => {
@@ -713,6 +727,7 @@ If entering manually, type the barcode and press Enter to add it."></i>
     // ---------------- Checkout ----------------
     async function processCheckout(print = false) {
       if (!cart.length) return showPopup('Your cart is empty. Please add at least one product.', 'Empty Cart');
+      
       for (let k of enabledFields) {
         const el = $(k);
         if (el && !el.value.trim()) {
@@ -747,15 +762,35 @@ If entering manually, type the barcode and press Enter to add it."></i>
           },
           body: JSON.stringify(data)
         });
-        const r = await res.json();
-        if (r.status === 'success') {
+        
+        if (!res.ok) {
+          return showPopup(`Server error: ${res.status} ${res.statusText}`, 'Error');
+        }
+
+        const responseText = await res.text();
+        console.log('Server response:', responseText);
+
+        let r;
+        try {
+          r = JSON.parse(responseText);
+        } catch (parseErr) {
+          console.error('JSON Parse Error:', parseErr);
+          console.error('Response was:', responseText);
+          return showPopup('Server returned invalid JSON. Check browser console.', 'Parse Error');
+        }
+
+        if (r && r.status === 'success') {
           showToast('successToast');
           resetForm();
-          if (print && r.sale_id) window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
-        } else showPopup(r.message || 'Checkout failed.', 'Error');
+          if (print && r.sale_id) {
+            window.open(`./generate_invoice.php?sale_id=${r.sale_id}&download=1`, '_blank');
+          }
+        } else {
+          showPopup(r?.message || 'Checkout failed.', 'Error');
+        }
       } catch (e) {
-        console.error(e);
-        showPopup('Checkout failed. Please try again.', 'Error');
+        console.error('Checkout error:', e);
+        showPopup(`Checkout failed: ${e.message}`, 'Error');
       }
     }
 

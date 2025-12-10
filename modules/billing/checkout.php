@@ -1,11 +1,14 @@
 <?php
+// MUST be first line - before any output!
+header('Content-Type: application/json; charset=utf-8');
+
 require_once __DIR__ . '/../../config/db.php';
 session_start();
 date_default_timezone_set('Asia/Kolkata');
 
-header('Content-Type: application/json');
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Suppress warnings/notices - only show errors
+error_reporting(E_ERROR | E_PARSE);
+ini_set('display_errors', 0);
 
 /* ==================================================
    1. AUTH CHECK
@@ -26,7 +29,7 @@ $store_stmt->bind_param("i", $store_id);
 $store_stmt->execute();
 $store_res = $store_stmt->get_result();
 $store = $store_res->fetch_assoc();
-$storeFields = json_decode($store['billing_fields'], true) ?: [];
+$storeFields = json_decode($store['billing_fields'] ?? '{}', true) ?: [];
 $store_stmt->close();
 
 /* ==================================================
@@ -263,3 +266,4 @@ try {
 }
 
 $conn->close();
+?>
