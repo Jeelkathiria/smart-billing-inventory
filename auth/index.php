@@ -691,16 +691,6 @@ if (isset($_POST['check_user_email'])) {
                   placeholder="Contact Number">
                 <small id="pcnMsg" class="text-danger"></small>
               </div>
-              <div class="mb-2">
-                <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
-                  required>
-                <small id="usernameMsg" class="text-danger"></small>
-              </div>
-              <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
-                  required>
-                <small id="passwordError" class="text-danger"></small>
-              </div>
-
             </div>
 
             <div id="employeeFields" style="display:none;">
@@ -713,15 +703,16 @@ if (isset($_POST['check_user_email'])) {
                 <input type="email" name="email" id="emailInput" class="form-control" placeholder="Email">
                 <small id="emailMsg" class="text-danger"></small>
               </div>
-              <div class="mb-2">
-                <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
-                  required>
-                <small id="usernameMsg" class="text-danger"></small>
-              </div>
-              <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
-                  required>
-                <small id="passwordError" class="text-danger"></small>
-              </div>
+            </div>
+
+            <div class="mb-2">
+              <input type="text" name="username" id="usernameInput" class="form-control" placeholder="Username"
+                required>
+              <small id="usernameMsg" class="text-danger"></small>
+            </div>
+            <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="Password"
+                required>
+              <small id="passwordError" class="text-danger"></small>
             </div>
 
             <button type="submit" id="registerBtn" class="btn btn-success w-100">Register</button>
