@@ -10,15 +10,23 @@ if (!$user_id || !$store_id) {
   exit;
 }
 
-// Fetch user info
-$stmt = $conn->prepare("SELECT username, role FROM users WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT username, role, personal_contact_number FROM users WHERE user_id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 $role = $user['role'] ?? '';
+$admin_contact = $user['personal_contact_number'] ?? '';
 
-// Fetch store info
-$stmt = $conn->prepare("SELECT store_name, store_email, contact_number, store_code, gstin, billing_fields FROM stores WHERE store_id = ?");
+$cols = ['store_name','store_email','contact_number','store_code','gstin','billing_fields'];
+$resCols = $conn->query("SHOW COLUMNS FROM stores LIKE 'store_address'");
+if ($resCols && $resCols->num_rows) $cols[] = 'store_address';
+$resCols = $conn->query("SHOW COLUMNS FROM stores LIKE 'note'");
+if ($resCols && $resCols->num_rows) $cols[] = 'note';
+// Fallback: keep 'notice' if present (backward compatibility)
+$resCols = $conn->query("SHOW COLUMNS FROM stores LIKE 'notice'");
+if ($resCols && $resCols->num_rows && !in_array('notice', $cols)) $cols[] = 'notice';
+$colSql = implode(', ', $cols);
+$stmt = $conn->prepare("SELECT $colSql FROM stores WHERE store_id = ?");
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $store = $stmt->get_result()->fetch_assoc();
@@ -138,7 +146,8 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             </p>
 
             <p><strong>Email:</strong> <span data-store-email><?= htmlspecialchars($store['store_email'] ?? '') ?></span></p>
-            <p><strong>Contact:</strong> <span data-contact-number><?= htmlspecialchars($store['contact_number'] ?? '') ?></span></p>
+            <p><strong>Contact:</strong> <span data-admin-contact><?= htmlspecialchars($admin_contact ?? $store['contact_number'] ?? '') ?></span>
+              <small class="text-muted"> (account contact)</small></p>
 
             <p>
               <strong>GSTIN:</strong>
@@ -152,6 +161,21 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
                 title="Enter GSTIN to appear on the bill"></i>
               <?php endif; ?>
             </p>
+          </div>
+        </div>
+
+        <!-- INVOICE DETAILS -->
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-receipt"></i> Invoice Details</span>
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editStoreModal">
+              <i class="bi bi-pencil-square"></i> Edit
+            </button>
+          </div>
+          <div class="card-body">
+            <p><strong>Store Address:</strong> <span data-store-address><?= htmlspecialchars($store['store_address'] ?? '') ?></span></p>
+            <p><strong>Store Contact:</strong> <span data-store-contact><?= htmlspecialchars($store['contact_number'] ?? '') ?></span></p>
+            <p><strong>Note:</strong> <span data-store-note><?= htmlspecialchars($store['note'] ?? $store['notice'] ?? '') ?></span></p>
           </div>
         </div>
 
@@ -203,6 +227,10 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             <div class="mb-3">
               <label class="form-label">Full Name</label>
               <input type="text" class="form-control" name="username" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Contact Number</label>
+              <input type="text" class="form-control" name="personal_contact_number">
             </div>
             <div class="mb-3">
               <label class="form-label">Email</label>
@@ -274,10 +302,18 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
               <small class="text-muted">Contact admin to change email</small>
             </div>
             <div class="mb-3">
-              <label class="form-label">Contact Number <span class="text-muted">(Read-only)</span></label>
+              <label class="form-label">Contact Number</label>
               <input type="text" class="form-control" name="contact_number" 
-                value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>" readonly>
-              <small class="text-muted">Contact admin to change contact number</small>
+                value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>">
+              <small class="text-muted">This contact will be printed on invoices if provided.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Store Address</label>
+              <textarea class="form-control" name="store_address" rows="2"><?= htmlspecialchars($store['store_address'] ?? '') ?></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Note <span class="text-muted">(Appears at bottom of invoice)</span></label>
+              <textarea class="form-control" name="note" rows="2"><?= htmlspecialchars($store['note'] ?? $store['notice'] ?? '') ?></textarea>
             </div>
             <div class="mb-3">
               <label class="form-label">GSTIN <span class="text-muted">(Optional)</span></label>
@@ -336,6 +372,27 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       return false;
     }
 
+    const contact = form.querySelector('[name="contact_number"]').value.trim();
+    if (contact && !/^\+?[0-9\-\s]{7,20}$/.test(contact)) {
+      showModalMessage(form, 'Contact number must be 7-20 digits and may include +,- or spaces', 'danger');
+      form.querySelector('[name="contact_number"]').focus();
+      return false;
+    }
+
+    const addr = form.querySelector('[name="store_address"]').value.trim();
+    if (addr.length > 250) {
+      showModalMessage(form, 'Store address is too long (max 250 chars)', 'danger');
+      form.querySelector('[name="store_address"]').focus();
+      return false;
+    }
+
+    const noteVal = form.querySelector('[name="note"]').value.trim();
+    if (noteVal.length > 250) {
+      showModalMessage(form, 'Note text is too long (max 250 chars)', 'danger');
+      form.querySelector('[name="note"]').focus();
+      return false;
+    }
+
     return true;
   }
 
@@ -362,6 +419,13 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       return false;
     }
 
+    const pContact = form.querySelector('[name="personal_contact_number"]').value.trim();
+    if (pContact && !/^\+?[0-9\-\s]{7,20}$/.test(pContact)) {
+      showModalMessage(form, 'Personal contact number must be 7-20 digits and may include +,- or spaces', 'danger');
+      form.querySelector('[name="personal_contact_number"]').focus();
+      return false;
+    }
+
     return true;
   }
 
@@ -380,9 +444,13 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         const emailEl = document.querySelector('[data-store-email]');
         if (emailEl) emailEl.textContent = data.store_email;
 
-        // Update contact
-        const contactEl = document.querySelector('[data-contact-number]');
-        if (contactEl) contactEl.textContent = data.contact_number;
+        // Update admin contact (personal contact from users table)
+        const adminContactEl = document.querySelector('[data-admin-contact]');
+        if (adminContactEl) adminContactEl.textContent = data.admin_contact || '';
+
+        // Update store contact (contact saved in stores table, used for invoice printing)
+        const storeContactEl = document.querySelector('[data-store-contact]');
+        if (storeContactEl) storeContactEl.textContent = data.contact_number || '';
 
         // Update GSTIN
         const gstinEl = document.querySelector('[data-gstin]');
@@ -397,6 +465,13 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         // Also update modal form values
         document.querySelector('[name="store_name"]').value = data.store_name;
         document.querySelector('[name="gstin"]').value = data.gstin || '';
+        document.querySelector('[name="contact_number"]').value = data.contact_number || '';
+        const addressElSpan = document.querySelector('[data-store-address]');
+        if (addressElSpan) addressElSpan.textContent = data.store_address || '';
+        const noteElSpan = document.querySelector('[data-store-note]');
+        if (noteElSpan) noteElSpan.textContent = ('note' in data) ? data.note : (data.notice || '');
+        document.querySelector('[name="store_address"]').value = data.store_address || '';
+        document.querySelector('[name="note"]').value = ('note' in data) ? data.note : (data.notice || '');
       }
     } catch (err) {
       console.error('Error updating store display:', err);
@@ -412,9 +487,13 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       if (data.success) {
         const userNameEl = document.querySelector('[data-user-name]');
         if (userNameEl) userNameEl.textContent = data.username;
+        // Update admin contact display
+        const adminContactEl = document.querySelector('[data-admin-contact]');
+        if (adminContactEl) adminContactEl.textContent = data.personal_contact_number || '';
         
         // Also update modal form value
         document.querySelector('[name="username"]').value = data.username;
+        document.querySelector('[name="personal_contact_number"]').value = data.personal_contact_number || '';
       }
     } catch (err) {
       console.error('Error updating profile display:', err);
@@ -455,7 +534,11 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 
         const data = JSON.parse(text);
         const type = (data.success || data.status === 'success') ? 'success' : 'danger';
-        showModalMessage(form, data.msg || data.message || 'Something went wrong.', type);
+        let message = data.msg || data.message || 'Something went wrong.';
+        if (data.warnings && Array.isArray(data.warnings) && data.warnings.length) {
+          message += '<br>' + data.warnings.join('<br>');
+        }
+        showModalMessage(form, message, type);
 
         // On success → hide modal + call update callback (NO reload)
         if (type === 'success') {
@@ -578,6 +661,9 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     tooltipTriggerList.map(function(tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    // Update the UI with current store & profile data
+    updateStoreDisplay();
+    updateProfileDisplay();
   });
 
   // Copy Store Code to clipboard with tick feedback

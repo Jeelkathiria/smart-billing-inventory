@@ -28,7 +28,16 @@ if (!$sale) die("Sale not found");
 // ---------------------------
 // FETCH STORE INFO
 // ---------------------------
-$storeQuery = $conn->prepare("SELECT store_name, store_email, contact_number, gstin FROM stores WHERE store_id=?");
+$cols = ['store_name','store_email','contact_number','gstin'];
+$resA = $conn->query("SHOW COLUMNS FROM stores LIKE 'store_address'");
+if ($resA && $resA->num_rows) $cols[] = 'store_address';
+$resB = $conn->query("SHOW COLUMNS FROM stores LIKE 'note'");
+if ($resB && $resB->num_rows) $cols[] = 'note';
+// Fallback to old 'notice' column if it exists
+$resB = $conn->query("SHOW COLUMNS FROM stores LIKE 'notice'");
+if ($resB && $resB->num_rows && !in_array('notice', $cols)) $cols[] = 'notice';
+$colsSql = implode(', ', $cols);
+$storeQuery = $conn->prepare("SELECT $colsSql FROM stores WHERE store_id=?");
 $storeQuery->bind_param("i", $store_id);
 $storeQuery->execute();
 $store = $storeQuery->get_result()->fetch_assoc();
@@ -72,7 +81,15 @@ $pdf->SetFont('DejaVu','B',16);
 $pdf->Cell(0,10, $store['store_name'],0,1,'C');
 
 $pdf->SetFont('DejaVu','',10);
-$pdf->Cell(0,5,'Email: '.$store['store_email'].' | Contact: '.$store['contact_number'],0,1,'C');
+$contactText = 'Contact: '.($store['contact_number'] ?? '');
+$emailText = 'Email: '.($store['store_email'] ?? '');
+$pdf->Cell(0,5,trim($emailText.' | '.$contactText),0,1,'C');
+// Print address if available
+if (!empty($store['store_address'])) {
+    $pdf->SetFont('DejaVu','',9);
+    $pdf->MultiCell(0,5, $store['store_address'],0,'C');
+    $pdf->SetFont('DejaVu','',10);
+}
 if(!empty($store['gstin'])) $pdf->Cell(0,5,'GSTIN: '.$store['gstin'],0,1,'C');
 
 $pdf->Ln(5);
@@ -144,6 +161,14 @@ $pdf->Cell(40,10,'₹'.number_format($total,2),1,1,'R');
 $pdf->Ln(5);
 $pdf->SetFont('DejaVu','',10);
 $pdf->MultiCell(0,5,"Thank you for your purchase!\nThis is a computer-generated invoice.",0,'C');
+
+// Print invoice note if present
+$invoiceNote = $store['note'] ?? $store['notice'] ?? '';
+if (!empty($invoiceNote)) {
+    $pdf->Ln(3);
+    $pdf->SetFont('DejaVu','',9);
+    $pdf->MultiCell(0,5, 'Note: ' . $invoiceNote, 0, 'L');
+}
 
 // ---------------------------
 // OUTPUT PDF

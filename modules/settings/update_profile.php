@@ -24,23 +24,31 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // ================= INPUTS =================
 $username = trim($_POST['username'] ?? '');
 $email    = trim($_POST['email'] ?? '');
+$personal_contact = trim($_POST['personal_contact_number'] ?? '');
 
 if (empty($username) || empty($email)) {
     echo json_encode(['success' => false, 'msg' => 'Username and email are required']);
     exit;
 }
 
+// Optional: basic contact validation
+if ($personal_contact && !preg_match('/^\+?[0-9\-\s]{7,20}$/', $personal_contact)) {
+    echo json_encode(['success' => false, 'msg' => 'Invalid personal contact number']);
+    exit;
+}
+
 // ================= UPDATE QUERY =================
 $stmt = $conn->prepare("UPDATE users 
-                        SET username = ?, email = ?
+                        SET username = ?, email = ?, personal_contact_number = ?
                         WHERE user_id = ? AND store_id = ?");
-$stmt->bind_param("ssii", $username, $email, $user_id, $store_id);
+$stmt->bind_param("sssii", $username, $email, $personal_contact, $user_id, $store_id);
 
 if ($stmt->execute()) {
 
     // INSTANT UPDATE SESSION
     $_SESSION['username'] = $username;
     $_SESSION['email']    = $email;
+    $_SESSION['personal_contact_number'] = $personal_contact;
 
     echo json_encode(['success' => true, 'msg' => 'Profile updated successfully']);
 } else {

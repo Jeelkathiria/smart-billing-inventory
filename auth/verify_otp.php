@@ -40,16 +40,16 @@ if ((string)$otp === (string)$sessionOtp) {
         // Generate unique store code
         $store_code = 'STR' . rand(1000, 9999);
 
-        $stmtStore = $conn->prepare("
-            INSERT INTO stores (store_name, store_email, contact_number, store_code, created_at)
-            VALUES (?, ?, ?, ?, NOW())
+        $stmtStore = $conn->prepare("\
+            INSERT INTO stores (store_name, store_email, store_code, created_at)\
+            VALUES (?, ?, ?, NOW())\
         ");
         if (!$stmtStore) {
             echo json_encode(['status' => 'sql_error', 'error' => $conn->error]);
             exit;
         }
 
-        $stmtStore->bind_param('ssss', $store_name, $store_email, $contact_number, $store_code);
+        $stmtStore->bind_param('sss', $store_name, $store_email, $store_code);
         if (!$stmtStore->execute()) {
             echo json_encode(['status' => 'db_error', 'error' => $stmtStore->error]);
             exit;
