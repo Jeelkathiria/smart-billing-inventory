@@ -32,6 +32,7 @@ body {
   flex-direction: column;
   box-sizing: border-box;
   transition: width 0.3s ease;
+  z-index: 1025; /* Sit below navbar (1030) and above main content */
 }
 
 /* Collapsed Sidebar */
@@ -79,6 +80,8 @@ body {
   padding-top: 10vh; /* for navbar */
   box-sizing: border-box;
   transition: margin-left 0.3s ease;
+  position: relative; /* create stacking context */
+  z-index: 0; /* ensure content stays below sidebar */
 }
 
 /* When sidebar collapsed */

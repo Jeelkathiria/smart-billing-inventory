@@ -16,6 +16,7 @@ $role = $_SESSION['role'];
   box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
   transition: width 0.3s ease;
   overflow: hidden;
+  z-index: 1025; /* Sit below navbar (1030), above content */
 }
 
 .sidebar.collapsed {

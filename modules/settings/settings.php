@@ -103,7 +103,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             </button>
           </div>
           <div class="card-body">
-            <p><strong>Name:</strong> <?= htmlspecialchars($user['username']) ?></p>
+            <p><strong>Name:</strong> <span data-user-name><?= htmlspecialchars($user['username']) ?></span></p>
             <p><strong>Role:</strong> <?= htmlspecialchars($user['role']) ?></p>
           </div>
         </div>
@@ -228,14 +228,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
               <label class="form-label">Full Name</label>
               <input type="text" class="form-control" name="username" required>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Contact Number</label>
-              <input type="text" class="form-control" name="personal_contact_number">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-control" name="email" required>
-            </div>
+            <!-- Email and Contact are not editable here as per policy - only Name is editable -->
             <button type="submit" class="btn btn-primary w-100">Save Changes</button>
           </div>
         </form>
@@ -396,36 +389,14 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     return true;
   }
 
-  // ✅ JS Validation for Profile Form
+  // ✅ JS Validation for Profile Form - Only username editable now
   function validateProfileForm(form) {
     const username = form.querySelector('[name="username"]').value.trim();
-    const email = form.querySelector('[name="email"]').value.trim();
-
     if (!username) {
       showModalMessage(form, 'Full name is required', 'danger');
       form.querySelector('[name="username"]').focus();
       return false;
     }
-
-    if (!email) {
-      showModalMessage(form, 'Email is required', 'danger');
-      form.querySelector('[name="email"]').focus();
-      return false;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showModalMessage(form, 'Invalid email format', 'danger');
-      form.querySelector('[name="email"]').focus();
-      return false;
-    }
-
-    const pContact = form.querySelector('[name="personal_contact_number"]').value.trim();
-    if (pContact && !/^\+?[0-9\-\s]{7,20}$/.test(pContact)) {
-      showModalMessage(form, 'Personal contact number must be 7-20 digits and may include +,- or spaces', 'danger');
-      form.querySelector('[name="personal_contact_number"]').focus();
-      return false;
-    }
-
     return true;
   }
 
@@ -487,13 +458,14 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       if (data.success) {
         const userNameEl = document.querySelector('[data-user-name]');
         if (userNameEl) userNameEl.textContent = data.username;
-        // Update admin contact display
+        // Update admin contact display only if element exists
         const adminContactEl = document.querySelector('[data-admin-contact]');
         if (adminContactEl) adminContactEl.textContent = data.personal_contact_number || '';
-        
-        // Also update modal form value
-        document.querySelector('[name="username"]').value = data.username;
-        document.querySelector('[name="personal_contact_number"]').value = data.personal_contact_number || '';
+        // Update modal form value only if input exists
+        const usernameInput = document.querySelector('[name="username"]');
+        if (usernameInput) usernameInput.value = data.username;
+        const personalContactInput = document.querySelector('[name="personal_contact_number"]');
+        if (personalContactInput) personalContactInput.value = data.personal_contact_number || '';
       }
     } catch (err) {
       console.error('Error updating profile display:', err);
