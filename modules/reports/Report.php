@@ -11,9 +11,9 @@ $store_id = $_SESSION['store_id'];
 
 // ------------------- SUMMARY METRICS -------------------
 $total_revenue = $total_profit = $total_tax = 0;
-$today_total = $today_profit = 0;
-$month_total = $month_profit = 0;
-$year_total = $year_profit = 0;
+$today_total = $today_profit = $today_total_excl = 0;
+$month_total = $month_profit = $month_total_excl = 0;
+$year_total = $year_profit = $year_total_excl = 0;
 
 // General summary
 $sql_summary = "
@@ -33,11 +33,15 @@ $stmt->bind_result($total_revenue, $total_profit, $total_tax);
 $stmt->fetch();
 $stmt->close();
 
+// Inclusive total revenue = exclusive total + tax
+$total_revenue_incl = ($total_revenue ?? 0) + ($total_tax ?? 0);
+
 // Today's summary
 $sql_today = "
   SELECT 
       SUM(s.total_amount) AS today_total,
       SUM((p.sell_price - p.purchase_price) * si.quantity) AS today_profit
+      , SUM(si.quantity * si.price) AS today_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
   JOIN products p ON si.product_id = p.product_id
@@ -46,7 +50,7 @@ $sql_today = "
 $stmt = $conn->prepare($sql_today);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
-$stmt->bind_result($today_total, $today_profit);
+$stmt->bind_result($today_total, $today_profit, $today_total_excl);
 $stmt->fetch();
 $stmt->close();
 
@@ -55,6 +59,7 @@ $sql_month = "
   SELECT 
       SUM(s.total_amount) AS month_total,
       SUM((p.sell_price - p.purchase_price) * si.quantity) AS month_profit
+      , SUM(si.quantity * si.price) AS month_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
   JOIN products p ON si.product_id = p.product_id
@@ -63,7 +68,7 @@ $sql_month = "
 $stmt = $conn->prepare($sql_month);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
-$stmt->bind_result($month_total, $month_profit);
+$stmt->bind_result($month_total, $month_profit, $month_total_excl);
 $stmt->fetch();
 $stmt->close();
 
@@ -72,6 +77,7 @@ $sql_year = "
   SELECT 
       SUM(s.total_amount) AS year_total,
       SUM((p.sell_price - p.purchase_price) * si.quantity) AS year_profit
+      , SUM(si.quantity * si.price) AS year_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
   JOIN products p ON si.product_id = p.product_id
@@ -80,7 +86,7 @@ $sql_year = "
 $stmt = $conn->prepare($sql_year);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
-$stmt->bind_result($year_total, $year_profit);
+$stmt->bind_result($year_total, $year_profit, $year_total_excl);
 $stmt->fetch();
 $stmt->close();
 
@@ -181,6 +187,7 @@ if ($total_revenue > 0) {
     background: linear-gradient(135deg, #ffffff, #f8fafc);
     padding: 1.5rem;
     transition: all 0.2s ease;
+    position: relative;
   }
 
   .card-custom:hover {
@@ -191,6 +198,15 @@ if ($total_revenue > 0) {
   .summary-icon {
     font-size: 1.8rem;
     margin-right: 1rem;
+  }
+
+  .tax-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 0.65rem;
+    padding: 0.25rem 0.45rem;
+    border-radius: 0.4rem;
   }
 
   .chart-section {
@@ -586,37 +602,79 @@ if ($total_revenue > 0) {
 
   <div class="content">
     <h2 class="mt-4"><i class="bi bi-graph-up me-2"></i>Business Reports</h2>
-    
+
     <div class="row g-3">
       <?php
-      $cards = [
-        ['Total Revenue', $total_revenue, 'success', 'bi-cash-stack'],
-        ['Total Profit', $total_profit, 'info', 'bi-bar-chart-line-fill'],
-        ['Total Tax Collected', $total_tax, 'danger', 'bi-receipt'],
-        ["Today's Revenue", $today_total, 'primary', 'bi-calendar-day'],
-        ["Today's Profit", $today_profit, 'primary', 'bi-calendar-check'],
-        ['This Month Revenue', $month_total, 'warning', 'bi-calendar2'],
-        ['This Month Profit', $month_profit, 'warning', 'bi-calendar2-check'],
-        ['This Year Revenue', $year_total, 'secondary', 'bi-calendar3'],
-        ['This Year Profit', $year_profit, 'secondary', 'bi-calendar3-check']
-      ];
+  $cards = [
+    ["Today's Revenue", $today_total, 'primary', 'bi-calendar-day', 'inclusive'],
+    ['This Month Revenue', $month_total, 'warning', 'bi-calendar2', 'inclusive'],
+    ['This Year Revenue', $year_total, 'secondary', 'bi-calendar3', 'inclusive'],
 
-      foreach ($cards as [$label, $value, $color, $icon]) {
-        echo "
-        <div class='col-xl-4 col-lg-4 col-md-6 col-sm-12'>
-          <div class='card card-custom'>
-            <div class='d-flex align-items-center'>
-              <i class='bi $icon summary-icon text-$color'></i>
-              <div>
-                <div class='text-muted small'>{$label}</div>
-                <div class='fw-bold fs-5'>₹" . number_format((float)($value ?? 0), 2) . "</div>
+    ["Today's Revenue (Excl. Tax)", $today_total_excl, 'primary', 'bi-calendar-day', 'exclusive'],
+    ['This Month Revenue (Excl. Tax)', $month_total_excl, 'warning', 'bi-calendar2', 'exclusive'],
+    ['This Year Revenue (Excl. Tax)', $year_total_excl, 'secondary', 'bi-calendar3', 'exclusive'],
+
+    ["Today's Profit", $today_profit, 'primary', 'bi-calendar-check', 'profit'],
+    ['This Month Profit', $month_profit, 'warning', 'bi-calendar2-check', 'profit'],
+    ['This Year Profit', $year_profit, 'secondary', 'bi-calendar3', 'profit'],
+
+    // ===== TOTAL SECTION =====
+    ['Total Revenue (Incl. Tax)', $total_revenue_incl, 'success', 'bi-cash-stack', 'inclusive'],
+    ['Total Revenue (Excl. Tax)', $total_revenue, 'success', 'bi-cash-stack', 'exclusive'],
+    ['Total Profit', $total_profit, 'info', 'bi-bar-chart-line-fill', 'profit'],
+    ['Total Tax Collected', $total_tax, 'danger', 'bi-receipt', null],
+  ];
+
+  foreach ($cards as $index => [$label, $value, $color, $icon, $tax_flag]) {
+
+    // 🔴 RED DIVIDER BEFORE TOTAL CARDS
+    if ($index === 9) {
+      echo "
+        <div class='col-12'>
+          <hr class='my-3 border-2 border-danger opacity-75'>
+        </div>
+      ";
+    }
+
+    $badge_html = '';
+    if ($tax_flag === 'exclusive') {
+      $badge_html = "<div class='tax-badge badge bg-warning text-dark'>Excl. Tax</div>";
+    } else if ($tax_flag === 'inclusive') {
+      $badge_html = "<div class='tax-badge badge bg-success text-white'>Inc. Tax</div>";
+    } else if ($tax_flag === 'profit') {
+      $badge_html = "<div class='tax-badge badge bg-danger text-white'>Profit</div>";
+    }
+
+    echo "
+      <div class='col-xl-4 col-lg-4 col-md-6 col-sm-12'>
+        <div class='card card-custom'>
+          {$badge_html}
+          <div class='d-flex align-items-center'>
+            <i class='bi $icon summary-icon text-$color'></i>
+            <div>
+              <div class='text-muted small'>{$label}</div>
+              <div class='fw-bold fs-5'>
+                ₹" . number_format((float)($value ?? 0), 2) . "
               </div>
             </div>
           </div>
-        </div>";
-      }
-      ?>
+        </div>
+      </div>";
+  }
+  ?>
     </div>
+
+    <div class="col-12 d-flex justify-content-center my-3">
+  <div class="d-flex align-items-center w-75">
+    <hr class="flex-grow-1 border-2 border-danger opacity-75">
+    <span class="mx-3 fw-semibold text-danger small">OVERALL SUMMARY</span>
+    <hr class="flex-grow-1 border-2 border-danger opacity-75">
+  </div>
+</div>
+
+
+
+
 
     <!-- KPI Section (replace Today's Orders with Total Products) -->
     <div class="kpi-section">
@@ -676,20 +734,21 @@ if ($total_revenue > 0) {
         <h6><i class="bi bi-clock-history me-2"></i>Recent Transactions</h6>
         <!-- ...existing recent transactions loop ... -->
         <?php if (!empty($recent_sales)): ?>
-          <?php foreach ($recent_sales as $sale): ?>
-            <div class="transaction-item">
-              <div class="transaction-info">
-                <div class="transaction-icon"><i class="bi bi-bag-check"></i></div>
-                <div class="transaction-details">
-                  <div class="transaction-customer"><?= htmlspecialchars($sale['customer_name']) ?></div>
-                  <div class="transaction-time"><?= date('M d, Y H:i', strtotime($sale['sale_date'])) ?> • <?= $sale['items'] ?> items</div>
-                </div>
-              </div>
-              <div class="transaction-amount">₹<?= number_format((float)$sale['total_amount'], 2) ?></div>
+        <?php foreach ($recent_sales as $sale): ?>
+        <div class="transaction-item">
+          <div class="transaction-info">
+            <div class="transaction-icon"><i class="bi bi-bag-check"></i></div>
+            <div class="transaction-details">
+              <div class="transaction-customer"><?= htmlspecialchars($sale['customer_name']) ?></div>
+              <div class="transaction-time"><?= date('M d, Y H:i', strtotime($sale['sale_date'])) ?> •
+                <?= $sale['items'] ?> items</div>
             </div>
-          <?php endforeach; ?>
+          </div>
+          <div class="transaction-amount">₹<?= number_format((float)$sale['total_amount'], 2) ?></div>
+        </div>
+        <?php endforeach; ?>
         <?php else: ?>
-          <div class="text-center text-muted py-3">No recent transactions</div>
+        <div class="text-center text-muted py-3">No recent transactions</div>
         <?php endif; ?>
       </div>
     </div>
@@ -700,7 +759,8 @@ if ($total_revenue > 0) {
         <h5><i class="bi bi-calendar-event me-2"></i>Daily Income</h5>
         <div class="calendar-nav">
           <button onclick="previousMonth()"><i class="bi bi-chevron-left"></i></button>
-          <span id="calendarMonthYear" style="min-width: 120px; text-align: center; font-weight: 600; font-size: 0.9rem;"></span>
+          <span id="calendarMonthYear"
+            style="min-width: 120px; text-align: center; font-weight: 600; font-size: 0.9rem;"></span>
           <button onclick="nextMonth()"><i class="bi bi-chevron-right"></i></button>
         </div>
       </div>
@@ -750,13 +810,16 @@ if ($total_revenue > 0) {
       // slight debounce
       setTimeout(updateSidebarWidth, 50);
     });
-    mo.observe(sidebarNode, { attributes: true, attributeFilter: ['class', 'style'] });
+    mo.observe(sidebarNode, {
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
   }
 
   // Fetch monthly sales for calendar (unchanged)
   function fetchMonthlySalesData(year, month) {
     const monthStr = String(month + 1).padStart(2, '0');
-    
+
     fetch(`./get_daily_sales.php?year=${year}&month=${monthStr}`)
       .then(res => res.json())
       .then(data => {
@@ -768,12 +831,12 @@ if ($total_revenue > 0) {
 
   function getColorIntensity(salesAmount, maxSales) {
     if (!salesAmount || salesAmount <= 0) return null;
-    
+
     const intensity = Math.min(salesAmount / maxSales, 1);
     const hue = 120;
     const saturation = 70;
     const lightness = Math.max(90 - (intensity * 60), 30);
-    
+
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
 
@@ -784,9 +847,12 @@ if ($total_revenue > 0) {
   function renderCalendar() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    
-    document.getElementById('calendarMonthYear').textContent = 
-      currentDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+
+    document.getElementById('calendarMonthYear').textContent =
+      currentDate.toLocaleString('default', {
+        month: 'short',
+        year: 'numeric'
+      });
 
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -818,16 +884,16 @@ if ($total_revenue > 0) {
       const day = document.createElement('div');
       day.className = 'calendar-day';
       day.textContent = i;
-      
+
       const dateKey = String(i).padStart(2, '0');
       const salesAmount = monthSalesData[dateKey];
-      
+
       if (salesAmount && parseFloat(salesAmount) > 0) {
         day.classList.add('has-sales');
         const bgColor = getColorIntensity(parseFloat(salesAmount), maxSales);
         day.style.backgroundColor = bgColor;
       }
-      
+
       day.onclick = () => selectDate(year, month, i);
       grid.appendChild(day);
     }
@@ -875,11 +941,11 @@ if ($total_revenue > 0) {
 
   function displayDateDetails(dateStr, data) {
     const dateObj = new Date(dateStr);
-    const formattedDate = dateObj.toLocaleDateString('default', { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    const formattedDate = dateObj.toLocaleDateString('default', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
 
     let html = `
@@ -947,9 +1013,12 @@ if ($total_revenue > 0) {
   async function loadTopProductsChart() {
     const year = productMonthDate.getFullYear();
     const month = String(productMonthDate.getMonth() + 1).padStart(2, '0');
-    
-    document.getElementById('productMonthYear').textContent = 
-      productMonthDate.toLocaleString('default', { month: 'short', year: 'numeric' });
+
+    document.getElementById('productMonthYear').textContent =
+      productMonthDate.toLocaleString('default', {
+        month: 'short',
+        year: 'numeric'
+      });
 
     try {
       const res = await fetch(`./get_monthly_top_products.php?year=${year}&month=${month}`);
@@ -1015,8 +1084,16 @@ if ($total_revenue > 0) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'top' } },
-          scales: { y: { beginAtZero: true } }
+          plugins: {
+            legend: {
+              position: 'top'
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
         }
       });
     } catch (err) {

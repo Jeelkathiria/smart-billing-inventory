@@ -15,7 +15,13 @@ try {
     $store_id = $_SESSION['store_id'];
 
     // ✅ 2. Collect fields (checkboxes)
-    $fields = $_POST['fields'] ?? [];
+        $fields = $_POST['fields'] ?? [];
+
+        // If this is a full update coming from the Billing Fields form, ensure it cannot modify
+        // the `print_store_email` setting (it's managed via the Store Info toggle).
+        if (!empty($_POST['full_update']) && isset($fields['print_store_email'])) {
+            unset($fields['print_store_email']);
+        }
     $json_fields = json_encode($fields, JSON_UNESCAPED_UNICODE);
 
     // ✅ 3. Update billing_fields JSON column

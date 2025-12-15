@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
+session_start();
 
 if (!isset($_GET['sale_id'])) {
     die("Sale ID missing.");
@@ -12,6 +13,26 @@ $sale_stmt->execute();
 $sale = $sale_stmt->get_result()->fetch_assoc();
 
 if (!$sale) die("Sale not found.");
+
+// Fetch store info so we can display store name and optionally the store email
+$store = [];
+if (isset($_SESSION['store_id'])) {
+  $sstmt = $conn->prepare("SELECT store_name, store_email, contact_number, billing_fields FROM stores WHERE store_id = ? LIMIT 1");
+  $sstmt->bind_param('i', $_SESSION['store_id']);
+  $sstmt->execute();
+  $store = $sstmt->get_result()->fetch_assoc() ?: [];
+  $sstmt->close();
+}
+
+// Decode billing fields
+$billing_fields = [];
+if (!empty($store['billing_fields'])) {
+  $dec = json_decode($store['billing_fields'], true);
+  if (is_array($dec)) $billing_fields = $dec;
+}
+
+$contactText = !empty($store['contact_number']) ? 'Contact: '.htmlspecialchars($store['contact_number']) : '';
+$emailText = (!empty($billing_fields['print_store_email']) && !empty($store['store_email'])) ? ('Email: '.htmlspecialchars($store['store_email'])) : '';
 
 // Join products to get product_name
 $item_stmt = $conn->prepare("SELECT si.*, p.product_name FROM sale_items si JOIN products p ON si.product_id = p.product_id WHERE si.sale_id = ?");
@@ -30,6 +51,13 @@ $tax = 0;
 </head>
 <body class="bg-light">
 <div class="container mt-5 bg-white p-4 shadow">
+ <?php if (!empty($store['store_name'])): ?>
+   <div class="text-center">
+     <h3><?= htmlspecialchars($store['store_name']) ?></h3>
+     <p><?= trim($emailText.($emailText && $contactText ? ' | ' : '') . $contactText) ?></p>
+   </div>
+ <?php endif; ?>
+
  <h2>Invoice #<?= htmlspecialchars($sale['invoice_id'] ?? '') ?></h2>
 <?php if (!empty($sale['customer_name'])): ?>
   <p>Customer: <?= htmlspecialchars($sale['customer_name']) ?></p>

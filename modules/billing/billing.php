@@ -185,10 +185,12 @@ $labels = [
             <input type="text" id="invoice_date" class="form-control" readonly>
           </div>
 
-          <?php foreach ($fields as $key => $enabled):
+            <?php foreach ($fields as $key => $enabled):
+              // Only render known billing fields (avoid showing internal flags like print_store_email)
               if (!$enabled) continue;
-              $label = $labels[$key] ?? ucfirst($key);
-          ?>
+              if (!isset($labels[$key])) continue;
+              $label = $labels[$key];
+            ?>
           <div class="col-md-<?php echo $key === 'customer_address' ? 8 : 4; ?>">
             <label><?= $label ?></label>
             <?php if ($key === 'customer_address'): ?>

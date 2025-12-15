@@ -314,7 +314,12 @@ $stmt->close();
           <h3>Welcome, <?= htmlspecialchars($_SESSION['username']) ?></h3>
         </div>
         <div class="store-info">
-          <div class="store-name"><?= htmlspecialchars($store_name ?: 'My Store') ?> <span class="store-code"><?= htmlspecialchars($store_code ?: '') ?></span></div>
+          <div class="store-name">
+            <?= htmlspecialchars($store_name ?: 'My Store') ?>
+            <?php if (in_array($role, ['admin', 'manager'])): ?>
+              <span class="store-code"><?= htmlspecialchars($store_code ?: '') ?></span>
+            <?php endif; ?>
+          </div>
           <?php if (!empty($store_address)): ?>
             <div class="store-address small"><?= htmlspecialchars($store_address) ?></div>
           <?php endif; ?>
@@ -389,7 +394,8 @@ $stmt->close();
 
     </div>
 
-    <!-- Extra KPI Row -->
+    <!-- Extra KPI Row (Admin/Manager only) -->
+    <?php if (in_array($role, ['admin', 'manager'])): ?>
     <div class="row g-3 mt-3">
       <div class="col-md-3 col-sm-6">
         <div class="card shadow-sm kpi-card-centered text-center">
@@ -416,6 +422,7 @@ $stmt->close();
         </div>
       </div>
     </div>
+    <?php endif; ?>
 
     <!-- Low Stock Alert -->
     <?php if ($low_stock_count > 0): ?>

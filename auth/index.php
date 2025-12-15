@@ -516,10 +516,70 @@ if (isset($_POST['check_user_email'])) {
     background: rgba(255, 255, 255, 0.7);
     z-index: 31000;
   }
+
+  /* ================= PAGE LOAD LOADER ================= */
+#pageLoader {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #f7f9fc, #ffffff);
+  z-index: 36000; /* above everything */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bill-loader {
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 45px rgba(18, 38, 63, 0.08);
+  padding: 18px;
+  text-align: center;
+}
+
+.bill-loader .receipt {
+  height: 120px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #f1f5ff);
+  border: 1px dashed rgba(0,0,0,.1);
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.bill-loader .line {
+  height: 8px;
+  background: rgba(0,0,0,.1);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.line.w80 { width: 80%; }
+.line.w60 { width: 60%; }
+.line.w40 { width: 40%; }
+
   </style>
 </head>
 
 <body>
+
+<!-- PAGE LOAD LOADER -->
+<div id="pageLoader">
+  <div class="bill-loader">
+    <div class="receipt">
+      <div class="line w80"></div>
+      <div class="line w60"></div>
+      <div class="line w40"></div>
+      <div class="line w80"></div>
+    </div>
+    <strong>BillMitra</strong>
+    <div class="help-text">Preparing your billing dashboard…</div>
+    <div class="progress mt-2">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+    </div>
+  </div>
+</div>
+
+
   <!-- Global loader (hidden by default) -->
   <div id="globalLoader"
     style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; background:rgba(255,255,255,0.85); z-index:35000;">
@@ -611,6 +671,126 @@ if (isset($_POST['check_user_email'])) {
     </div>
   </section>
 
+  <!-- WHY BILLMITRA -->
+<section class="features bg-white">
+  <div class="container">
+    <h3 class="text-center mb-4">Why choose BillMitra?</h3>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="feature-card fade-up text-center">
+          <i class="bi bi-shield-check fs-3 text-primary"></i>
+          <h6 class="mt-3">Secure & Reliable</h6>
+          <p class="help-text">
+            OTP verification, hashed passwords, role-based access,
+            and secure database relations.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-card fade-up text-center">
+          <i class="bi bi-lightning-charge fs-3 text-primary"></i>
+          <h6 class="mt-3">Fast Billing</h6>
+          <p class="help-text">
+            Create invoices in seconds with live totals,
+            auto tax calculation and instant stock update.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-card fade-up text-center">
+          <i class="bi bi-bar-chart-line fs-3 text-primary"></i>
+          <h6 class="mt-3">Business Insights</h6>
+          <p class="help-text">
+            Clear sales, tax and profit reports to help you
+            take better business decisions.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="features">
+  <div class="container">
+    <h3 class="text-center mb-4">How BillMitra works</h3>
+    <div class="row g-4">
+      <div class="col-md-3">
+        <div class="feature-card text-center fade-up">
+          <div class="pill">Step 1</div>
+          <h6 class="mt-3">Register</h6>
+          <p class="help-text">Create your account and verify email via OTP.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="feature-card text-center fade-up">
+          <div class="pill">Step 2</div>
+          <h6 class="mt-3">Setup Store</h6>
+          <p class="help-text">Add products, categories and tax settings.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="feature-card text-center fade-up">
+          <div class="pill">Step 3</div>
+          <h6 class="mt-3">Start Billing</h6>
+          <p class="help-text">Generate invoices and manage inventory live.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="feature-card text-center fade-up">
+          <div class="pill">Step 4</div>
+          <h6 class="mt-3">Track Growth</h6>
+          <p class="help-text">View reports, profit and business performance.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROLE BASED ACCESS -->
+<section class="features bg-white">
+  <div class="container">
+    <h3 class="text-center mb-4">Role-based access</h3>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="feature-card fade-up">
+          <h6>Admin</h6>
+          <p class="help-text">
+            Full control of store, inventory, users, reports
+            and system settings.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-card fade-up">
+          <h6>Manager</h6>
+          <p class="help-text">
+            Handle billing, inventory updates and sales
+            monitoring without admin access.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-card fade-up">
+          <h6>Cashier</h6>
+          <p class="help-text">
+            Fast billing interface with limited access,
+            perfect for counters.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
   <!-- FOOTER -->
   <footer>
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center">
@@ -685,11 +865,13 @@ if (isset($_POST['check_user_email'])) {
               <div class="mb-2">
                 <input type="email" name="store_email" id="storeEmailInput" class="form-control" placeholder="Email">
                 <small id="storeEmailMsg" class="text-danger"></small>
+                <small id="storeEmailInfo" class="help-text d-block">This email cannot be changed later.</small>
               </div>
               <div class="mb-2">
                 <input type="text" name="personal_contact_number" id="pcnInput" class="form-control"
                   placeholder="Contact Number">
                 <small id="pcnMsg" class="text-danger"></small>
+                <small id="pcnInfo" class="help-text d-block">Mobile number will be used for account verification only. Store contact can be added later in Settings.</small>
               </div>
 
             </div>
@@ -713,6 +895,7 @@ if (isset($_POST['check_user_email'])) {
               <div class="mb-2">
                 <input type="email" name="email" id="emailInput" class="form-control" placeholder="Email">
                 <small id="emailMsg" class="text-danger"></small>
+                <small id="emailInfo" class="help-text d-block">This email cannot be changed later.</small>
               </div>
             </div>
 
@@ -811,6 +994,20 @@ if (isset($_POST['check_user_email'])) {
       </div>
     </div>
   </div>
+
+  <script>
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      const loader = document.getElementById("pageLoader");
+      if (loader) loader.style.display = "none";
+
+      document.querySelectorAll(".fade-up").forEach(el => {
+        el.classList.add("visible");
+      });
+    }, 2000);
+  });
+</script>
+
 
   <?php if (isset($_GET['login_error'])): ?>
   <script>

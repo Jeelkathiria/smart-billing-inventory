@@ -28,7 +28,7 @@ if (!$sale) die("Sale not found");
 // ---------------------------
 // FETCH STORE INFO
 // ---------------------------
-$cols = ['store_name','store_email','contact_number','gstin'];
+$cols = ['store_name','store_email','contact_number','gstin','billing_fields'];
 $resA = $conn->query("SHOW COLUMNS FROM stores LIKE 'store_address'");
 if ($resA && $resA->num_rows) $cols[] = 'store_address';
 $resB = $conn->query("SHOW COLUMNS FROM stores LIKE 'note'");
@@ -81,9 +81,15 @@ $pdf->SetFont('DejaVu','B',16);
 $pdf->Cell(0,10, $store['store_name'],0,1,'C');
 
 $pdf->SetFont('DejaVu','',10);
+// Decode billing_fields and decide whether to print store email
+$billing_fields = [];
+if (!empty($store['billing_fields'])) {
+    $decoded = json_decode($store['billing_fields'], true);
+    if (is_array($decoded)) $billing_fields = $decoded;
+}
 $contactText = 'Contact: '.($store['contact_number'] ?? '');
-$emailText = 'Email: '.($store['store_email'] ?? '');
-$pdf->Cell(0,5,trim($emailText.' | '.$contactText),0,1,'C');
+$emailText = (!empty($billing_fields['print_store_email']) && !empty($store['store_email'])) ? ('Email: '.($store['store_email'])) : '';
+$pdf->Cell(0,5,trim($emailText.($emailText && $contactText ? ' | ' : '') . $contactText),0,1,'C');
 // Print address if available
 if (!empty($store['store_address'])) {
     $pdf->SetFont('DejaVu','',9);

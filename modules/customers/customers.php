@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("ssssii", $name, $mobile, $email, $address, $id, $store_id);
             $stmt->execute();
         }
-        header("Location: customer.php");
+        header("Location: customers.php");
         exit;
     }
 
@@ -34,9 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("ii", $id, $store_id);
             $stmt->execute();
         }
-        header("Location: customer.php");
+        header("Location: customers.php");
         exit;
     }
+
+      if ($action === 'add') {
+        if ($name) {
+          $stmt = $conn->prepare("INSERT INTO customers (store_id, customer_name, customer_mobile, customer_email, customer_address, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+          $stmt->bind_param("issss", $store_id, $name, $mobile, $email, $address);
+          $stmt->execute();
+          $stmt->close();
+        }
+        header("Location: customers.php");
+        exit;
+      }
 }
 
 /* ======================================================
@@ -97,6 +108,10 @@ $stmt->close();
       margin-left: 0 !important;
       padding: 20px;
     }
+    .search-wrapper {
+      padding: 0 8px;
+      max-width: calc(100% - 16px);
+    }
   }
 
   .card {
@@ -134,12 +149,29 @@ $stmt->close();
   .search-wrapper {
     position: relative;
     margin: 20px auto;
-    max-width: 700px;
+    width: 100%;
+    max-width: 1200px; /* allow the search bar to be wide on large screens */
+    padding: 0 10px; /* small horizontal padding so it doesn't touch edges */
+  }
+
+  .card .card-header .btn-primary {
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-weight: 600;
+  }
+
+  .table tbody tr td {
+    font-size: 0.95rem;
+  }
+
+  .page-link {
+    border-radius: 12px !important;
+    padding: 6px 10px;
   }
 
   #searchInput {
     width: 100%;
-    padding: 12px 16px 12px 40px;
+    padding: 12px 20px 12px 44px;
     border-radius: 50px;
     border: 1px solid #ced4da;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
@@ -209,6 +241,11 @@ $stmt->close();
     color: #333;
     letter-spacing: 0.5px;
   }
+
+  .bi-search::before {
+    content: "\f52a";
+    margin-left: 1vw;
+}
   </style>
 </head>
 
@@ -218,10 +255,16 @@ $stmt->close();
 
   <div class="content mt-5">
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-people-fill me-2"></i> Customer Records</span>
-        <small class="text-light"><i class="bi bi-database-check me-1"></i>Total: <?= $total ?></small>
-      </div>
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <span class="h5 mb-0"><i class="bi bi-people-fill me-2"></i> Customer Records</span>
+              <span class="ms-3 badge bg-light text-dark" style="font-weight:600;"><i class="bi bi-database-check me-1"></i>Total: <?= $total ?></span>
+            </div>
+            <div>
+              <button class="btn btn-sm btn-light me-2" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i></button>
+              <button class="btn btn-sm btn-primary" onclick="addCustomer()"><i class="bi bi-plus-lg me-1"></i> Add Customer</button>
+            </div>
+          </div>
 
       <div class="search-wrapper">
         <i class="bi bi-search search-icon"></i>
@@ -233,7 +276,7 @@ $stmt->close();
           <thead>
             <tr>
               <th>#</th>
-              <th><i class="bi bi-person-badge me-1"></i> Name</th>
+              <th style="min-width:220px"><i class="bi bi-person-badge me-1"></i> Name</th>
               <th><i class="bi bi-telephone me-1"></i> Mobile</th>
               <th><i class="bi bi-envelope me-1"></i> Email</th>
               <th><i class="bi bi-geo-alt me-1"></i> Address</th>
@@ -253,17 +296,19 @@ $stmt->close();
               <td><?= htmlspecialchars($c['customer_email'] ?: '--') ?></td>
               <td><?= htmlspecialchars($c['customer_address'] ?: '--') ?></td>
               <td>
-                <button class="btn btn-sm btn-outline-primary me-1"
-                  onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
-                <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this customer?')">
-                  <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-trash3-fill"></i>
+                <div class="d-flex justify-content-center align-items-center gap-1">
+                  <button class="btn btn-sm btn-outline-primary me-1" title="Edit"
+                    onclick="editCustomer(<?= $c['customer_id'] ?>,'<?= addslashes($c['customer_name']) ?>','<?= addslashes($c['customer_mobile']) ?>','<?= addslashes($c['customer_email']) ?>','<?= addslashes($c['customer_address']) ?>')">
+                    <i class="bi bi-pencil-square"></i>
                   </button>
-                </form>
+                  <form method="POST" style="display:inline-block;" class="delete-form" data-name="<?= htmlspecialchars($c['customer_name']) ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="customer_id" value="<?= $c['customer_id'] ?>">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                      <i class="bi bi-trash3-fill"></i>
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -309,7 +354,7 @@ $stmt->close();
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="action" id="edit_action" value="edit">
             <input type="hidden" name="customer_id" id="edit_id">
             <div class="mb-3">
               <label class="form-label"><i class="bi bi-person-fill me-1"></i>Name *</label>
@@ -338,6 +383,44 @@ $stmt->close();
     </div>
   </div>
 
+  <!-- Add Modal -->
+  <div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="POST">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-lg me-2"></i> Add Customer</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="action" value="add">
+            <div class="mb-3">
+              <label class="form-label"><i class="bi bi-person-fill me-1"></i>Name *</label>
+              <input type="text" name="customer_name" id="add_name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label"><i class="bi bi-telephone-fill me-1"></i>Mobile</label>
+              <input type="text" name="customer_mobile" id="add_mobile" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label"><i class="bi bi-envelope-fill me-1"></i>Email</label>
+              <input type="email" name="customer_email" id="add_email" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Address</label>
+              <textarea name="customer_address" id="add_address" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i>
+              Cancel</button>
+            <button type="submit" class="btn btn-primary px-4"><i class="bi bi-plus-lg me-1"></i> Add Customer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
   function editCustomer(id, name, mobile, email, address) {
@@ -346,8 +429,38 @@ $stmt->close();
     document.getElementById('edit_mobile').value = mobile;
     document.getElementById('edit_email').value = email;
     document.getElementById('edit_address').value = address;
+    document.getElementById('edit_action').value = 'edit';
     new bootstrap.Modal(document.getElementById('editModal')).show();
   }
+
+  function addCustomer() {
+    document.getElementById('add_name').value = '';
+    document.getElementById('add_mobile').value = '';
+    document.getElementById('add_email').value = '';
+    document.getElementById('add_address').value = '';
+    new bootstrap.Modal(document.getElementById('addModal')).show();
+  }
+
+  // SweetAlert2 delete confirmation for better UX
+  document.querySelectorAll('.delete-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = form.dataset.name || 'this customer';
+      Swal.fire({
+        title: 'Delete Customer',
+        text: `Are you sure you want to delete ${name}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
+  });
 
   document.getElementById('searchInput').addEventListener('keyup', function() {
     const filter = this.value.toLowerCase();

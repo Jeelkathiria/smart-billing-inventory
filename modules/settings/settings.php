@@ -68,6 +68,11 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     align-items: center;
   }
   </style>
+  <style>
+  /* Delete modal inline message styling */
+  .delete-modal-msg { margin-bottom: 8px; }
+  .delete-modal-msg .alert { margin-bottom: 0; }
+  </style>
 </head>
 
 <body>
@@ -129,7 +134,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-shop"></i> Store Information</span>
-            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editStoreModal">
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editStoreInfoModal">
               <i class="bi bi-pencil-square"></i> Edit
             </button>
           </div>
@@ -146,6 +151,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             </p>
 
             <p><strong>Email:</strong> <span data-store-email><?= htmlspecialchars($store['store_email'] ?? '') ?></span></p>
+           
             <p><strong>Contact:</strong> <span data-admin-contact><?= htmlspecialchars($admin_contact ?? $store['contact_number'] ?? '') ?></span>
               <small class="text-muted"> (account contact)</small></p>
 
@@ -168,7 +174,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
         <div class="card mb-3">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-receipt"></i> Invoice Details</span>
-            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editStoreModal">
+            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editInvoiceModal">
               <i class="bi bi-pencil-square"></i> Edit
             </button>
           </div>
@@ -189,6 +195,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 
           <div class="card-body">
             <form id="billingFieldsForm">
+              <input type="hidden" name="full_update" value="1">
               <?php
               $fields = [
                 'customer_name' => 'Customer Name',
@@ -209,6 +216,17 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           </div>
         </div>
 
+         <!-- DELETE ACCOUNT CARD -->
+          <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="bi bi-trash2 text-danger"></i> Delete Account</span>
+              <button id="deleteBtn" class="btn btn-danger btn-sm">Delete Account</button>
+            </div>
+            <div class="card-body">
+              <p class="mb-0 text-muted">Permanent deletion of store data and account. This action is irreversible.</p>
+            </div>
+          </div>
+
       </div>
       <?php endif; ?>
     </div>
@@ -224,6 +242,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
+            <div class="delete-modal-msg"></div>
             <div class="mb-3">
               <label class="form-label">Full Name</label>
               <input type="text" class="form-control" name="username" required>
@@ -273,11 +292,11 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     </div>
   </div>
 
-  <!-- ===================== EDIT STORE MODAL ===================== -->
-  <div class="modal fade" id="editStoreModal" tabindex="-1">
+  <!-- ===================== EDIT STORE INFO MODAL (Name + GSTIN) ===================== -->
+  <div class="modal fade" id="editStoreInfoModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <form id="storeForm">
+        <form id="storeInfoForm">
           <div class="modal-header">
             <h5 class="modal-title"><i class="bi bi-shop"></i> Edit Store</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -295,20 +314,6 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
               <small class="text-muted">Contact admin to change email</small>
             </div>
             <div class="mb-3">
-              <label class="form-label">Contact Number</label>
-              <input type="text" class="form-control" name="contact_number" 
-                value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>">
-              <small class="text-muted">This contact will be printed on invoices if provided.</small>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Store Address</label>
-              <textarea class="form-control" name="store_address" rows="2"><?= htmlspecialchars($store['store_address'] ?? '') ?></textarea>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Note <span class="text-muted">(Appears at bottom of invoice)</span></label>
-              <textarea class="form-control" name="note" rows="2"><?= htmlspecialchars($store['note'] ?? $store['notice'] ?? '') ?></textarea>
-            </div>
-            <div class="mb-3">
               <label class="form-label">GSTIN <span class="text-muted">(Optional)</span></label>
               <input type="text" class="form-control" name="gstin" 
                 value="<?= htmlspecialchars($store['gstin'] ?? '') ?>" 
@@ -321,10 +326,264 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     </div>
   </div>
 
+  <!-- ===================== EDIT INVOICE DETAILS MODAL (Address / Contact / Note) ===================== -->
+  <div class="modal fade" id="editInvoiceModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="invoiceForm">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-receipt"></i> Edit Invoice Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+                    <div class="mb-3">
+                      <label class="form-label">Store Name <span class="text-danger">*</span></label>
+                      <input type="text" class="form-control" name="store_name" value="<?= htmlspecialchars($store['store_name'] ?? '') ?>">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Store Contact Number</label>
+                      <input type="text" class="form-control" name="contact_number" 
+                        value="<?= htmlspecialchars($store['contact_number'] ?? '') ?>">
+              <small class="text-muted">This contact will be printed on invoices if provided.</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Store Address</label>
+              <textarea class="form-control" name="store_address" rows="2"><?= htmlspecialchars($store['store_address'] ?? '') ?></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Note <span class="text-muted">(Appears at bottom of invoice)</span></label>
+              <textarea class="form-control" name="note" rows="2"><?= htmlspecialchars($store['note'] ?? $store['notice'] ?? '') ?></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== JS ===================== -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+  // Delete Account - Modal + Multi-step UI
+  (function() {
+    const deleteBtn = document.getElementById('deleteBtn');
+    if (!deleteBtn) return;
+    // Build modal HTML and append to body
+    const modalHtml = `
+    <div class="modal fade" id="deleteAccountModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-trash2 text-danger"></i> Delete Account</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="stepWarning">
+              <p class="text-danger fw-bold">Warning: This action will permanently delete your store and all associated data.</p>
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="chkUnderstand">
+                <label class="form-check-label">I understand this is permanent</label>
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="chkAgree">
+                <label class="form-check-label">I agree that all data will be deleted</label>
+              </div>
+              <button class="btn btn-danger w-100" id="toReasonStep" disabled>Continue</button>
+            </div>
+
+            <div id="stepReason" style="display:none;">
+              <p>Select a reason:</p>
+              <div class="form-check"><input class='form-check-input' type='radio' name='reason' value='Business closed' id='r1'><label class='form-check-label' for='r1'>Business closed</label></div>
+              <div class="form-check"><input class='form-check-input' type='radio' name='reason' value='Switching to another software' id='r2'><label class='form-check-label' for='r2'>Switching to another software</label></div>
+              <div class="form-check"><input class='form-check-input' type='radio' name='reason' value='Testing purpose' id='r3'><label class='form-check-label' for='r3'>Testing purpose</label></div>
+              <div class="form-check"><input class='form-check-input' type='radio' name='reason' value='Too complex to use' id='r4'><label class='form-check-label' for='r4'>Too complex to use</label></div>
+              <div class="form-check"><input class='form-check-input' type='radio' name='reason' value='Other' id='r5'><label class='form-check-label' for='r5'>Other</label></div>
+              <textarea id='otherReason' class='form-control mt-2' placeholder='Please specify...' style='display:none;'></textarea>
+              <div class='d-flex gap-2 mt-3'><button class='btn btn-secondary' id='backToWarning'>Back</button><button class='btn btn-primary' id='toPasswordStep'>Next</button></div>
+            </div>
+
+            <div id='stepPassword' style='display:none;'>
+              <p>Re-enter your password to continue:</p>
+              <input class='form-control mb-2' type='password' id='confirmPassword' placeholder='Current password'>
+              <div class='d-flex gap-2'><button class='btn btn-secondary' id='backToReason'>Back</button><button class='btn btn-primary' id='checkPasswordBtn'>Verify Password</button></div>
+            </div>
+
+            <div id='stepOTP' style='display:none;'>
+              <p>An OTP will be sent to your store email to confirm the deletion.</p>
+              <div class='mb-2'><button class='btn btn-outline-primary w-100' id='sendOtpBtn'>Send OTP</button></div>
+              <input class='form-control mb-2' type='text' id='deleteOtp' placeholder='Enter OTP'>
+              <div class='d-flex gap-2'><button class='btn btn-secondary' id='backToPassword'>Back</button><button class='btn btn-primary' id='verifyOtpBtn'>Verify OTP</button></div>
+            </div>
+
+            <div id='stepFinal' style='display:none;'>
+              <p class='text-danger'>Final Confirmation: Type <span class='fw-bold'>DELETE MY ACCOUNT</span> to permanently delete.</p>
+              <input class='form-control' id='finalConfirmText' placeholder='DELETE MY ACCOUNT'>
+              <div class='d-flex gap-2 mt-3'><button class='btn btn-secondary' id='backToOtp'>Back</button><button class='btn btn-danger' id='doDeleteBtn' disabled>Delete My Account</button></div>
+            </div>
+
+            <div id='stepLoading' style='display:none; text-align:center;'>
+              <div class='spinner-border text-danger' role='status'></div>
+              <p class='mt-2'>Deleting your data...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modalEl = document.getElementById('deleteAccountModal');
+    const modal = new bootstrap.Modal(modalEl);
+
+    const chkUnderstand = modalEl.querySelector('#chkUnderstand');
+    const chkAgree = modalEl.querySelector('#chkAgree');
+    const toReasonStep = modalEl.querySelector('#toReasonStep');
+    const toPasswordStep = modalEl.querySelector('#toPasswordStep');
+    const backToWarning = modalEl.querySelector('#backToWarning');
+    const backToReason = modalEl.querySelector('#backToReason');
+    const backToPassword = modalEl.querySelector('#backToPassword');
+    const sendOtpBtn = modalEl.querySelector('#sendOtpBtn');
+    const checkPasswordBtn = modalEl.querySelector('#checkPasswordBtn');
+    const verifyOtpBtn = modalEl.querySelector('#verifyOtpBtn');
+    const doDeleteBtn = modalEl.querySelector('#doDeleteBtn');
+    const finalConfirmText = modalEl.querySelector('#finalConfirmText');
+    const otherReason = modalEl.querySelector('#otherReason');
+
+    // toggles
+    chkUnderstand.addEventListener('change', () => { toReasonStep.disabled = !(chkUnderstand.checked && chkAgree.checked); if (!chkUnderstand.checked || !chkAgree.checked) toPasswordStep.disabled = true; });
+    chkAgree.addEventListener('change', () => { toReasonStep.disabled = !(chkUnderstand.checked && chkAgree.checked); if (!chkUnderstand.checked || !chkAgree.checked) toPasswordStep.disabled = true; });
+    // Disable 'toPasswordStep' until a reason is selected
+    toPasswordStep.disabled = true;
+    // Disable 'toReasonStep' until checkboxes are acknowledged
+    toReasonStep.disabled = true;
+    toReasonStep.addEventListener('click', () => { document.getElementById('stepWarning').style.display='none'; document.getElementById('stepReason').style.display='block'; });
+    backToWarning.addEventListener('click', () => { document.getElementById('stepReason').style.display='none'; document.getElementById('stepWarning').style.display='block'; });
+    toPasswordStep.addEventListener('click', () => {
+      const reasonSel = modalEl.querySelector('input[name="reason"]:checked');
+      if (!reasonSel) return showDeleteModalMessage(modalEl, 'Please select a reason to continue', 'danger');
+      if (reasonSel.value === 'Other') {
+        const other = otherReason.value.trim();
+        if (!other) return showDeleteModalMessage(modalEl, 'Please specify the reason in the text box', 'danger');
+      }
+      document.getElementById('stepReason').style.display='none';
+      document.getElementById('stepPassword').style.display='block';
+      setTimeout(()=>{ const pwdEl = modalEl.querySelector('#confirmPassword'); if (pwdEl) pwdEl.focus(); }, 50);
+    });
+    backToReason.addEventListener('click', () => { document.getElementById('stepPassword').style.display='none'; document.getElementById('stepReason').style.display='block'; });
+    backToPassword.addEventListener('click', () => { document.getElementById('stepOTP').style.display='none'; document.getElementById('stepPassword').style.display='block'; });
+
+    // reason radio controls
+    modalEl.querySelectorAll('input[name="reason"]').forEach(r => r.addEventListener('change', e => {
+      otherReason.style.display = (e.target.value === 'Other') ? 'block' : 'none';
+      // enable the continue button when a reason is selected
+      toPasswordStep.disabled = false;
+    }));
+
+    // Delete modal inline message helper
+    function showDeleteModalMessage(modalEl, message, type = 'danger') {
+      let msgBox = modalEl.querySelector('.delete-modal-msg');
+      if (!msgBox) {
+        msgBox = document.createElement('div');
+        msgBox.className = 'delete-modal-msg mt-2';
+        modalEl.querySelector('.modal-body').prepend(msgBox);
+      }
+      msgBox.innerHTML = `<div class="alert alert-${type} py-2 px-3 mb-2">${message}</div>`;
+      setTimeout(() => { if (msgBox) msgBox.innerHTML = ''; }, 5000);
+    }
+
+    checkPasswordBtn.addEventListener('click', () => {
+      const pwd = modalEl.querySelector('#confirmPassword').value.trim();
+      if (!pwd) return showDeleteModalMessage(modalEl, 'Please enter your password', 'danger');
+      checkPasswordBtn.disabled = true;
+      fetch('/modules/settings/delete_account.php', { method:'POST', credentials: 'include', headers:{'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, body:'action=check_password&password='+encodeURIComponent(pwd) })
+      .then(r=>r.json()).then(data=>{
+        checkPasswordBtn.disabled = false;
+        if (data.status === 'ok') {
+          document.getElementById('stepPassword').style.display='none';
+          document.getElementById('stepOTP').style.display='block';
+          setTimeout(()=>{ const otpBtn = modalEl.querySelector('#sendOtpBtn'); if (otpBtn) otpBtn.focus(); }, 50);
+        } else showDeleteModalMessage(modalEl, data.message || 'Password check failed', 'danger');
+      }).catch((err)=>{ checkPasswordBtn.disabled = false; console.error('Check password request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); });
+    });
+
+    sendOtpBtn.addEventListener('click', () => {
+      sendOtpBtn.disabled = true;
+      fetch('/modules/settings/delete_account.php', { method:'POST', credentials: 'include', headers:{'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, body:'action=send_otp' })
+        .then(r=>r.json()).then(data=>{ 
+          sendOtpBtn.disabled = false; 
+          if (data.status === 'ok') showDeleteModalMessage(modalEl, 'OTP sent', 'success'); 
+          else showDeleteModalMessage(modalEl, data.message || 'Failed to send OTP', 'danger'); 
+        })
+        .catch((err)=>{ sendOtpBtn.disabled = false; console.error('Send OTP request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); });
+    });
+
+    verifyOtpBtn.addEventListener('click', () => {
+      const otp = modalEl.querySelector('#deleteOtp').value.trim();
+      if (!otp) return showDeleteModalMessage(modalEl, 'Enter the OTP', 'danger');
+      verifyOtpBtn.disabled = true;
+      fetch('/modules/settings/delete_account.php', { method:'POST', credentials: 'include', headers:{'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, body:'action=verify_otp&otp='+encodeURIComponent(otp) })
+        .then(r=>r.json()).then(data=>{ 
+          verifyOtpBtn.disabled = false; 
+          if (data.status === 'ok') { document.getElementById('stepOTP').style.display='none'; document.getElementById('stepFinal').style.display='block'; setTimeout(()=>{ const finalEl = modalEl.querySelector('#finalConfirmText'); if (finalEl) finalEl.focus(); }, 50); } 
+          else showDeleteModalMessage(modalEl, data.message || 'Invalid OTP', 'danger'); 
+        })
+        .catch((err)=>{ verifyOtpBtn.disabled = false; console.error('Verify OTP request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); });
+    });
+
+    finalConfirmText.addEventListener('input', () => { doDeleteBtn.disabled = finalConfirmText.value.trim() !== 'DELETE MY ACCOUNT'; });
+
+    doDeleteBtn.addEventListener('click', () => {
+      const reasonSel = modalEl.querySelector('input[name="reason"]:checked');
+      const reason = reasonSel ? reasonSel.value : '';
+      const other = otherReason.value.trim();
+      const pwd = modalEl.querySelector('#confirmPassword').value.trim();
+      // Validate again before final deletion
+      if (!reasonSel) { showDeleteModalMessage(modalEl, 'Please select a reason for deletion', 'danger'); return; }
+      if (reasonSel.value === 'Other' && !other) { showDeleteModalMessage(modalEl, 'Please enter details for Other reason', 'danger'); return; }
+      if (!pwd) { showDeleteModalMessage(modalEl, 'Please enter your password', 'danger'); return; }
+      doDeleteBtn.disabled = true;
+      document.getElementById('stepFinal').style.display='none'; document.getElementById('stepLoading').style.display='block';
+      const body = `action=delete_account&password=${encodeURIComponent(pwd)}&reason=${encodeURIComponent(reason)}&other_reason=${encodeURIComponent(other)}&final_confirm=${encodeURIComponent(finalConfirmText.value.trim())}`;
+      setTimeout(()=>{ // short delay for UX
+        fetch('/modules/settings/delete_account.php', { method:'POST', credentials: 'include', headers:{'Content-Type':'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, body })
+        .then(r=>r.json()).then(data=>{
+          if (data.status === 'ok') {
+            showDeleteModalMessage(modalEl, 'Account deleted. You will be redirected.', 'success');
+            setTimeout(() => window.location.href = '/auth/index.php?message=account_deleted', 1400);
+          } else {
+            showDeleteModalMessage(modalEl, data.message || 'Delete failed', 'danger');
+            doDeleteBtn.disabled = false;
+            document.getElementById('stepLoading').style.display='none';
+            document.getElementById('stepFinal').style.display='block';
+          }
+        }).catch((err)=>{ console.error('Delete account request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); doDeleteBtn.disabled = false; document.getElementById('stepLoading').style.display='none'; document.getElementById('stepFinal').style.display='block'; });
+      }, 700);
+    });
+
+    // open modal: reset all steps and messages
+    deleteBtn.addEventListener('click', () => {
+      // Clear all inputs and resets
+      chkUnderstand.checked = false;
+      chkAgree.checked = false;
+      toReasonStep.disabled = true;
+      toPasswordStep.disabled = true;
+      document.getElementById('stepWarning').style.display = 'block';
+      document.getElementById('stepReason').style.display = 'none';
+      document.getElementById('stepPassword').style.display = 'none';
+      document.getElementById('stepOTP').style.display = 'none';
+      document.getElementById('stepFinal').style.display = 'none';
+      document.getElementById('stepLoading').style.display = 'none';
+      // reset fields
+      modalEl.querySelector('#confirmPassword').value = '';
+      modalEl.querySelector('#deleteOtp').value = '';
+      modalEl.querySelector('#finalConfirmText').value = '';
+      modalEl.querySelectorAll('input[name="reason"]').forEach(r => r.checked = false);
+      otherReason.value = '';
+      if (modalEl.querySelector('.delete-modal-msg')) modalEl.querySelector('.delete-modal-msg').innerHTML = '';
+      modal.show();
+    });
+  })();
+
   /* ============================================================
    ✅ UNIVERSAL FORM HANDLER SYSTEM (Profile / Store / Billing)
 ============================================================ */
@@ -342,8 +601,8 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     setTimeout(() => (msgBox.innerHTML = ''), 4000);
   }
 
-  // ✅ JS Validation for Store Form
-  function validateStoreForm(form) {
+  // ✅ JS Validation for Store Info (only store name + GSTIN)
+  function validateStoreInfoForm(form) {
     const storeName = form.querySelector('[name="store_name"]').value.trim();
     const gstin = form.querySelector('[name="gstin"]').value.trim();
 
@@ -365,6 +624,17 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
       return false;
     }
 
+    return true;
+  }
+
+  // ✅ JS Validation for Invoice Details (contact / address / note)
+  function validateInvoiceForm(form) {
+    const storeName = form.querySelector('[name="store_name"]').value.trim();
+    if (!storeName) {
+      showModalMessage(form, 'Store name is required', 'danger');
+      form.querySelector('[name="store_name"]').focus();
+      return false;
+    }
     const contact = form.querySelector('[name="contact_number"]').value.trim();
     if (contact && !/^\+?[0-9\-\s]{7,20}$/.test(contact)) {
       showModalMessage(form, 'Contact number must be 7-20 digits and may include +,- or spaces', 'danger');
@@ -433,16 +703,37 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           }
         }
 
-        // Also update modal form values
-        document.querySelector('[name="store_name"]').value = data.store_name;
-        document.querySelector('[name="gstin"]').value = data.gstin || '';
-        document.querySelector('[name="contact_number"]').value = data.contact_number || '';
+        // Also update modal form values (set all instances, both modals)
+        document.querySelectorAll('[name="store_name"]').forEach(el => el.value = data.store_name || '');
+        document.querySelectorAll('[name="gstin"]').forEach(el => el.value = data.gstin || '');
+        document.querySelectorAll('[name="contact_number"]').forEach(el => el.value = data.contact_number || '');
         const addressElSpan = document.querySelector('[data-store-address]');
         if (addressElSpan) addressElSpan.textContent = data.store_address || '';
         const noteElSpan = document.querySelector('[data-store-note]');
         if (noteElSpan) noteElSpan.textContent = ('note' in data) ? data.note : (data.notice || '');
-        document.querySelector('[name="store_address"]').value = data.store_address || '';
-        document.querySelector('[name="note"]').value = ('note' in data) ? data.note : (data.notice || '');
+        document.querySelectorAll('[name="store_address"]').forEach(el => el.value = data.store_address || '');
+        document.querySelectorAll('[name="note"]').forEach(el => el.value = ('note' in data) ? data.note : (data.notice || ''));
+        // Update billing field toggles (checkboxes)
+        try {
+          const bf = data.billing_fields && data.billing_fields !== '{}' ? (typeof data.billing_fields === 'string' ? JSON.parse(data.billing_fields) : data.billing_fields) : {};
+          // keep globally accessible for toggle handlers
+          window.currentBillingFields = bf;
+          // update the print store email display checkbox in the store info card
+          const printEmailDisplay = document.getElementById('printStoreEmailToggle');
+          if (printEmailDisplay) {
+            printEmailDisplay.checked = !!bf.print_store_email;
+            printEmailDisplay.disabled = !data.store_email;
+          }
+          Object.keys(bf).forEach(k => {
+            const el = document.querySelector('[name="fields['+k+']"]');
+            if (el) el.checked = !!bf[k];
+          });
+          // ensure the print_store_email toggle exists and is false if not set
+          const printEmailEl = document.querySelector('[name="fields[print_store_email]"]');
+          if (printEmailEl && !('print_store_email' in bf)) printEmailEl.checked = false;
+        } catch (e) {
+          console.error('Error parsing billing_fields in updateStoreDisplay', e);
+        }
       }
     } catch (err) {
       console.error('Error updating store display:', err);
@@ -534,7 +825,8 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
      ✅ ATTACH ALL FORMS WITH VALIDATORS & CALLBACKS
   ============================================================ */
   handleForm('profileForm', 'update_profile.php', updateProfileDisplay, validateProfileForm);
-  handleForm('storeForm', 'update_store.php', updateStoreDisplay, validateStoreForm);
+  handleForm('storeInfoForm', 'update_store.php', updateStoreDisplay, validateStoreInfoForm);
+  handleForm('invoiceForm', 'update_store.php', updateStoreDisplay, validateInvoiceForm);
   handleForm('billingFieldsForm', 'update_billing_fields.php');
 
   /* ============================================================
@@ -638,6 +930,64 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
     updateProfileDisplay();
   });
 
+  // Print store email toggle handler (visible in Store Info card)
+  document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('printStoreEmailToggle');
+    if (!toggle) return;
+    toggle.addEventListener('change', async function() {
+      const checked = !!toggle.checked;
+      // ensure we have currentBillingFields (fallback: fetch existing from server)
+      if (!window.currentBillingFields || Object.keys(window.currentBillingFields).length === 0) {
+        try {
+          const r = await fetch('/modules/settings/get_store_data.php', { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          const d = await r.json();
+          if (d && d.billing_fields) {
+            window.currentBillingFields = (typeof d.billing_fields === 'string') ? JSON.parse(d.billing_fields) : d.billing_fields;
+          } else {
+            window.currentBillingFields = {};
+          }
+        } catch (err) {
+          window.currentBillingFields = {};
+        }
+      }
+      window.currentBillingFields.print_store_email = checked ? true : false;
+
+      // Build FormData for update_billing_fields.php (we must pass all keys to avoid overwriting)
+      const fd = new FormData();
+      Object.keys(window.currentBillingFields).forEach(k => {
+        // convert boolean to '1'/'0' or keep original values
+        const val = window.currentBillingFields[k] ? '1' : '0';
+        fd.append('fields['+k+']', val);
+      });
+
+      // show small saving indicator
+      const label = document.querySelector('label[for="printStoreEmailToggle"]');
+      const prevText = label ? label.textContent : '';
+      if (label) label.textContent = 'Saving...';
+      try {
+        const res = await fetch('/modules/settings/update_billing_fields.php', { method: 'POST', body: fd, credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json();
+        if (!data.success) {
+          if (label) label.textContent = prevText;
+          alert(data.msg || 'Failed to update setting');
+          // revert toggle to previous state
+          toggle.checked = !checked;
+          if (window.currentBillingFields) window.currentBillingFields.print_store_email = !checked;
+        } else {
+          if (label) label.textContent = prevText;
+          // refresh UI
+          updateStoreDisplay();
+        }
+      } catch (err) {
+        if (label) label.textContent = prevText;
+        console.error('Failed to save print_store_email toggle', err);
+        alert('Network or server error while saving setting');
+        toggle.checked = !checked;
+        if (window.currentBillingFields) window.currentBillingFields.print_store_email = !checked;
+      }
+    });
+  });
+
   // Copy Store Code to clipboard with tick feedback
   function copyStoreCode() {
     const code = document.getElementById('storeCode').textContent.trim();
@@ -675,3 +1025,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 </body>
 
 </html>
+
+
+
+<!-- its not working fix it ans add contact-number seen only in personal andremove contact number in store section Store information section -->

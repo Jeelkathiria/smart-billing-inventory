@@ -69,7 +69,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 $accessMap = [
     'admin' => [
         'dashboard.php', 'billing.php', 'sales.php', 'products.php', 'categories.php',
-        'report.php', 'settings.php', 'customers.php', 'get_sales_chart_data.php', 'users.php'
+        'report.php', 'settings.php', 'customers.php', 'get_sales_chart_data.php', 'users.php', 'delete_account.php'
     ],
     'manager' => [
         'dashboard.php', 'billing.php', 'sales.php', 'products.php', 'categories.php',
