@@ -9,6 +9,18 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
 
 $store_id = $_SESSION['store_id'];
 
+// Detect if the migration adding `product_name` to `sale_items` has been run.
+// If not, avoid referencing `si.product_name` in SQL to prevent SQL errors.
+$has_product_name = false;
+$col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+if ($col_stmt) {
+  $col_stmt->execute();
+  $col_stmt->bind_result($col_count);
+  $col_stmt->fetch();
+  $col_stmt->close();
+  $has_product_name = ($col_count > 0);
+}
+
 // ------------------- SUMMARY METRICS -------------------
 $total_revenue = $total_profit = $total_tax = 0;
 $today_total = $today_profit = $today_total_excl = 0;
@@ -18,12 +30,12 @@ $year_total = $year_profit = $year_total_excl = 0;
 // General summary
 $sql_summary = "
   SELECT 
-      SUM(si.quantity * si.price) AS total_revenue,
-      SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit,
-      SUM(si.quantity * si.price * (si.gst_percent / 100)) AS total_tax
+      SUM(si.total_price) AS total_revenue,
+      SUM(si.profit) AS total_profit,
+      SUM(si.total_price * (si.gst_percent / (100 + si.gst_percent))) AS total_tax
   FROM sale_items si
   JOIN sales s ON si.sale_id = s.sale_id
-  JOIN products p ON si.product_id = p.product_id
+  LEFT JOIN products p ON si.product_id = p.product_id
   WHERE s.store_id = ?
 ";
 $stmt = $conn->prepare($sql_summary);
@@ -33,18 +45,18 @@ $stmt->bind_result($total_revenue, $total_profit, $total_tax);
 $stmt->fetch();
 $stmt->close();
 
-// Inclusive total revenue = exclusive total + tax
-$total_revenue_incl = ($total_revenue ?? 0) + ($total_tax ?? 0);
+// total_revenue is already inclusive (includes GST)
+$total_revenue_incl = ($total_revenue ?? 0);
 
 // Today's summary
 $sql_today = "
   SELECT 
-      SUM(s.total_amount) AS today_total,
-      SUM((p.sell_price - p.purchase_price) * si.quantity) AS today_profit
-      , SUM(si.quantity * si.price) AS today_total_excl
+      SUM(si.total_price) AS today_total,
+      SUM(si.profit) AS today_profit
+      , SUM(si.total_price / (1 + si.gst_percent / 100)) AS today_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
-  JOIN products p ON si.product_id = p.product_id
+  LEFT JOIN products p ON si.product_id = p.product_id
   WHERE s.store_id = ? AND DATE(s.sale_date) = CURDATE()
 ";
 $stmt = $conn->prepare($sql_today);
@@ -57,12 +69,12 @@ $stmt->close();
 // This Month
 $sql_month = "
   SELECT 
-      SUM(s.total_amount) AS month_total,
-      SUM((p.sell_price - p.purchase_price) * si.quantity) AS month_profit
-      , SUM(si.quantity * si.price) AS month_total_excl
+      SUM(si.total_price) AS month_total,
+      SUM(si.profit) AS month_profit
+      , SUM(si.total_price / (1 + si.gst_percent / 100)) AS month_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
-  JOIN products p ON si.product_id = p.product_id
+  LEFT JOIN products p ON si.product_id = p.product_id
   WHERE s.store_id = ? AND MONTH(s.sale_date) = MONTH(CURDATE()) AND YEAR(s.sale_date) = YEAR(CURDATE())
 ";
 $stmt = $conn->prepare($sql_month);
@@ -75,12 +87,12 @@ $stmt->close();
 // This Year
 $sql_year = "
   SELECT 
-      SUM(s.total_amount) AS year_total,
-      SUM((p.sell_price - p.purchase_price) * si.quantity) AS year_profit
-      , SUM(si.quantity * si.price) AS year_total_excl
+      SUM(si.total_price) AS year_total,
+      SUM(si.profit) AS year_profit
+      , SUM(si.total_price / (1 + si.gst_percent / 100)) AS year_total_excl
   FROM sales s
   JOIN sale_items si ON s.sale_id = si.sale_id
-  JOIN products p ON si.product_id = p.product_id
+  LEFT JOIN products p ON si.product_id = p.product_id
   WHERE s.store_id = ? AND YEAR(s.sale_date) = YEAR(CURDATE())
 ";
 $stmt = $conn->prepare($sql_year);
@@ -92,16 +104,12 @@ $stmt->close();
 
 // Top selling products (will be fetched via JS)
 $top_products = [];
-$sql_top = "
-  SELECT p.product_name, SUM(si.quantity) AS total_sold
-  FROM sale_items si
-  JOIN products p ON si.product_id = p.product_id
-  JOIN sales s ON si.sale_id = s.sale_id
-  WHERE s.store_id = ?
-  GROUP BY si.product_id
-  ORDER BY total_sold DESC
-  LIMIT 6
-";
+// build product name expression depending on whether si.product_name exists
+$product_name_expr = $has_product_name
+  ? "COALESCE(si.product_name, p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))"
+  : "COALESCE(p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))";
+
+$sql_top = "SELECT ANY_VALUE(" . $product_name_expr . ") AS product_name, SUM(si.quantity) AS total_sold\n  FROM sale_items si\n  LEFT JOIN products p ON si.product_id = p.product_id\n  JOIN sales s ON si.sale_id = s.sale_id\n  WHERE s.store_id = ?\n  GROUP BY si.product_id\n  ORDER BY total_sold DESC\n  LIMIT 6";
 $stmt = $conn->prepare($sql_top);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();

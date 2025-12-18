@@ -11,18 +11,29 @@ if (!isset($_SESSION['store_id'])) {
 
 $store_id = $_SESSION['store_id'];
 
-$sql = "
-  SELECT 
-      p.product_name,
-      SUM(si.quantity) AS total_sold
+// detect availability of product_name in sale_items
+$has_product_name = false;
+$col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+if ($col_stmt) {
+  $col_stmt->execute();
+  $col_stmt->bind_result($col_count);
+  $col_stmt->fetch();
+  $col_stmt->close();
+  $has_product_name = ($col_count > 0);
+}
+
+$product_name_expr = $has_product_name
+  ? "COALESCE(si.product_name, p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))"
+  : "COALESCE(p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))";
+
+$sql = "SELECT ANY_VALUE(" . $product_name_expr . ") AS product_name, SUM(si.quantity) AS total_sold
   FROM sale_items si
   JOIN sales s ON si.sale_id = s.sale_id
-  JOIN products p ON si.product_id = p.product_id
+  LEFT JOIN products p ON si.product_id = p.product_id
   WHERE s.store_id = ?
-  GROUP BY p.product_name
+  GROUP BY si.product_id
   ORDER BY total_sold DESC
-  LIMIT 6
-";
+  LIMIT 6";
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $store_id);

@@ -15,8 +15,9 @@ $month = $_GET['month'] ?? date('m');
 $sql = "
     SELECT 
         DAY(s.sale_date) AS day,
-        SUM(s.total_amount) AS total_sales
+        SUM(si.total_price) AS total_sales
     FROM sales s
+    JOIN sale_items si ON s.sale_id = si.sale_id
     WHERE s.store_id = ? 
     AND YEAR(s.sale_date) = ? 
     AND MONTH(s.sale_date) = ?

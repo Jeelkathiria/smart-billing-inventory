@@ -80,9 +80,10 @@ if (empty($product_ids)) {
 ================================================== */
 $placeholders = implode(',', array_fill(0, count($product_ids), '?'));
 $types = str_repeat('i', count($product_ids));
-$sql = "SELECT product_id, sell_price, purchase_price, gst_percent, stock 
-        FROM products 
-        WHERE product_id IN ($placeholders) AND store_id=?";
+$sql = "SELECT p.product_id, p.product_name, p.sell_price, p.purchase_price, p.gst_percent, p.stock, c.category_name 
+        FROM products p 
+        LEFT JOIN categories c ON p.category_id = c.category_id
+        WHERE p.product_id IN ($placeholders) AND p.store_id=?";
 $stmt = $conn->prepare($sql);
 
 $params = array_merge($product_ids, [$store_id]);
@@ -122,7 +123,11 @@ foreach ($items as &$item) {
     $item['price'] = (float)$p['sell_price'];
     $item['gst_percent'] = (float)$p['gst_percent'];
 
-    $line_total = $item['price'] * $item['quantity'];
+    // compute unit price including GST and store line total (inclusive)
+    $unit_price_with_gst = round($item['price'] + ($item['price'] * $item['gst_percent'] / 100), 2);
+    $item['total_price'] = round($unit_price_with_gst * $item['quantity'], 2);
+
+    $line_total = $item['price'] * $item['quantity']; // exclusive total (used for subtotal)
     $line_tax = $line_total * ($item['gst_percent'] / 100);
 
     $subtotal += $line_total;
@@ -212,31 +217,111 @@ try {
     /* ----------------------------------------------
        8c. INSERT SALE ITEMS & UPDATE STOCK
     ---------------------------------------------- */
-    $stmt_item = $conn->prepare("
-        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, price, purchase_price, profit, gst_percent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt_update = $conn->prepare("
-        UPDATE products SET stock = stock - ? WHERE product_id = ? AND store_id = ? AND stock >= ?
-    ");
+    // detect availability of product_name and category columns in sale_items
+    $has_product_name = false;
+    $has_category = false;
+
+    $col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+    if ($col_stmt) {
+      $col_stmt->execute();
+      $col_stmt->bind_result($col_count);
+      $col_stmt->fetch();
+      $col_stmt->close();
+      $has_product_name = ($col_count > 0);
+    }
+
+    $col_stmt2 = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'category'");
+    if ($col_stmt2) {
+      $col_stmt2->execute();
+      $col_stmt2->bind_result($col_count2);
+      $col_stmt2->fetch();
+      $col_stmt2->close();
+      $has_category = ($col_count2 > 0);
+    }
+
+    // Prepare INSERT SQL depending on available columns
+    if ($has_product_name && $has_category) {
+        $stmt_item = $conn->prepare("\n        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, total_price, purchase_price, profit, gst_percent, product_name, category)\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n    ");
+    } elseif ($has_product_name) {
+        $stmt_item = $conn->prepare("\n        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, total_price, purchase_price, profit, gst_percent, product_name)\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n    ");
+    } elseif ($has_category) {
+        $stmt_item = $conn->prepare("\n        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, total_price, purchase_price, profit, gst_percent, category)\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n    ");
+    } else {
+        $stmt_item = $conn->prepare("\n        INSERT INTO sale_items (store_id, sale_id, product_id, quantity, total_price, purchase_price, profit, gst_percent)\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n    ");
+    }
+
+    $stmt_update = $conn->prepare("\n        UPDATE products SET stock = stock - ? WHERE product_id = ? AND store_id = ? AND stock >= ?\n    ");
 
     foreach ($items as $item) {
         $p = $dbProducts[$item['product_id']];
         $purchase_price = (float)$p['purchase_price'];
         $profit = ($item['price'] - $purchase_price) * $item['quantity'];
 
-        $stmt_item->bind_param(
-            "iiiddidd",
-            $store_id,
-            $sale_id,
-            $item['product_id'],
-            $item['quantity'],
-            $item['price'],
-            $purchase_price,
-            $profit,
-            $item['gst_percent']
-        );
-        $stmt_item->execute();
+        // ensure we pass variables (not expressions) to bind_param which requires references
+        $prod_name = $p['product_name'] ?? '';
+        $prod_cat = $p['category_name'] ?? '';
+
+        if ($has_product_name && $has_category) {
+            // types: store_id(i), sale_id(i), product_id(i), quantity(i), total_price(d), purchase_price(d), profit(d), gst_percent(d), product_name(s), category(s)
+            $stmt_item->bind_param(
+                "iiiiddddss",
+                $store_id,
+                $sale_id,
+                $item['product_id'],
+                $item['quantity'],
+                $item['total_price'],
+                $purchase_price,
+                $profit,
+                $item['gst_percent'],
+                $prod_name,
+                $prod_cat
+            );
+        } elseif ($has_product_name) {
+            // types: store_id(i), sale_id(i), product_id(i), quantity(i), total_price(d), purchase_price(d), profit(d), gst_percent(d), product_name(s)
+            $stmt_item->bind_param(
+                "iiiidddds",
+                $store_id,
+                $sale_id,
+                $item['product_id'],
+                $item['quantity'],
+                $item['total_price'],
+                $purchase_price,
+                $profit,
+                $item['gst_percent'],
+                $p['product_name']
+            );
+        } elseif ($has_category) {
+            // types: store_id(i), sale_id(i), product_id(i), quantity(i), total_price(d), purchase_price(d), profit(d), gst_percent(d), category(s)
+            $stmt_item->bind_param(
+                "iiiidddds",
+                $store_id,
+                $sale_id,
+                $item['product_id'],
+                $item['quantity'],
+                $item['total_price'],
+                $purchase_price,
+                $profit,
+                $item['gst_percent'],
+                $prod_cat
+            );
+        } else {
+            // types: store_id(i), sale_id(i), product_id(i), quantity(i), total_price(d), purchase_price(d), profit(d), gst_percent(d)
+            $stmt_item->bind_param(
+                "iiiidddd",
+                $store_id,
+                $sale_id,
+                $item['product_id'],
+                $item['quantity'],
+                $item['total_price'],
+                $purchase_price,
+                $profit,
+                $item['gst_percent']
+            );
+        }
+
+        if (!$stmt_item->execute()) {
+            throw new Exception("Sale item insert failed: " . $stmt_item->error);
+        }
 
         $stmt_update->bind_param("iiii", $item['quantity'], $item['product_id'], $store_id, $item['quantity']);
         $stmt_update->execute();

@@ -15,6 +15,21 @@ if (!$sale_id) die("Sale ID missing");
 
 $store_id = $_SESSION['store_id'];
 
+// detect availability of product_name in sale_items
+$has_product_name = false;
+$col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+if ($col_stmt) {
+  $col_stmt->execute();
+  $col_stmt->bind_result($col_count);
+  $col_stmt->fetch();
+  $col_stmt->close();
+  $has_product_name = ($col_count > 0);
+}
+
+$product_name_expr = $has_product_name
+  ? "COALESCE(si.product_name, p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))"
+  : "COALESCE(p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))";
+
 // ---------------------------
 // FETCH SALE INFO
 // ---------------------------
@@ -46,12 +61,9 @@ $storeQuery->close();
 // ---------------------------
 // FETCH SALE ITEMS
 // ---------------------------
-$stmt = $conn->prepare("
-    SELECT si.*, p.product_name 
-    FROM sale_items si 
-    JOIN products p ON p.product_id = si.product_id
-    WHERE si.sale_id=? AND si.store_id=?
-");
+$stmt = $conn->prepare(
+    "SELECT si.*, " . $product_name_expr . " AS product_name \n    FROM sale_items si \n    LEFT JOIN products p ON p.product_id = si.product_id\n    WHERE si.sale_id=? AND si.store_id=?"
+);
 $stmt->bind_param("ii", $sale_id, $store_id);
 $stmt->execute();
 $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -114,6 +126,20 @@ $pdf->Cell(0,6,'Date: '.date('d-m-Y H:i', strtotime($sale['sale_date'])),0,1,'L'
 if(!empty($billing_meta['customer_name'])) $pdf->Cell(0,5,'Customer: '.$billing_meta['customer_name'],0,1,'L');
 if(!empty($billing_meta['customer_mobile'])) $pdf->Cell(0,5,'Mobile: '.$billing_meta['customer_mobile'],0,1,'L');
 
+// Biller: fetch from sales.created_by (username)
+$biller_name = '';
+if (!empty($sale['created_by'])) {
+    $uq = $conn->prepare("SELECT username FROM users WHERE user_id = ? LIMIT 1");
+    $uq->bind_param("i", $sale['created_by']);
+    $uq->execute();
+    $ur = $uq->get_result()->fetch_assoc();
+    if ($ur) $biller_name = $ur['username'];
+    $uq->close();
+}
+if (!empty($biller_name)) {
+    $pdf->Cell(0,5,'Biller: '.$biller_name,0,1,'L');
+}
+
 $pdf->Ln(3);
 $pdf->SetLineWidth(0.3);
 $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
@@ -127,20 +153,22 @@ $pdf->SetFillColor(230,230,230);
 $pdf->Cell(10,8,'#',1,0,'C',true);
 $pdf->Cell(90,8,'Product',1,0,'C',true);
 $pdf->Cell(20,8,'Qty',1,0,'C',true);
-$pdf->Cell(25,8,'Price',1,0,'C',true);
+$pdf->Cell(25,8,'Price (excl GST)',1,0,'C',true);
 $pdf->Cell(25,8,'GST%',1,0,'C',true);
 $pdf->Cell(30,8,'Total',1,1,'C',true);
 
 $pdf->SetFont('DejaVu','',11);
 foreach($items as $i=>$item){
-    $amount = $item['price'] * $item['quantity'];
-    $tax_amount = $amount * ($item['gst_percent']/100);
+    $amount_inc = $item['total_price']; // inclusive
+    $tax_amount = $amount_inc * ($item['gst_percent'] / (100 + $item['gst_percent']));
+    $amount_excl = $amount_inc - $tax_amount;
+    $unit_excl = ($item['quantity'] > 0) ? ($amount_excl / $item['quantity']) : 0;
     $pdf->Cell(10,8,$i+1,1,0,'C');
     $pdf->Cell(90,8,$item['product_name'],1,0);
     $pdf->Cell(20,8,$item['quantity'],1,0,'C');
-    $pdf->Cell(25,8,'₹'.number_format($item['price'],2),1,0,'R');
+    $pdf->Cell(25,8,'₹'.number_format($unit_excl,2),1,0,'R');
     $pdf->Cell(25,8,$item['gst_percent'].'%',1,0,'C');
-    $pdf->Cell(30,8,'₹'.number_format($amount+$tax_amount,2),1,1,'R');
+    $pdf->Cell(30,8,'₹'.number_format($amount_inc,2),1,1,'R');
 }
 $pdf->Ln(3);
 
@@ -158,7 +186,7 @@ $pdf->Cell(40,8,'₹'.number_format($subtotal,2),1,1,'R');
 $pdf->Cell(150,8,'Tax:',0,0,'R');
 $pdf->Cell(40,8,'₹'.number_format($tax,2),1,1,'R');
 
-$pdf->Cell(150,10,'Total:',0,0,'R');
+$pdf->Cell(150,10,'Total (incl. GST):',0,0,'R');
 $pdf->Cell(40,10,'₹'.number_format($total,2),1,1,'R');
 
 // ---------------------------

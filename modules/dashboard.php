@@ -6,6 +6,21 @@ $user_id  = $_SESSION['user_id'] ?? null;
 $role     = $_SESSION['role'] ?? 'cashier';
 $store_id = $_SESSION['store_id'] ?? 0;
 
+// detect availability of product_name in sale_items
+$has_product_name = false;
+$col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+if ($col_stmt) {
+  $col_stmt->execute();
+  $col_stmt->bind_result($col_count);
+  $col_stmt->fetch();
+  $col_stmt->close();
+  $has_product_name = ($col_count > 0);
+}
+
+$product_name_expr = $has_product_name
+  ? "COALESCE(si.product_name, p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))"
+  : "COALESCE(p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))";
+
 // --- Store metadata & KPIs ---
 $stmt = $conn->prepare("SELECT store_name, store_code, store_address FROM stores WHERE store_id = ?");
 $stmt->bind_param("i", $store_id);
@@ -32,9 +47,9 @@ $online_cashiers = $stmt->get_result()->fetch_assoc()['online_cashiers'] ?? 0;
 $stmt->close();
 
 // Overall top product (all time)
-$stmt = $conn->prepare("SELECT p.product_name, SUM(si.quantity) AS total_sold 
+$stmt = $conn->prepare("SELECT ANY_VALUE(" . $product_name_expr . ") AS product_name, SUM(si.quantity) AS total_sold 
                         FROM sale_items si
-                        JOIN products p ON si.product_id = p.product_id
+                        LEFT JOIN products p ON si.product_id = p.product_id
                         JOIN sales s ON si.sale_id = s.sale_id
                         WHERE s.store_id = ?
                         GROUP BY si.product_id
@@ -47,8 +62,8 @@ $stmt->close();
 $top_product_name_overall = $top_row['product_name'] ?? '';
 $top_product_sold_overall = $top_row['total_sold'] ?? 0;
 
-// Today's revenue (all stores for today)
-$stmt = $conn->prepare("SELECT SUM(total_amount) AS today_revenue FROM sales WHERE DATE(sale_date) = CURDATE() AND store_id = ?");
+// Today's revenue (derived from sale_items, inclusive)
+$stmt = $conn->prepare("SELECT SUM(si.total_price) AS today_revenue FROM sales s JOIN sale_items si ON s.sale_id = si.sale_id WHERE DATE(s.sale_date) = CURDATE() AND s.store_id = ?");
 $stmt->bind_param('i', $store_id);
 $stmt->execute();
 $today_revenue = $stmt->get_result()->fetch_assoc()['today_revenue'] ?? 0.0;
@@ -78,7 +93,8 @@ $stmt->execute();
 $sales = $stmt->get_result();
 
 /* ========================= SUMMARY CARDS ========================= */
-$stmt = $conn->prepare("SELECT SUM(total_amount) AS total_sales FROM sales WHERE store_id = ?");
+// Use sale_items totals (inclusive) for accurate revenue numbers
+$stmt = $conn->prepare("SELECT SUM(si.total_price) AS total_sales FROM sales s JOIN sale_items si ON s.sale_id = si.sale_id WHERE s.store_id = ?");
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
 $total_sales = $stmt->get_result()->fetch_assoc()['total_sales'] ?? 0;
@@ -115,9 +131,9 @@ $stmt->close();
 
 // Fetch top 5 products (last 30 days)
 $top_products_month = [];
-$stmt = $conn->prepare("SELECT p.product_id, p.product_name, SUM(si.quantity) AS total_sold 
+$stmt = $conn->prepare("SELECT ANY_VALUE(" . $product_name_expr . ") AS product_name, SUM(si.quantity) AS total_sold 
                         FROM sale_items si
-                        JOIN products p ON si.product_id = p.product_id
+                        LEFT JOIN products p ON si.product_id = p.product_id
                         JOIN sales s ON si.sale_id = s.sale_id
                         WHERE s.store_id = ? AND s.sale_date >= (NOW() - INTERVAL 30 DAY)
                         GROUP BY si.product_id
@@ -129,10 +145,11 @@ $res = $stmt->get_result();
 while ($row = $res->fetch_assoc()) $top_products_month[] = $row;
 $stmt->close();
 
-// Sales by cashier (7 days)
+// Sales by cashier (7 days) — aggregate revenue from sale_items
 $sales_by_cashier = [];
-$stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(s.sale_id) AS sales_count, SUM(s.total_amount) AS sales_total
+$stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(DISTINCT s.sale_id) AS sales_count, SUM(si.total_price) AS sales_total
                         FROM sales s
+                        JOIN sale_items si ON s.sale_id = si.sale_id
                         JOIN users u ON s.created_by = u.user_id
                         WHERE s.store_id = ? AND s.sale_date >= (NOW() - INTERVAL 7 DAY)
                         GROUP BY u.user_id

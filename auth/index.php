@@ -255,13 +255,111 @@ if (isset($_POST['check_user_email'])) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
   <style>
+  /* ===== ROOT THEME ===== */
   :root {
-    --accent: #007bff;
-    --muted: #6c757d;
-    --card: #ffffff;
-    --bg: #f7f9fc;
-    --glass: rgba(255, 255, 255, 0.7);
-    --radius: 12px;
+    --primary: #0d6efd;
+    --bg-soft: #f7f9fc;
+    --card-bg: #ffffff;
+    --text-dark: #212529;
+    --text-muted: #6c757d;
+    --radius: 14px;
+    --shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 14px 40px rgba(13, 110, 253, 0.15);
+  }
+
+  /* ===== SECTIONS ===== */
+  .features {
+    padding: 70px 0;
+    /*padding: 40px 0 70px; */
+    background: var(--bg-soft);
+  }
+
+  .features.bg-white {
+    background: #ffffff;
+  }
+
+  /* ===== HEADINGS ===== */
+  .features h3 {
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: -0.5px;
+    margin-bottom: 45px;
+  }
+
+  /* ===== FEATURE CARDS ===== */
+  .feature-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 30px 22px;
+    height: 100%;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.35s ease;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(13, 110, 253, 0.25);
+  }
+
+  /* ===== ICONS ===== */
+  .feature-card i {
+    font-size: 40px;
+    color: var(--primary);
+  }
+
+  /* ===== TITLES ===== */
+  .feature-card h6 {
+    font-weight: 600;
+    font-size: 16px;
+    margin-top: 16px;
+    color: var(--text-dark);
+  }
+
+  /* ===== TEXT ===== */
+  .help-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+
+  /* ===== STEPS PILL ===== */
+  .pill {
+    display: inline-block;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    background: rgba(13, 110, 253, 0.12);
+    border-radius: 50px;
+  }
+
+  /* ===== FADE UP ANIMATION ===== */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(25px);
+    animation: fadeUp 0.8s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    background: linear-gradient(135deg, #0d6efd, #084298);
+    color: #ffffff;
+    padding: 22px 0;
+    font-size: 14px;
+  }
+
+  footer .help-text {
+    color: rgba(255, 255, 255, 0.85);
   }
 
   html,
@@ -332,12 +430,9 @@ if (isset($_POST['check_user_email'])) {
     font-weight: 600;
   }
 
-  /* Features */
-  .features {
-    padding: 40px 0 70px;
-  }
 
-  .feature-card {
+
+  /* .feature-card {
     background: var(--card);
     border-radius: 12px;
     padding: 20px;
@@ -348,7 +443,7 @@ if (isset($_POST['check_user_email'])) {
   .feature-card:hover {
     transform: translateY(-8px);
     box-shadow: 0 18px 45px rgba(18, 38, 63, 0.06);
-  }
+  } */
 
   /* Dashboard mock */
   .mock {
@@ -453,11 +548,6 @@ if (isset($_POST['check_user_email'])) {
     }
   }
 
-  /* Small UI niceties */
-  .help-text {
-    font-size: 13px;
-    color: var(--muted);
-  }
 
   footer {
     padding: 28px 0;
@@ -465,26 +555,6 @@ if (isset($_POST['check_user_email'])) {
     font-size: 14px;
   }
 
-  .pill {
-    background: #f1f5ff;
-    color: var(--accent);
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-weight: 600;
-    font-size: 13px;
-  }
-
-  /* simple fade in */
-  .fade-up {
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all .6s cubic-bezier(.2, .8, .2, 1);
-  }
-
-  .fade-up.visible {
-    opacity: 1;
-    transform: none;
-  }
 
   /* Modal/backdrop stacking
      - Keep auth overlay lower than modals
@@ -518,66 +588,77 @@ if (isset($_POST['check_user_email'])) {
   }
 
   /* ================= PAGE LOAD LOADER ================= */
-#pageLoader {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(180deg, #f7f9fc, #ffffff);
-  z-index: 36000; /* above everything */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  #pageLoader {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, #f7f9fc, #ffffff);
+    z-index: 36000;
+    /* above everything */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.bill-loader {
-  width: 260px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 18px 45px rgba(18, 38, 63, 0.08);
-  padding: 18px;
-  text-align: center;
-}
+  .bill-loader {
+    width: 260px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 18px 45px rgba(18, 38, 63, 0.08);
+    padding: 18px;
+    text-align: center;
+  }
 
-.bill-loader .receipt {
-  height: 120px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff, #f1f5ff);
-  border: 1px dashed rgba(0,0,0,.1);
-  padding: 10px;
-  margin-bottom: 12px;
-}
+  .bill-loader .receipt {
+    height: 120px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ffffff, #f1f5ff);
+    border: 1px dashed rgba(0, 0, 0, .1);
+    padding: 10px;
+    margin-bottom: 12px;
+  }
 
-.bill-loader .line {
-  height: 8px;
-  background: rgba(0,0,0,.1);
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
+  .bill-loader .line {
+    height: 8px;
+    background: rgba(0, 0, 0, .1);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
 
-.line.w80 { width: 80%; }
-.line.w60 { width: 60%; }
-.line.w40 { width: 40%; }
+  .line.w80 {
+    width: 80%;
+  }
 
+  .line.w60 {
+    width: 60%;
+  }
+
+  .line.w40 {
+    width: 40%;
+  }
+
+
+  
   </style>
 </head>
 
 <body>
 
-<!-- PAGE LOAD LOADER -->
-<div id="pageLoader">
-  <div class="bill-loader">
-    <div class="receipt">
-      <div class="line w80"></div>
-      <div class="line w60"></div>
-      <div class="line w40"></div>
-      <div class="line w80"></div>
-    </div>
-    <strong>BillMitra</strong>
-    <div class="help-text">Preparing your billing dashboard…</div>
-    <div class="progress mt-2">
-      <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+  <!-- PAGE LOAD LOADER -->
+  <div id="pageLoader">
+    <div class="bill-loader">
+      <div class="receipt">
+        <div class="line w80"></div>
+        <div class="line w60"></div>
+        <div class="line w40"></div>
+        <div class="line w80"></div>
+      </div>
+      <strong>BillMitra</strong>
+      <div class="help-text">Preparing your billing dashboard…</div>
+      <div class="progress mt-2">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+      </div>
     </div>
   </div>
-</div>
 
 
   <!-- Global loader (hidden by default) -->
@@ -672,123 +753,123 @@ if (isset($_POST['check_user_email'])) {
   </section>
 
   <!-- WHY BILLMITRA -->
-<section class="features bg-white">
-  <div class="container">
-    <h3 class="text-center mb-4">Why choose BillMitra?</h3>
-    <div class="row g-4">
-      <div class="col-md-4">
-        <div class="feature-card fade-up text-center">
-          <i class="bi bi-shield-check fs-3 text-primary"></i>
-          <h6 class="mt-3">Secure & Reliable</h6>
-          <p class="help-text">
-            OTP verification, hashed passwords, role-based access,
-            and secure database relations.
-          </p>
+  <section class="features bg-white">
+    <div class="container">
+      <h3 class="text-center mb-4">Why choose BillMitra?</h3>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="feature-card fade-up text-center">
+            <i class="bi bi-shield-check fs-3 text-primary"></i>
+            <h6 class="mt-3">Secure & Reliable</h6>
+            <p class="help-text">
+              OTP verification, hashed passwords, role-based access,
+              and secure database relations.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-4">
-        <div class="feature-card fade-up text-center">
-          <i class="bi bi-lightning-charge fs-3 text-primary"></i>
-          <h6 class="mt-3">Fast Billing</h6>
-          <p class="help-text">
-            Create invoices in seconds with live totals,
-            auto tax calculation and instant stock update.
-          </p>
+        <div class="col-md-4">
+          <div class="feature-card fade-up text-center">
+            <i class="bi bi-lightning-charge fs-3 text-primary"></i>
+            <h6 class="mt-3">Fast Billing</h6>
+            <p class="help-text">
+              Create invoices in seconds with live totals,
+              auto tax calculation and instant stock update.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-4">
-        <div class="feature-card fade-up text-center">
-          <i class="bi bi-bar-chart-line fs-3 text-primary"></i>
-          <h6 class="mt-3">Business Insights</h6>
-          <p class="help-text">
-            Clear sales, tax and profit reports to help you
-            take better business decisions.
-          </p>
+        <div class="col-md-4">
+          <div class="feature-card fade-up text-center">
+            <i class="bi bi-bar-chart-line fs-3 text-primary"></i>
+            <h6 class="mt-3">Business Insights</h6>
+            <p class="help-text">
+              Clear sales, tax and profit reports to help you
+              take better business decisions.
+            </p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- HOW IT WORKS -->
-<section class="features">
-  <div class="container">
-    <h3 class="text-center mb-4">How BillMitra works</h3>
-    <div class="row g-4">
-      <div class="col-md-3">
-        <div class="feature-card text-center fade-up">
-          <div class="pill">Step 1</div>
-          <h6 class="mt-3">Register</h6>
-          <p class="help-text">Create your account and verify email via OTP.</p>
+  <!-- HOW IT WORKS -->
+  <section class="features">
+    <div class="container">
+      <h3 class="text-center mb-4">How BillMitra works</h3>
+      <div class="row g-4">
+        <div class="col-md-3">
+          <div class="feature-card text-center fade-up">
+            <div class="pill">Step 1</div>
+            <h6 class="mt-3">Register</h6>
+            <p class="help-text">Create your account and verify email via OTP.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-3">
-        <div class="feature-card text-center fade-up">
-          <div class="pill">Step 2</div>
-          <h6 class="mt-3">Setup Store</h6>
-          <p class="help-text">Add products, categories and tax settings.</p>
+        <div class="col-md-3">
+          <div class="feature-card text-center fade-up">
+            <div class="pill">Step 2</div>
+            <h6 class="mt-3">Setup Store</h6>
+            <p class="help-text">Add products, categories and tax settings.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-3">
-        <div class="feature-card text-center fade-up">
-          <div class="pill">Step 3</div>
-          <h6 class="mt-3">Start Billing</h6>
-          <p class="help-text">Generate invoices and manage inventory live.</p>
+        <div class="col-md-3">
+          <div class="feature-card text-center fade-up">
+            <div class="pill">Step 3</div>
+            <h6 class="mt-3">Start Billing</h6>
+            <p class="help-text">Generate invoices and manage inventory live.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-3">
-        <div class="feature-card text-center fade-up">
-          <div class="pill">Step 4</div>
-          <h6 class="mt-3">Track Growth</h6>
-          <p class="help-text">View reports, profit and business performance.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ROLE BASED ACCESS -->
-<section class="features bg-white">
-  <div class="container">
-    <h3 class="text-center mb-4">Role-based access</h3>
-    <div class="row g-4">
-      <div class="col-md-4">
-        <div class="feature-card fade-up">
-          <h6>Admin</h6>
-          <p class="help-text">
-            Full control of store, inventory, users, reports
-            and system settings.
-          </p>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="feature-card fade-up">
-          <h6>Manager</h6>
-          <p class="help-text">
-            Handle billing, inventory updates and sales
-            monitoring without admin access.
-          </p>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="feature-card fade-up">
-          <h6>Cashier</h6>
-          <p class="help-text">
-            Fast billing interface with limited access,
-            perfect for counters.
-          </p>
+        <div class="col-md-3">
+          <div class="feature-card text-center fade-up">
+            <div class="pill">Step 4</div>
+            <h6 class="mt-3">Track Growth</h6>
+            <p class="help-text">View reports, profit and business performance.</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
+
+  <!-- ROLE BASED ACCESS -->
+  <section class="features bg-white">
+    <div class="container">
+      <h3 class="text-center mb-4">Role-based access</h3>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="feature-card fade-up">
+            <h6>Admin</h6>
+            <p class="help-text">
+              Full control of store, inventory, users, reports
+              and system settings.
+            </p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="feature-card fade-up">
+            <h6>Manager</h6>
+            <p class="help-text">
+              Handle billing, inventory updates and sales
+              monitoring without admin access.
+            </p>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="feature-card fade-up">
+            <h6>Cashier</h6>
+            <p class="help-text">
+              Fast billing interface with limited access,
+              perfect for counters.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 
   <!-- FOOTER -->
@@ -830,11 +911,11 @@ if (isset($_POST['check_user_email'])) {
           <form method="POST" style="margin-top:6px;">
             <div class="mb-2">
               <label class="form-label small">Username</label>
-              <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+              <input type="text" name="username" class="form-control" placeholder="Enter username">
             </div>
             <div class="mb-3">
               <label class="form-label small">Password</label>
-              <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+              <input type="password" name="password" class="form-control" placeholder="Enter password">
             </div>
             <div class="d-flex justify-content-between align-items-center mb-3">
               <div class="help-text small">Not registered? Switch to Register tab.</div>
@@ -871,7 +952,8 @@ if (isset($_POST['check_user_email'])) {
                 <input type="text" name="personal_contact_number" id="pcnInput" class="form-control"
                   placeholder="Contact Number">
                 <small id="pcnMsg" class="text-danger"></small>
-                <small id="pcnInfo" class="help-text d-block">Mobile number will be used for account verification only. Store contact can be added later in Settings.</small>
+                <small id="pcnInfo" class="help-text d-block">Mobile number will be used for account verification only.
+                  Store contact can be added later in Settings.</small>
               </div>
 
             </div>
@@ -1006,10 +1088,12 @@ if (isset($_POST['check_user_email'])) {
       });
     }, 2000);
   });
-</script>
+  </script>
 
 
   <?php if (isset($_GET['login_error'])): ?>
+
+  
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Show toast
@@ -1026,6 +1110,55 @@ if (isset($_POST['check_user_email'])) {
   <?php endif; ?>
 
 
+  <!-- Login Fields mandatory -->
+   <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const loginForm = document.querySelector('form[method="POST"]'); // Select the login form
+    const usernameInput = loginForm.querySelector('input[name="username"]');
+    const passwordInput = loginForm.querySelector('input[name="password"]');
+  
+    // Create inline error elements for username and password
+    const usernameError = document.createElement("small");
+    usernameError.className = "text-danger d-block mt-1";
+    usernameError.style.display = "none";
+    usernameInput.parentNode.appendChild(usernameError);
+
+    const passwordError = document.createElement("small");
+    passwordError.className = "text-danger d-block mt-1";
+    passwordError.style.display = "none";
+    passwordInput.parentNode.appendChild(passwordError);
+
+    // Add event listener on form submit
+    loginForm.addEventListener("submit", (event) => {
+      // Reset all error messages
+      usernameError.textContent = "";
+      usernameError.style.display = "none";
+      passwordError.textContent = "";
+      passwordError.style.display = "none";
+
+      let isValid = true;
+
+      // Check if the username is empty
+      if (!usernameInput.value.trim()) {
+        usernameError.textContent = "Username is required.";
+        usernameError.style.display = "block";
+        isValid = false;
+      }
+
+      // Check if the password is empty
+      if (!passwordInput.value.trim()) {
+        passwordError.textContent = "Password is required.";
+        passwordError.style.display = "block";
+        isValid = false;
+      }
+
+      // If any validation fails, prevent form submission
+      if (!isValid) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

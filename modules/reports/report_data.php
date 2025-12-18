@@ -38,11 +38,11 @@ switch ($view) {
 $sql = "
     SELECT 
         $groupBy AS label,
-        SUM(s.total_amount) AS total_sales,
-        SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+        SUM(si.total_price) AS total_sales,
+        SUM(si.profit) AS total_profit
     FROM sales s
     JOIN sale_items si ON s.sale_id = si.sale_id
-    JOIN products p ON si.product_id = p.product_id
+    LEFT JOIN products p ON si.product_id = p.product_id
     WHERE s.store_id = ?
     GROUP BY label
     ORDER BY $orderBy

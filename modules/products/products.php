@@ -124,13 +124,57 @@ if (isset($_POST['edit_id'])) {
 }
 
 /* ======================================
-   DELETE PRODUCT
+   DELETE PRODUCT (preserve historical sale_items)
+   - copy product_name into sale_items.product_name (if empty)
+   - set sale_items.product_id = NULL
+   - then delete product row
 ====================================== */
 if (isset($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
-    $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
-    $stmt->bind_param("ii", $delete_id, $store_id);
-    $stmt->execute();
+
+    // Start transaction for safety
+    $conn->begin_transaction();
+    try {
+        // Fetch product name (fallback to empty string)
+        $pstmt = $conn->prepare("SELECT product_name FROM products WHERE product_id = ? AND store_id = ? LIMIT 1");
+        $pstmt->bind_param("ii", $delete_id, $store_id);
+        $pstmt->execute();
+        $prow = $pstmt->get_result()->fetch_assoc();
+        $pname = $prow['product_name'] ?? '';
+        $pstmt->close();
+
+        // If sale_items has a product_name column, populate it for referenced rows where empty
+        $col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+        if ($col_stmt) {
+            $col_stmt->execute();
+            $col_stmt->bind_result($col_count);
+            $col_stmt->fetch();
+            $col_stmt->close();
+            if ($col_count > 0 && $pname !== '') {
+                $update_name = $conn->prepare("UPDATE sale_items SET product_name = ? WHERE product_id = ? AND store_id = ? AND (product_name IS NULL OR product_name = '')");
+                $update_name->bind_param("sii", $pname, $delete_id, $store_id);
+                $update_name->execute();
+                $update_name->close();
+            }
+        }
+
+        // Set product_id to NULL on sale_items to preserve historical rows
+        $update_null = $conn->prepare("UPDATE sale_items SET product_id = NULL WHERE product_id = ? AND store_id = ?");
+        $update_null->bind_param("ii", $delete_id, $store_id);
+        $update_null->execute();
+        $update_null->close();
+
+        // Finally delete the product
+        $del = $conn->prepare("DELETE FROM products WHERE product_id = ? AND store_id = ?");
+        $del->bind_param("ii", $delete_id, $store_id);
+        $del->execute();
+        $del->close();
+
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        // Optionally surface error to UI via GET param or log; keep behavior silent here
+    }
 }
 
 /* ======================================

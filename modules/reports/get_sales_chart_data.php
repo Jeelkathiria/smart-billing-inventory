@@ -18,11 +18,11 @@ if ($view === 'last7') {
     // Last 7 days aggregated in one query
     $sql = "
         SELECT DATE(s.sale_date) AS day,
-               SUM(s.total_amount) AS total_sales,
-               SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+               SUM(si.total_price) AS total_sales,
+               SUM(si.profit) AS total_profit
         FROM sales s
         JOIN sale_items si ON s.sale_id = si.sale_id
-        JOIN products p ON si.product_id = p.product_id
+        LEFT JOIN products p ON si.product_id = p.product_id
         WHERE s.store_id = ? AND s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
         GROUP BY day
         ORDER BY day
@@ -53,11 +53,11 @@ if ($view === 'last7') {
     // Last 30 days daily chart
     $sql = "
         SELECT DATE(s.sale_date) AS day,
-               SUM(s.total_amount) AS total_sales,
-               SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+               SUM(si.total_price) AS total_sales,
+               SUM(si.profit) AS total_profit
         FROM sales s
         JOIN sale_items si ON s.sale_id = si.sale_id
-        JOIN products p ON si.product_id = p.product_id
+        LEFT JOIN products p ON si.product_id = p.product_id
         WHERE s.store_id = ? AND s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
         GROUP BY day
         ORDER BY day
@@ -76,11 +76,11 @@ if ($view === 'last7') {
     // Last 12 months
     $sql = "
         SELECT DATE_FORMAT(s.sale_date, '%Y-%m') AS month,
-               SUM(s.total_amount) AS total_sales,
-               SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+               SUM(si.total_price) AS total_sales,
+               SUM(si.profit) AS total_profit
         FROM sales s
         JOIN sale_items si ON s.sale_id = si.sale_id
-        JOIN products p ON si.product_id = p.product_id
+        LEFT JOIN products p ON si.product_id = p.product_id
         WHERE s.store_id = ? AND s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
         GROUP BY month
         ORDER BY month
@@ -99,11 +99,11 @@ if ($view === 'last7') {
     // All years with sales
     $sql = "
         SELECT YEAR(s.sale_date) AS year,
-               SUM(s.total_amount) AS total_sales,
-               SUM((p.sell_price - p.purchase_price) * si.quantity) AS total_profit
+               SUM(si.total_price) AS total_sales,
+               SUM(si.profit) AS total_profit
         FROM sales s
         JOIN sale_items si ON s.sale_id = si.sale_id
-        JOIN products p ON si.product_id = p.product_id
+        LEFT JOIN products p ON si.product_id = p.product_id
         WHERE s.store_id = ?
         GROUP BY year
         ORDER BY year

@@ -15,15 +15,26 @@ if (!$date) {
     exit;
 }
 
-// Fetch totals
+// detect product_name column
+$has_product_name = false;
+$col_stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sale_items' AND COLUMN_NAME = 'product_name'");
+if ($col_stmt) {
+  $col_stmt->execute();
+  $col_stmt->bind_result($col_count);
+  $col_stmt->fetch();
+  $col_stmt->close();
+  $has_product_name = ($col_count > 0);
+}
+
+// Fetch totals (use sale_items for revenue and tax)
 $sql = "
     SELECT 
-        SUM(s.total_amount) AS revenue,
-        SUM((p.sell_price - p.purchase_price) * si.quantity) AS profit,
-        SUM(si.quantity * si.price * (si.gst_percent/100)) AS tax
+        SUM(si.total_price) AS revenue,
+        SUM(si.profit) AS profit,
+        SUM(si.total_price * (si.gst_percent / (100 + si.gst_percent))) AS tax
     FROM sales s
     JOIN sale_items si ON s.sale_id = si.sale_id
-    JOIN products p ON si.product_id = p.product_id
+    LEFT JOIN products p ON si.product_id = p.product_id
     WHERE s.store_id = ? AND DATE(s.sale_date) = ?
 ";
 
@@ -35,12 +46,17 @@ $stmt->fetch();
 $stmt->close();
 
 // Fetch product-wise details
+$product_name_expr = $has_product_name
+    ? "COALESCE(si.product_name, p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))"
+    : "COALESCE(p.product_name, CONCAT('Deleted product (ID:', si.product_id, ')'))";
+
 $sql2 = "
-    SELECT p.product_name, si.quantity, (si.quantity * si.price) AS total
+    SELECT ANY_VALUE(" . $product_name_expr . ") AS product_name, SUM(si.quantity) AS quantity, SUM(si.total_price) AS total
     FROM sale_items si
-    JOIN products p ON si.product_id = p.product_id
+    LEFT JOIN products p ON si.product_id = p.product_id
     JOIN sales s ON si.sale_id = s.sale_id
     WHERE s.store_id = ? AND DATE(s.sale_date) = ?
+    GROUP BY si.product_id
 ";
 
 $stmt2 = $conn->prepare($sql2);

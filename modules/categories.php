@@ -312,7 +312,7 @@ $prod_stmt->close();
     function confirmDelete(id) {
       Swal.fire({
         title: 'Are you sure?',
-        text: "This category will be deleted permanently.",
+        text: "This category will be deleted permanently",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc3545',
