@@ -63,7 +63,7 @@ $items = [];
 foreach ($data['items'] as $item) {
     $items[] = [
         'product_id'  => (int)($item['product_id'] ?? 0),
-        'quantity'    => max(0, (int)($item['quantity'] ?? 0)),
+        'quantity'    => max(1, (int)($item['quantity'] ?? 1)),
         'price'       => (float)($item['price'] ?? 0),
         'gst_percent' => (float)($item['gst_percent'] ?? 0)
     ];

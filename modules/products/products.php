@@ -1,4 +1,10 @@
 <?php
+/**
+ * Products module
+ * - Handles product CRUD (add, edit, delete)
+ * - Ensures product deletions preserve historical sale_items
+ * - Performs server-side numeric validation for prices, GST, and stock
+ */
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 
@@ -114,13 +120,18 @@ if (isset($_POST['edit_id'])) {
     $edit_total_price = round($edit_sell_price + ($edit_sell_price * $edit_gst / 100), 2);
     $edit_profit = round($edit_sell_price - $edit_purchase_price, 2);
 
-    $stmt = $conn->prepare("
-        UPDATE products 
-        SET product_name = ?, category_id = ?, purchase_price = ?, sell_price = ?, gst_percent = ?, total_price = ?, stock = ?, profit = ?
-        WHERE product_id = ? AND store_id = ?
-    ");
-    $stmt->bind_param("sididdiiii", $edit_name, $edit_category_id, $edit_purchase_price, $edit_sell_price, $edit_gst, $edit_total_price, $edit_stock, $edit_profit, $edit_id, $store_id);
-    $stmt->execute();
+    // Validate numeric inputs before update
+    if ($edit_sell_price >= 0 && $edit_purchase_price >= 0 && $edit_gst >= 0 && $edit_stock >= 0) {
+        $stmt = $conn->prepare("
+            UPDATE products 
+            SET product_name = ?, category_id = ?, purchase_price = ?, sell_price = ?, gst_percent = ?, total_price = ?, stock = ?, profit = ?
+            WHERE product_id = ? AND store_id = ?
+        ");
+        $stmt->bind_param("sididdiiii", $edit_name, $edit_category_id, $edit_purchase_price, $edit_sell_price, $edit_gst, $edit_total_price, $edit_stock, $edit_profit, $edit_id, $store_id);
+        $stmt->execute();
+    } else {
+        // Numeric validation failed; do not perform update. Consider notifying admin or showing message in UI.
+    }
 }
 
 /* ======================================
@@ -206,7 +217,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 <head>
   <meta charset="UTF-8">
   <title>Product Management</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/common.css">
@@ -331,27 +342,27 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
         <!-- Purchase Price -->
         <div class="col-md-2">
-          <input type="number" name="purchase_price" id="purchase_price" step="0.01" class="form-control"
+          <input type="number" name="purchase_price" id="purchase_price" step="0.01" min="0" class="form-control"
             placeholder="Purchase Price">
           <small id="purchaseMsg" class="text-danger"></small>
         </div>
 
         <!-- Sell Price -->
         <div class="col-md-2">
-          <input type="number" name="sell_price" id="sell_price" step="0.01" class="form-control"
+          <input type="number" name="sell_price" id="sell_price" step="0.01" min="0" class="form-control"
             placeholder="Sell Price">
           <small id="sellMsg" class="text-danger"></small>
         </div>
 
         <!-- GST -->
         <div class="col-md-1">
-          <input type="number" name="gst" id="gst_percent" step="0.01" class="form-control" placeholder="GST (%)">
+          <input type="number" name="gst" id="gst_percent" step="0.01" min="0" class="form-control" placeholder="GST (%)">
           <small id="gstMsg" class="text-danger"></small>
         </div>
 
         <!-- Stock -->
         <div class="col-md-1">
-          <input type="number" name="stock" id="stock" class="form-control" placeholder="Stock">
+          <input type="number" name="stock" id="stock" min="0" class="form-control" placeholder="Stock">
           <small id="stockMsg" class="text-danger"></small>
         </div>
 
@@ -429,13 +440,13 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
               <?php endwhile; ?>
             </select>
           </div>
-          <div class="mb-3"><label class="form-label">Purchase Price</label><input type="number" step="0.01"
+          <div class="mb-3"><label class="form-label">Purchase Price</label><input type="number" step="0.01" min="0"
               name="edit_purchase_price" id="edit_purchase_price" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">Sell Price</label><input type="number" step="0.01"
+          <div class="mb-3"><label class="form-label">Sell Price</label><input type="number" step="0.01" min="0"
               name="edit_sell_price" id="edit_sell_price" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">GST (%)</label><input type="number" step="0.01" name="edit_gst"
+          <div class="mb-3"><label class="form-label">GST (%)</label><input type="number" step="0.01" name="edit_gst" min="0"
               id="edit_gst" class="form-control" required></div>
-          <div class="mb-3"><label class="form-label">Stock</label><input type="number" name="edit_stock"
+          <div class="mb-3"><label class="form-label">Stock</label><input type="number" name="edit_stock" min="0"
               id="edit_stock" class="form-control" min="0" required></div>
         </div>
         <div class="modal-footer">
@@ -473,6 +484,7 @@ $low_stock_products = $low_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       const value = parseFloat(document.getElementById(id).value);
       if (isNaN(value) || value <= 0) {
         document.getElementById(msgId).textContent = "Value must be greater than 0";
+        if (window.showGlobalToast) showGlobalToast('Value must be greater than 0','warning',2000);
         return false;
       } else {
         document.getElementById(msgId).textContent = "";

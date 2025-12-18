@@ -1284,6 +1284,7 @@ if (isset($_POST['check_user_email'])) {
         checkErrorsAndToggleButton();
       } catch (e) {
         console.error('Invalid JSON from check_email:', res);
+        if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000);
       }
     });
   });
@@ -1310,6 +1311,7 @@ if (isset($_POST['check_user_email'])) {
         checkErrorsAndToggleButton();
       } catch (e) {
         console.error('Invalid JSON from check_contact:', res);
+        if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000);
       }
     });
   });
@@ -1336,6 +1338,7 @@ if (isset($_POST['check_user_email'])) {
         checkErrorsAndToggleButton();
       } catch (e) {
         console.error('Invalid JSON from check_user_email:', res);
+        if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000);
       }
     });
   });

@@ -139,3 +139,6 @@
   setTimeout(() => { fade.style.opacity = '0.48'; }, 1400);
 })();
 </script>
+
+<!-- Global utilities (toasts & input enforcement) -->
+<script src="/assets/js/common.js"></script>

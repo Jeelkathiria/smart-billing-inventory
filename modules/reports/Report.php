@@ -2,6 +2,12 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 
+/**
+ * Reports dashboard
+ * - Computes revenue/ profit/ tax KPIs and renders charts (profit, top products, top categories)
+ * - Uses non-blocking toasts for quick error notifications
+ */
+
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
   header('Location: ../../auth/index.php?error=Please%20login');
   exit();
@@ -30,9 +36,10 @@ $year_total = $year_profit = $year_total_excl = 0;
 // General summary
 $sql_summary = "
   SELECT 
-      SUM(si.total_price) AS total_revenue,
+      SUM(si.total_price) AS total_revenue_incl,
       SUM(si.profit) AS total_profit,
-      SUM(si.total_price * (si.gst_percent / (100 + si.gst_percent))) AS total_tax
+      SUM(si.total_price * (si.gst_percent / (100 + si.gst_percent))) AS total_tax,
+      SUM(si.total_price / (1 + si.gst_percent / 100)) AS total_revenue_excl
   FROM sale_items si
   JOIN sales s ON si.sale_id = s.sale_id
   LEFT JOIN products p ON si.product_id = p.product_id
@@ -41,12 +48,14 @@ $sql_summary = "
 $stmt = $conn->prepare($sql_summary);
 $stmt->bind_param("i", $store_id);
 $stmt->execute();
-$stmt->bind_result($total_revenue, $total_profit, $total_tax);
+$stmt->bind_result($total_revenue_incl, $total_profit, $total_tax, $total_revenue_excl);
 $stmt->fetch();
 $stmt->close();
 
-// total_revenue is already inclusive (includes GST)
-$total_revenue_incl = ($total_revenue ?? 0);
+// set both inclusive and exclusive totals
+$total_revenue_incl = ($total_revenue_incl ?? 0);
+// Report expects $total_revenue to be exclusive (Excl. Tax card)
+$total_revenue = ($total_revenue_excl ?? 0);
 
 // Today's summary
 $sql_today = "
@@ -175,12 +184,18 @@ if ($total_revenue > 0) {
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Business Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="/assets/css/common.css">
   <style>
+  body {
+    background: #f8f9fa;
+    overflow-x: hidden;
+  }
+
   h2 {
     font-weight: 700;
     color: #1e293b;
@@ -673,14 +688,12 @@ if ($total_revenue > 0) {
     </div>
 
     <div class="col-12 d-flex justify-content-center my-3">
-  <div class="d-flex align-items-center w-75">
-    <hr class="flex-grow-1 border-2 border-danger opacity-75">
-    <span class="mx-3 fw-semibold text-danger small">OVERALL SUMMARY</span>
-    <hr class="flex-grow-1 border-2 border-danger opacity-75">
-  </div>
-</div>
-
-
+      <div class="d-flex align-items-center w-75">
+        <hr class="flex-grow-1 border-2 border-danger opacity-75">
+        <span class="mx-3 fw-semibold text-danger small">OVERALL SUMMARY</span>
+        <hr class="flex-grow-1 border-2 border-danger opacity-75">
+      </div>
+    </div>
 
 
 
@@ -734,6 +747,20 @@ if ($total_revenue > 0) {
           <canvas id="topProductsChart"></canvas>
         </div>
       </div>
+
+      <div class="chart-card">
+        <div class="chart-header flex-column align-items-stretch">
+          <h6 class="mb-0 fw-semibold text-secondary">Top Categories (Month)</h6>
+        </div>
+        <div class="product-nav">
+          <button onclick="previousCategoryMonth()"><i class="bi bi-chevron-left"></i></button>
+          <span id="categoryMonthYear"></span>
+          <button onclick="nextCategoryMonth()"><i class="bi bi-chevron-right"></i></button>
+        </div>
+        <div class="product-chart-container">
+          <canvas id="topCategoriesChart"></canvas>
+        </div>
+      </div>
     </div>
 
     <!-- Transactions section: remove duplicate Top Products (already moved above) -->
@@ -779,7 +806,7 @@ if ($total_revenue > 0) {
 
   <script>
   // JS: remove salesChart and loadGraph usage, keep profitChart & topChart
-  let profitChart, topChart;
+  let profitChart, topChart, topCategoriesChart;
   let currentDate = new Date();
   let productMonthDate = new Date();
   let monthSalesData = {};
@@ -834,7 +861,7 @@ if ($total_revenue > 0) {
         monthSalesData = data.sales || {};
         renderCalendar();
       })
-      .catch(err => console.error('Error fetching sales data:', err));
+      .catch(err => { console.error('Error fetching sales data:', err); if (window.showGlobalToast) showGlobalToast('Error fetching sales data','danger',2000); });
   }
 
   function getColorIntensity(salesAmount, maxSales) {
@@ -944,7 +971,7 @@ if ($total_revenue > 0) {
           displayDateDetails(dateStr, data);
         }
       })
-      .catch(err => console.error('Error:', err));
+      .catch(err => { console.error('Error:', err); if (window.showGlobalToast) showGlobalToast('Error fetching date details','danger',2000); });
   }
 
   function displayDateDetails(dateStr, data) {
@@ -1010,11 +1037,13 @@ if ($total_revenue > 0) {
   function previousProductMonth() {
     productMonthDate.setMonth(productMonthDate.getMonth() - 1);
     loadTopProductsChart();
+    loadTopCategoriesChart();
   }
 
   function nextProductMonth() {
     productMonthDate.setMonth(productMonthDate.getMonth() + 1);
     loadTopProductsChart();
+    loadTopCategoriesChart();
   }
 
   // Top Products Chart with Month/Year
@@ -1063,6 +1092,57 @@ if ($total_revenue > 0) {
       });
     } catch (err) {
       console.error('Error loading products chart:', err);
+      if (window.showGlobalToast) showGlobalToast('Error loading products chart','danger',2000);
+    }
+  }
+
+  // Top Categories Chart (Month)
+  async function loadTopCategoriesChart() {
+    const year = productMonthDate.getFullYear();
+    const month = String(productMonthDate.getMonth() + 1).padStart(2, '0');
+
+    document.getElementById('categoryMonthYear').textContent =
+      productMonthDate.toLocaleString('default', {
+        month: 'short',
+        year: 'numeric'
+      });
+
+    try {
+      const res = await fetch(`./get_monthly_top_categories.php?year=${year}&month=${month}`);
+      const data = await res.json();
+
+      const ctx = document.getElementById('topCategoriesChart').getContext('2d');
+      if (topCategoriesChart) topCategoriesChart.destroy();
+
+      topCategoriesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: data.labels || [],
+          datasets: [{
+            data: data.data || [],
+            backgroundColor: ['#6f42c1', '#20c997', '#ffc107', '#0d6efd', '#dc3545', '#adb5bd'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: {
+                  size: 10
+                },
+                padding: 10
+              }
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Error loading categories chart:', err);
+      if (window.showGlobalToast) showGlobalToast('Error loading categories chart','danger',2000);
     }
   }
 
@@ -1106,6 +1186,7 @@ if ($total_revenue > 0) {
       });
     } catch (err) {
       console.error('Error loading profit chart:', err);
+      if (window.showGlobalToast) showGlobalToast('Error loading profit chart','danger',2000);
     }
   }
 
@@ -1113,6 +1194,7 @@ if ($total_revenue > 0) {
   fetchMonthlySalesData(currentDate.getFullYear(), currentDate.getMonth());
   loadProfitGraph('last7');
   loadTopProductsChart();
+  loadTopCategoriesChart();
   </script>
 </body>
 

@@ -2,6 +2,12 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 
+/**
+ * Billing module (Live UI)
+ * - Handles product selection, cart management and checkout
+ * - Uses toasts for transient user messages and enforces non-negative numeric inputs
+ */
+
 $store_id = $_SESSION['store_id'] ?? 0;
 
 // Fetch store info
@@ -37,7 +43,7 @@ $labels = [
 <head>
   <meta charset="UTF-8">
   <title>BillMitra - Live Billing</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/common.css">
@@ -334,7 +340,14 @@ If entering manually, type the barcode and press Enter to add it."></i>
     };
     $('invoice_date').value = getDateTime();
 
+    // Non-blocking notice converted to toast (2s) per global UX rule
     const showPopup = (message, title = "Notice") => {
+      const payload = (title ? (title + ': ') : '') + message;
+      if (window.showGlobalToast) {
+        showGlobalToast(payload, 'info', 2000);
+        return;
+      }
+      // Fallback to modal if toast helper not available
       const modalEl = $('#alertModal');
       if (!modalEl) {
         console.error('Alert modal not found');
@@ -343,10 +356,8 @@ If entering manually, type the barcode and press Enter to add it."></i>
       }
       const titleEl = modalEl.querySelector('#alertModalLabel');
       const bodyEl = modalEl.querySelector('#alertModalBody');
-      
       if (titleEl) titleEl.textContent = title;
       if (bodyEl) bodyEl.textContent = message;
-      
       try {
         new bootstrap.Modal(modalEl).show();
       } catch (e) {

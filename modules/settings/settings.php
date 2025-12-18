@@ -37,6 +37,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -503,7 +504,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           document.getElementById('stepOTP').style.display='block';
           setTimeout(()=>{ const otpBtn = modalEl.querySelector('#sendOtpBtn'); if (otpBtn) otpBtn.focus(); }, 50);
         } else showDeleteModalMessage(modalEl, data.message || 'Password check failed', 'danger');
-      }).catch((err)=>{ checkPasswordBtn.disabled = false; console.error('Check password request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); });
+      }).catch((err)=>{ checkPasswordBtn.disabled = false; console.error('Check password request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000); });
     });
 
     sendOtpBtn.addEventListener('click', () => {
@@ -514,7 +515,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
           if (data.status === 'ok') showDeleteModalMessage(modalEl, 'OTP sent', 'success'); 
           else showDeleteModalMessage(modalEl, data.message || 'Failed to send OTP', 'danger'); 
         })
-        .catch((err)=>{ sendOtpBtn.disabled = false; console.error('Send OTP request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); });
+        .catch((err)=>{ sendOtpBtn.disabled = false; console.error('Send OTP request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000); });
     });
 
     verifyOtpBtn.addEventListener('click', () => {
@@ -556,7 +557,7 @@ $billing_fields = json_decode($store['billing_fields'] ?? '{}', true);
             document.getElementById('stepLoading').style.display='none';
             document.getElementById('stepFinal').style.display='block';
           }
-        }).catch((err)=>{ console.error('Delete account request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); doDeleteBtn.disabled = false; document.getElementById('stepLoading').style.display='none'; document.getElementById('stepFinal').style.display='block'; });
+        }).catch((err)=>{ console.error('Delete account request error', err); showDeleteModalMessage(modalEl, 'Network or server error. Please login and try again.', 'danger'); if (window.showGlobalToast) showGlobalToast('Network or server error. Please try again.','danger',2000); doDeleteBtn.disabled = false; document.getElementById('stepLoading').style.display='none'; document.getElementById('stepFinal').style.display='block'; });
       }, 700);
     });
 

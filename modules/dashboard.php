@@ -199,14 +199,23 @@ $stmt->close();
     align-items: center;
     margin-bottom: 25px;
     flex-wrap: wrap;
-    position: relative; /* allow centered store name */
+    position: relative;
+    /* allow centered store name */
   }
 
   .dashboard-header h3 {
     font-weight: 600;
     color: #333;
   }
-  .header-left h3 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: left; }
+
+  .header-left h3 {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: left;
+  }
 
   /* ========================= NEW BILLING BUTTON ========================= */
   .new-billing-btn {
@@ -225,17 +234,70 @@ $stmt->close();
   }
 
   /* Header grid to center store name */
-  .header-grid { display:grid; grid-template-columns: 1fr 1fr 1fr; align-items:center; gap:20px; width:100%; }
-  .header-left { display:flex; align-items:center; gap:15px; justify-self:start; width:100%; }
-  .store-info { text-align:center; justify-self:center; width:100%; }
-  .header-right { display:flex; gap:8px; justify-self:end; width:100%; justify-content:flex-end; align-items:center; }
-  .store-name { font-weight:700; color:#0b2545; font-size:1.125rem; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 auto; }
-  .store-code { font-size:0.85rem; color:#64748b; }
-  .store-address { font-size:0.85rem; color:#6b7280; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .store-info { align-self: center; }
+  .header-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    justify-self: start;
+    width: 100%;
+  }
+
+  .store-info {
+    text-align: center;
+    justify-self: center;
+    width: 100%;
+  }
+
+  .header-right {
+    display: flex;
+    gap: 8px;
+    justify-self: end;
+    width: 100%;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .store-name {
+    font-weight: 700;
+    color: #0b2545;
+    font-size: 1.125rem;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0 auto;
+  }
+
+  .store-code {
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .store-address {
+    font-size: 0.85rem;
+    color: #6b7280;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .store-info {
+    align-self: center;
+  }
 
   /* Header button should fit the right column */
-  .header-right { width: 100%; }
+  .header-right {
+    width: 100%;
+  }
 
   /* ========================= CARD STYLING ========================= */
   .card {
@@ -256,9 +318,21 @@ $stmt->close();
   .card-hover {
     cursor: pointer;
   }
+
   .kpi-card-centered {
-    display:flex;align-items:center;justify-content:center;flex-direction:column;height:100px;padding:1rem;min-height:100px;}
-  .kpi-small { padding: 0.75rem 1rem; height:80px; }
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100px;
+    padding: 1rem;
+    min-height: 100px;
+  }
+
+  .kpi-small {
+    padding: 0.75rem 1rem;
+    height: 80px;
+  }
 
   /* ========================= TABLE STYLING ========================= */
   .table td,
@@ -298,20 +372,16 @@ $stmt->close();
       margin-left: 12vw !important;
       padding: 1.2rem;
     }
-    .header-grid { grid-template-columns: 1fr; }
-    .header-right { justify-content:flex-start; }
+
+    .header-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .header-right {
+      justify-content: flex-start;
+    }
   }
 
-  /* ========================= SMALL SCREEN HANDLING ========================= */
-  @media (max-width: 768px) {
-    .content {
-      margin-left: 0;
-      padding: 15px;
-    }
-    .store-name { font-size: 1rem; max-width: 100%; }
-    .kpi-card-centered { height: auto; min-height: 90px; padding: 0.8rem; }
-    .header-left h3 { font-size: 1rem; }
-  }
   </style>
 </head>
 
@@ -334,11 +404,11 @@ $stmt->close();
           <div class="store-name">
             <?= htmlspecialchars($store_name ?: 'My Store') ?>
             <?php if (in_array($role, ['admin', 'manager'])): ?>
-              <span class="store-code"><?= htmlspecialchars($store_code ?: '') ?></span>
+            <span class="store-code"><?= htmlspecialchars($store_code ?: '') ?></span>
             <?php endif; ?>
           </div>
           <?php if (!empty($store_address)): ?>
-            <div class="store-address small"><?= htmlspecialchars($store_address) ?></div>
+          <div class="store-address small"><?= htmlspecialchars($store_address) ?></div>
           <?php endif; ?>
         </div>
         <div class="header-right">
@@ -395,18 +465,18 @@ $stmt->close();
       <?php endif; ?>
 
 
-<?php if ($_SESSION['role'] === 'cashier'): ?>
-    <!-- Cashier: Invoices Today -->
-    <div class="col-md-3 col-sm-6">
+      <?php if ($_SESSION['role'] === 'cashier'): ?>
+      <!-- Cashier: Invoices Today -->
+      <div class="col-md-3 col-sm-6">
         <a href="/modules/sales/sales.php" class="text-decoration-none">
-            <div class="card text-white bg-dark shadow-sm text-center p-3 card-hover">
-                <i class="bi bi-receipt-cutoff fs-2 mb-2"></i>
-                <h6>Invoices Today</h6>
-                <h3><?= $todaySalesCount; ?></h3>
-            </div>
+          <div class="card text-white bg-dark shadow-sm text-center p-3 card-hover">
+            <i class="bi bi-receipt-cutoff fs-2 mb-2"></i>
+            <h6>Invoices Today</h6>
+            <h3><?= $todaySalesCount; ?></h3>
+          </div>
         </a>
-    </div>
-<?php endif; ?>
+      </div>
+      <?php endif; ?>
 
 
     </div>
@@ -423,7 +493,8 @@ $stmt->close();
       <div class="col-md-3 col-sm-6">
         <div class="card shadow-sm kpi-card-centered text-center">
           <div class="text-muted small">Top Product</div>
-          <div class="fw-bold fs-5"><?= htmlspecialchars($top_product_name_overall ?: ($top_products_month[0]['product_name'] ?? '—')) ?></div>
+          <div class="fw-bold fs-5">
+            <?= htmlspecialchars($top_product_name_overall ?: ($top_products_month[0]['product_name'] ?? '—')) ?></div>
         </div>
       </div>
       <div class="col-md-3 col-sm-6">
@@ -497,16 +568,16 @@ $stmt->close();
         </div>
 
         <?php if ($_SESSION['role'] !== 'cashier'): ?>
-          <div class="card shadow-sm my-3">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Sales (Last 7 Days)</h6>
-            </div>
-            <div class="card-body">
-              <div style="height: 260px;">
-                <canvas id="salesChart" height="100"></canvas>
-              </div>
+        <div class="card shadow-sm my-3">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Sales (Last 7 Days)</h6>
+          </div>
+          <div class="card-body">
+            <div style="height: 260px;">
+              <canvas id="salesChart" height="100"></canvas>
             </div>
           </div>
+        </div>
         <?php endif; ?>
       </div>
 
@@ -520,14 +591,14 @@ $stmt->close();
           <div class="card-body p-0">
             <ul class="list-group list-group-flush">
               <?php if (empty($low_stock_products)): ?>
-                <li class="list-group-item text-center text-muted">All stocked up</li>
+              <li class="list-group-item text-center text-muted">All stocked up</li>
               <?php else: ?>
-                <?php foreach ($low_stock_products as $item): ?>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="text-truncate me-3"><?= htmlspecialchars($item['product_name']) ?></div>
-                    <span class="badge bg-danger"><?= (int)$item['stock'] ?></span>
-                  </li>
-                <?php endforeach; ?>
+              <?php foreach ($low_stock_products as $item): ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="text-truncate me-3"><?= htmlspecialchars($item['product_name']) ?></div>
+                <span class="badge bg-danger"><?= (int)$item['stock'] ?></span>
+              </li>
+              <?php endforeach; ?>
               <?php endif; ?>
             </ul>
           </div>
@@ -541,14 +612,14 @@ $stmt->close();
           <div class="card-body p-0">
             <ul class="list-group list-group-flush">
               <?php if (empty($top_products_month)): ?>
-                <li class="list-group-item text-center text-muted">No data</li>
+              <li class="list-group-item text-center text-muted">No data</li>
               <?php else: ?>
-                <?php foreach ($top_products_month as $p): ?>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="text-truncate me-3"><?= htmlspecialchars($p['product_name']) ?></div>
-                    <span class="fw-bold"><?= (int)$p['total_sold'] ?></span>
-                  </li>
-                <?php endforeach; ?>
+              <?php foreach ($top_products_month as $p): ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="text-truncate me-3"><?= htmlspecialchars($p['product_name']) ?></div>
+                <span class="fw-bold"><?= (int)$p['total_sold'] ?></span>
+              </li>
+              <?php endforeach; ?>
               <?php endif; ?>
             </ul>
           </div>
@@ -562,14 +633,14 @@ $stmt->close();
           <div class="card-body p-0">
             <ul class="list-group list-group-flush">
               <?php if (empty($sales_by_cashier)): ?>
-                <li class="list-group-item text-center text-muted">No cashier sales this week</li>
+              <li class="list-group-item text-center text-muted">No cashier sales this week</li>
               <?php else: ?>
-                <?php foreach ($sales_by_cashier as $c): ?>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="text-truncate me-3"><?= htmlspecialchars($c['username']) ?></div>
-                    <span class="fw-bold">₹<?= number_format((float)$c['sales_total'], 2) ?></span>
-                  </li>
-                <?php endforeach; ?>
+              <?php foreach ($sales_by_cashier as $c): ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="text-truncate me-3"><?= htmlspecialchars($c['username']) ?></div>
+                <span class="fw-bold">₹<?= number_format((float)$c['sales_total'], 2) ?></span>
+              </li>
+              <?php endforeach; ?>
               <?php endif; ?>
             </ul>
           </div>
@@ -620,6 +691,7 @@ $stmt->close();
         });
       } catch (err) {
         console.error("Chart Fetch Error:", err);
+        if (window.showGlobalToast) showGlobalToast('Error loading sales chart','danger',2000);
       }
     });
     </script>
