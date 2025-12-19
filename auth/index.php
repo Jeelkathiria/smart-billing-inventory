@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: auth/index.php
+ * Purpose: Handles user login, OTP generation/email, and forgot-password flows.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments added only; no functional changes.
+ */
 session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../vendor/autoload.php'; // PHPMailer

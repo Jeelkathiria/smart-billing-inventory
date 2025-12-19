@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: components/sidebar.php
+ * Purpose: Sidebar UI component — renders navigation links and role-aware menus.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: UI-only change; no logic modified.
+ */
 $currentPage = basename($_SERVER['PHP_SELF']);
 $role = $_SESSION['role'];
 ?>

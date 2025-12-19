@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: scripts/run_report.php
+ * Purpose: Helper script to include and exercise the reports page under a simulated session (debugging/testing).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments added only; no functional changes.
+ */
 // Script to include report.php under a simulated session to detect runtime errors
 require_once __DIR__ . '/../config/db.php';
 session_start();

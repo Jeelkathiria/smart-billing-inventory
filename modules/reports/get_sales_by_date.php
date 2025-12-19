@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/reports/get_sales_by_date.php
+ * Purpose: Returns sales/profit/tax details for a specific date (JSON).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 require_once __DIR__ . '/../../config/db.php';
 session_start();
 

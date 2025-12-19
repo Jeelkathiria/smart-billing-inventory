@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: scripts/test_insert_sale_items.php
+ * Purpose: Dev helper to insert sale items and validate sale insertion logic.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments only.
+ */
 require_once __DIR__ . '/../config/db.php';
 
 // Find a product with stock >=1

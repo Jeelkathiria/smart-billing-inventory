@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: scripts/check_users.php
+ * Purpose: Dev helper that prints user counts and samples for quick verification.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments only.
+ */
 require_once __DIR__ . '/../config/db.php';
 $res = $conn->query('SELECT COUNT(*) AS c FROM users');
 echo 'users: ' . ($res->fetch_assoc()['c'] ?? 0) . PHP_EOL;

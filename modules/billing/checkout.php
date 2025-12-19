@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/billing/checkout.php
+ * Purpose: Handles checkout API: validates input, processes sale, updates stock and returns JSON response.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 // MUST be first line - before any output!
 header('Content-Type: application/json; charset=utf-8');
 

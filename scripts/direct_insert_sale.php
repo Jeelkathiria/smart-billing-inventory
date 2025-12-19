@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: scripts/direct_insert_sale.php
+ * Purpose: Convenience script to insert a test sale into the database (development only).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments only.
+ */
 require_once __DIR__ . '/../config/db.php';
 $urow = $conn->query('SELECT user_id FROM users LIMIT 1')->fetch_assoc();
 $u = $urow['user_id'] ?? null;

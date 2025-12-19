@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/customers/customers.php
+ * Purpose: Customer management (add, edit, delete) and customer listing for a store.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Only comments added; no functional changes.
+ */
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 

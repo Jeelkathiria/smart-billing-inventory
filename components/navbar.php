@@ -1,3 +1,10 @@
+<!--
+  File: components/navbar.php
+  Purpose: Top navigation bar (logout, branding) and small-screen sidebar toggle.
+  Project: Smart Billing & Inventory
+  Author: Project Maintainers
+  Last Modified: 2025-12-18
+-->
 <!-- BillMitra Navbar -->
 <nav class="bm-navbar">
   <div class="container-fluid d-flex align-items-center justify-content-between">

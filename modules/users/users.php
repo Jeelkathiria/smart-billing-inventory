@@ -1,10 +1,18 @@
 <?php
+/**
+ * File: modules/users/users.php
+ * Purpose: Manage users (list, create, edit, delete) with role-based access control.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Only comments added; no functional changes.
+ */
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 
 $user_id  = $_SESSION['user_id'] ?? null;
 $store_id = $_SESSION['store_id'] ?? null;
-$role     = $_SESSION['role'] ?? '';
+$role     = $_SESSION['role'] ?? ''; 
 
 if (!$user_id || !$store_id) {
     header("Location: /auth/index.php");

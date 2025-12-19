@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/reports/get_sales_chart_data.php
+ * Purpose: Provides sales and profit data for charting (last7/last30/monthly views).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../auth/auth_check.php';
 

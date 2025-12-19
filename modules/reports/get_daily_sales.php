@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/reports/get_daily_sales.php
+ * Purpose: Returns daily sales totals for a given month as JSON (used for charts/exports).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 session_start();

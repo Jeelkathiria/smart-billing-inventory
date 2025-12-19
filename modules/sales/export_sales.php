@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/sales/export_sales.php
+ * Purpose: Exports per-item sales as an Excel-compatible TSV file (Invoice ID, Date, Product, Qty, Amount Excl/Incl GST, Billed By).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Only comments added; no functional changes.
+ */
 require_once __DIR__ . "/../../config/db.php";
 session_start();
 

@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/settings/update_store.php
+ * Purpose: Receive and validate store update requests (admin-only) and return JSON responses.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only change; no functional modifications.
+ */
 header('Content-Type: application/json; charset=utf-8');
 // Keep strict errors but capture messages in JSON to help diagnose 500 errors on frontend
 error_reporting(E_ALL);

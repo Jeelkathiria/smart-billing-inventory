@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/sales/view_invoice.php
+ * Purpose: Web view for displaying an invoice (sale) with line items and totals.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only change; no functional modifications.
+ */
 require_once __DIR__ . '/../../config/db.php';
 session_start();
 

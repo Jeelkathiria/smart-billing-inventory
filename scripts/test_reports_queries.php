@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: scripts/test_reports_queries.php
+ * Purpose: Development test to prepare and validate report queries against the DB.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments only.
+ */
 require_once __DIR__ . '/../config/db.php';
 
 $store_id = 1; // replace with valid store id if needed

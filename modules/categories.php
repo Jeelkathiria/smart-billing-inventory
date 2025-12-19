@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/categories.php
+ * Purpose: Category CRUD and management for stores.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Only comments added; no functional changes.
+ */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../auth/auth_check.php';
 
@@ -6,7 +14,7 @@ require_once __DIR__ . '/../auth/auth_check.php';
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['store_id'])) {
   header('Location: ../../auth/index.php?error=Please%20login');
   exit();
-}
+} 
 
 $store_id = $_SESSION['store_id'];
 

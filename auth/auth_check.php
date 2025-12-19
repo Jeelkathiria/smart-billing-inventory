@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: auth/auth_check.php
+ * Purpose: Session validation, timeout handling, and role-based access enforcement.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments added only; no functional changes.
+ */
 session_start();
 require_once __DIR__ . '/../config/db.php';
 

@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/settings/get_profile_data.php
+ * Purpose: Returns the current user's profile data as JSON for the settings UI.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comments only.
+ */
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../config/db.php';
 session_start();

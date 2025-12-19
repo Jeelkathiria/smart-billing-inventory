@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/reports/get_monthly_top_products.php
+ * Purpose: Returns top-selling products for a month (JSON) for charts and reports.
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 session_start();

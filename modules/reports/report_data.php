@@ -1,4 +1,12 @@
 <?php
+/**
+ * File: modules/reports/report_data.php
+ * Purpose: Returns aggregated report datasets for charts and tables (monthly/daily/yearly views).
+ * Project: Smart Billing & Inventory
+ * Author: Project Maintainers
+ * Last Modified: 2025-12-18
+ * Notes: Comment-only changes.
+ */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/db.php';
 
