@@ -1,0 +1,80 @@
+# Configuration Files with Sensitive Data
+/config/db.php
+/config/mail.php
+.env
+.env.local
+.env.*.local
+
+# Composer Dependencies
+/vendor/
+composer.lock
+
+# IDE & Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+/logs/
+
+# Temporary Files
+/tmp/
+/temp/
+*.tmp
+
+# Operating System
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Development/Testing
+debug.log
+test-output/
+coverage/
+
+# User-uploaded Content
+/uploads/
+/downloads/
+
+# Session Files
+/sessions/
+*.session
+
+# Cache
+/cache/
+.cache/
+
+# Database Backups
+*.sql
+*.sql.bak
+/backups/
+/database/
+
+# Node (if using any JS tools)
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Python (if using any scripts)
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Local Development Files
+.htaccess.local
+local-settings.php
+
+# MinIO / Local Storage
+/minio/
+/local-storage/
